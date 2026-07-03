@@ -14,6 +14,9 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 if TYPE_CHECKING:
     from .cache.paged_cache import BlockTable
+    from omlx.inference.streaming import StreamingDelta
+    from omlx.runtime.context import GenerationContext, RuntimeState
+    from omlx.runtime.metrics import GenerationMetrics
 
 
 class RequestStatus(enum.IntEnum):
@@ -124,6 +127,10 @@ class Request:
     output_text: str = ""
     generation_started_at: Optional[float] = None
     last_activity_at: Optional[float] = None
+
+    # Phase 1 tri-mode generation state
+    generation_context: Optional["GenerationContext"] = None
+    runtime_state: Optional["RuntimeState"] = None
 
     # For BatchGenerator integration
     batch_uid: Optional[int] = None  # UID assigned by BatchGenerator
@@ -294,6 +301,10 @@ class RequestOutput:
     # Structured internal error classification for API-layer mapping.
     error_code: Optional[str] = None
     error_metadata: Optional[Dict[str, Any]] = None
+    
+    # Phase 1 tri-mode outputs
+    streaming_delta: Optional["StreamingDelta"] = None
+    generation_metrics: Optional["GenerationMetrics"] = None
 
     @property
     def usage(self) -> Dict[str, int]:

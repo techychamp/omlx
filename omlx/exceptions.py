@@ -420,19 +420,11 @@ class InsufficientMemoryError(EnginePoolError):
 
 
 class ModelLoadingError(EnginePoolError):
-    """Raised when a model load is unavailable, blocked, or invalid."""
+    """Raised when a model is already being loaded."""
 
-    def __init__(self, model_id: str, message: str | None = None):
+    def __init__(self, model_id: str):
         self.model_id = model_id
-        super().__init__(message or f"Model '{model_id}' is already being loaded")
-
-
-class ModelUnavailableError(EnginePoolError):
-    """Raised when a previous load failure makes a model temporarily unavailable."""
-
-    def __init__(self, model_id: str, message: str | None = None):
-        self.model_id = model_id
-        super().__init__(message or f"Model '{model_id}' is unavailable")
+        super().__init__(f"Model '{model_id}' is already being loaded")
 
 
 class ModelBusyError(EnginePoolError):

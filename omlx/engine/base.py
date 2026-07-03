@@ -10,11 +10,16 @@ import time
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional
 
 import mlx.core as mx
 
 from omlx.engine_core import get_mlx_executor
+
+if TYPE_CHECKING:
+    from omlx.registry.capability_registry import GenerationStrategyRegistry
+    from omlx.registry.model_info import ModelInfo
+    from omlx.runtime.capabilities import ActualCapabilities, EngineCapabilities, ModelCapabilities
 
 _preflight_logger = logging.getLogger("omlx.engine.preflight")
 
@@ -24,19 +29,6 @@ _preflight_logger = logging.getLogger("omlx.engine.preflight")
 # runtime condition — so once-per-pair is enough to alert oncall
 # without flooding the journal at request rate.
 _PREFLIGHT_UNREACHABLE_WARNED: set[tuple[str, str]] = set()
-
-
-def _clear_teardown_references(
-    engine: object,
-    *,
-    none_attrs: tuple[str, ...],
-    false_attrs: tuple[str, ...] = (),
-) -> None:
-    """Clear wrapper-side references in a consistent stop() teardown pass."""
-    for attr in none_attrs:
-        setattr(engine, attr, None)
-    for attr in false_attrs:
-        setattr(engine, attr, False)
 
 
 def _warn_scheduler_unreachable_once(
@@ -280,6 +272,27 @@ class BaseEngine(ABC):
         Subclasses that wire up a BlockAwarePrefixCache should override this.
         """
         return False
+
+    @property
+    def model_info(self) -> Optional["ModelInfo"]:
+        return None
+        
+    @property
+    def model_capabilities(self) -> Optional["ModelCapabilities"]:
+        return None
+        
+    @property
+    def engine_capabilities(self) -> "EngineCapabilities":
+        from omlx.runtime.capabilities import EngineCapabilities
+        return EngineCapabilities()
+        
+    @property
+    def actual_capabilities(self) -> Optional["ActualCapabilities"]:
+        return None
+        
+    @property
+    def strategy_registry(self) -> Optional["GenerationStrategyRegistry"]:
+        return None
 
     def has_active_requests(self) -> bool:
         """Check if the engine has active in-flight requests.

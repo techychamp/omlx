@@ -524,6 +524,8 @@ class EngineCore:
         specprefill_keep_pct: Optional[float] = None,
         specprefill_threshold: Optional[int] = None,
         specprefill_system_end: Optional[int] = None,
+        generation_context: Optional[Any] = None,
+        runtime_state: Optional[Any] = None,
     ) -> str:
         """
         Add a request for processing.
@@ -561,6 +563,8 @@ class EngineCore:
             vlm_image_hash=vlm_image_hash,
             vlm_cache_key_start=vlm_cache_key_start,
             vlm_cache_key_ranges=vlm_cache_key_ranges,
+            generation_context=generation_context,
+            runtime_state=runtime_state,
         )
 
         # SpecPrefill: resolve per-request settings.
@@ -1255,12 +1259,16 @@ class AsyncEngineCore:
         self,
         prompt: Union[str, List[int]],
         sampling_params: Optional[SamplingParams] = None,
+        generation_context: Optional[Any] = None,
+        runtime_state: Optional[Any] = None,
         **kwargs,
     ) -> RequestOutput:
         """Generate complete response."""
         return await self.engine.generate(
             prompt=prompt,
             sampling_params=sampling_params,
+            generation_context=generation_context,
+            runtime_state=runtime_state,
             **kwargs,
         )
 
