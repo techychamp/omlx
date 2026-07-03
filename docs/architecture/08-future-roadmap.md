@@ -1,26 +1,53 @@
-# Future Integration Audit
+# Future Roadmap & Abstractions
 
-This audit determines how future capabilities could integrate into OMLX without architecture redesigns.
+This roadmap reorients the architecture away from feature-specific backends and towards a generalized Execution Planning Layer.
 
-## 1. Diffusion Language Models (e.g., Nemotron Labs Diffusion, Diffusion Gemma)
-* **Integration Point**: `omlx/inference/backends/`. An `ExperimentalDiffusionBackend` already exists.
-* **Mechanism**: Implement a `DiffusionBackend` that adheres to the `ExecutionBackend` interface.
-* **Graph**: Use `build_diffusion_graph` in `omlx/inference/execution_graph.py` (which includes `DENOISE` nodes).
-* **API**: Add capabilities in `CapabilityRegistry` to route requests to the new backend.
+## The Target Abstraction Chain
 
-## 2. Nemotron Triage / Verification Execution
-* **Integration Point**: `omlx/inference/execution_graph.py` and `omlx/model_profiles.py`.
-* **Mechanism**: Add a `VERIFY` `GraphNodeType`. The execution strategy can intercept generation steps to run verification models over the drafted output.
-* **Profiles**: Use model profiles to define verification thresholds.
+Rather than building a new backend for every model architecture, future integrations must follow this abstraction chain. Models become consumers of execution modes, not drivers of them.
 
-## 3. Streaming MoE
-* **Integration Point**: `omlx/models/` and `omlx/custom_kernels/`.
-* **Mechanism**: Custom metal kernels (e.g. `glm_moe_dsa`) are already supported via C++ bindings. Streaming MoE will require adding new kernels and registering the model adapter to utilize them during the `FORWARD` pass.
+1. **Capabilities**: Declared by the model via `CapabilityRegistry`.
+2. **Execution Planner**: A new architectural component that analyzes capabilities and request contexts.
+3. **Execution Plan**: The output of the planner.
+4. **Execution Graph**: The structural representation (`PREFILL`, `FORWARD`, `VERIFY`, `DENOISE`).
+5. **Backend**: The low-level execution engine (e.g., `AutoregressiveBackend`, `DiffusionBackend`).
 
-## 4. Future Execution Algorithms / Dynamic Execution Planning
-* **Integration Point**: `omlx/scheduler.py` (`SchedulerHooks`).
-* **Mechanism**: The scheduler already supports `SchedulingPolicy`. A dynamic planner could be implemented as a new policy or a hook that evaluates context/memory state before `add_request` or `step`.
+*Note: The Scheduler remains completely agnostic. It accepts requests and a `SchedulingPolicy`. The Execution Planner may dictate the policy, but the Scheduler does not plan execution.*
 
-## 5. Capability Negotiation & Profiles
-* **Integration Point**: `omlx/registry/capability_registry.py`.
-* **Mechanism**: Ensure any new model type registers its execution graph requirements (e.g., requires Diffusion vs Autoregressive) during plugin discovery.
+## Revised 10-Phase Roadmap
+
+### Phase 0: Repository Constitution ✅
+* Establish base engineering principles and constraints (`AGENTS.md`).
+
+### Phase 1: Architecture Handbook ✅
+* Complete runtime discovery, ownership mapping, and baseline documentation (`docs/architecture/`).
+
+### Phase 2: Execution Planning Layer
+* Introduce the **Execution Planner**.
+* Determine where it lives and how it bridges Capabilities to Execution Graphs without modifying `EngineCore` or `Scheduler`.
+* This is a design phase (RAES-003).
+
+### Phase 3: Execution Programs
+* Implement the core execution primitives as plans:
+  * Autoregressive (AR)
+  * Diffusion
+  * Verification
+  * Mixture of Experts (MoE)
+
+### Phase 4: Nemotron Integration
+* Consume the Execution Planning layer to support Nemotron models.
+
+### Phase 5: HF Validation
+* Validate end-to-end integration with HuggingFace Hub loading.
+
+### Phase 6: Diffusion Gemma Integration
+* Consume the Diffusion execution program.
+
+### Phase 7: Triage
+* Implement conditional verification execution plans.
+
+### Phase 8: Streaming MoE
+* Implement MoE execution programs **in Python** to prove the architecture.
+
+### Phase 9: Optimization
+* Push proven bottlenecks (e.g., Streaming MoE) down into custom Metal kernels (C++).
