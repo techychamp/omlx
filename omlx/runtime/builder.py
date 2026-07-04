@@ -11,6 +11,8 @@ import logging
 from dataclasses import dataclass, field
 from omlx.capabilities import CapabilityResolver
 from omlx.planner.planner import ExecutionPlanner
+from omlx.planner.ir.builder import IRBuilder
+
 from typing import Any, Optional
 
 from .context import RuntimeState
@@ -65,6 +67,7 @@ class Runtime:
         self.engine_pool: Any = None
         self.metrics: Any = None
         self.event_bus = EventBus()
+        self.ir_builder = IRBuilder()
         self.execution_planner = ExecutionPlanner(
             capability_resolver=context.capability_resolver,
             feature_flags=context.feature_flags,
