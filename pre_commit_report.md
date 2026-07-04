@@ -1,23 +1,30 @@
 ## Summary
-Implemented RuntimeBuilder and Composition Root to centralize dependency wiring in oMLX.
+Implemented Capability Resolver to centralize capability logic in oMLX.
 
 ## Architecture impact
-This is an infrastructure update according to IMP-002, replacing scattered dependency instantiation with a centralized Runtime Composition Root.
+This is an infrastructure update according to IMP-005, introducing the `CapabilityResolver` which is integrated with `RuntimeBuilder`. Capability logic is now resolved deterministically and outputs an immutable `CapabilityDescriptor`.
 
 ## Files changed
-- `omlx/runtime/builder.py` (Added)
-- `tests/test_runtime_builder.py` (Added)
-- `walkthrough.md` (Added)
-- `omlx/server.py` (Modified)
+- `omlx/capabilities/__init__.py` (Added)
+- `omlx/capabilities/descriptor.py` (Added)
+- `omlx/capabilities/exceptions.py` (Added)
+- `omlx/capabilities/merge.py` (Added)
+- `omlx/capabilities/resolver.py` (Added)
+- `omlx/capabilities/sources.py` (Added)
+- `omlx/capabilities/validation.py` (Added)
+- `tests/test_capability_resolver.py` (Added)
+- `IMP-005-Capability-Resolver-Report.md` (Added)
+- `capabilities_walkthrough.md` (Added)
+- `omlx/runtime/builder.py` (Modified)
 
 ## Verification evidence
-- Passes all standard pytest checks on isolated unit components (tests/test_runtime_builder.py).
+- 7 tests passing in `tests/test_capability_resolver.py`, validating sources, merge precedence, logic validation, and exception raising.
 
 ## Risks
-Low risk, as legacy dependencies continue to function seamlessly through proxy references if Runtime is enabled.
+Low risk, as legacy mechanisms for dictionary parsing inside patches are still present. This lays the groundwork for them to be safely replaced later in IMP-006.
 
 ## Remaining work
-None.
+Implement EventBus in a future task.
 
 ## Recommendation
 Approve and commit.

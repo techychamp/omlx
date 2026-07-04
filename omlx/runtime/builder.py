@@ -9,6 +9,7 @@ import enum
 import time
 import logging
 from dataclasses import dataclass, field
+from omlx.capabilities import CapabilityResolver
 from typing import Any, Optional
 
 from .context import RuntimeState
@@ -36,6 +37,7 @@ class RuntimeContext:
     hardware: Any = None
     capabilities: Any = None
     verification: Any = None
+    capability_resolver: CapabilityResolver | None = None
     feature_flags: FeatureFlags = field(default_factory=FeatureFlags)
     registries: Any = None
     planner_references: Any = None
@@ -77,6 +79,7 @@ class RuntimeBuilder:
         self._settings = None
         self._feature_flags = FeatureFlags.from_env()
         self._verification = None
+        self._capability_resolver = CapabilityResolver()
         self._engine_pool = None
 
     def with_settings(self, settings: Any) -> RuntimeBuilder:
@@ -101,6 +104,7 @@ class RuntimeBuilder:
             settings=self._settings,
             feature_flags=self._feature_flags,
             verification=self._verification,
+            capability_resolver=self._capability_resolver,
             startup_metadata={"start_time": time.time()}
         )
 
