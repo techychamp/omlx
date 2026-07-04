@@ -93,9 +93,9 @@ class DiffusionStrategy(BaseGenerationStrategy):
         if self.backend is not None:
             self.backend.prepare(events=[event])
 
-    def forward(self, requests: list[GenerationRequest]) -> list[ForwardResult]:
+    def forward(self) -> Any:
         # Implementation delegated to the backend pipeline
-        return []
+        return iter([])
 
     def sample(
         self, ctx: GenerationContext, state: RuntimeState, logits: Any

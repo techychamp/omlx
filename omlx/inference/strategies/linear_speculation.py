@@ -64,7 +64,7 @@ class LinearSpeculationStrategy(BaseGenerationStrategy):
         return ctx, state
 
 
-    def forward(self, requests: list[GenerationRequest]) -> list[ForwardResult]:
+    def forward(self) -> Any:
         raise NotImplementedError("Linear speculation forward not implemented yet.")
 
     def sample(

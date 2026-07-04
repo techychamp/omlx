@@ -62,88 +62,25 @@ class AutoregressiveStrategy(BaseGenerationStrategy):
 
     def __init__(self, scheduler: Any = None, backend: Any = None) -> None:
         super().__init__(scheduler, backend)
-        self.batch_generator = None
-        self._current_sampler_params = None
 
-    def _create_batch_generator(self, sampling_params: Any) -> Any:
-        from mlx_lm.generate import BatchGenerator
-        from omlx.utils.sampling import make_sampler as omlx_make_sampler
-        from mlx_lm.sample_utils import make_logits_processors
-        from omlx.scheduler import _make_suppress_logits_processor
+    @property
+    def decode_executor(self) -> Any:
+        """Authoritative execution object for decode iteration."""
+        if self.scheduler is not None:
+            return self.scheduler.batch_generator
+        return None
 
-        sampler = omlx_make_sampler(
-            temp=sampling_params.temperature,
-            top_p=sampling_params.top_p,
-            min_p=sampling_params.min_p,
-            top_k=sampling_params.top_k,
-            xtc_probability=sampling_params.xtc_probability,
-            xtc_threshold=sampling_params.xtc_threshold,
-            xtc_special_tokens=self.scheduler._xtc_special_tokens,
-        )
+    @property
+    def batch_generator(self) -> Any:
+        """For backwards compatibility and mocking in tests."""
+        return self.decode_executor
 
-        logits_processors = make_logits_processors(
-            repetition_penalty=(
-                sampling_params.repetition_penalty if sampling_params.repetition_penalty != 1.0 else None
-            ),
-            presence_penalty=(
-                sampling_params.presence_penalty if sampling_params.presence_penalty != 0.0 else None
-            ),
-            frequency_penalty=(
-                sampling_params.frequency_penalty if sampling_params.frequency_penalty != 0.0 else None
-            ),
-        )
-
-        suppress_processor = _make_suppress_logits_processor(self.scheduler._model_suppress_tokens)
-        if suppress_processor is not None:
-            logits_processors.append(suppress_processor)
-
-        stop_tokens_set = self.scheduler._get_stop_tokens()
-        if sampling_params.stop_token_ids:
-            stop_tokens_set.update(sampling_params.stop_token_ids)
-        stop_tokens_seq = [[t] for t in stop_tokens_set] if stop_tokens_set else None
-
-        bg = BatchGenerator(
-            model=self.scheduler.model,
-            max_tokens=sampling_params.max_tokens,
-            stop_tokens=stop_tokens_seq,
-            sampler=sampler,
-            logits_processors=logits_processors if logits_processors else [],
-            prefill_batch_size=1,
-            completion_batch_size=self.scheduler.config.completion_batch_size,
-            prefill_step_size=self.scheduler.config.prefill_step_size,
-            stream=self.scheduler._stream,
-        )
-        return bg
-
-    def _ensure_batch_generator(self, sampling_params: Any) -> None:
-        if self.batch_generator is None:
-            self.batch_generator = self._create_batch_generator(sampling_params)
-
-        self._current_sampler_params = (
-            sampling_params.temperature,
-            sampling_params.top_p,
-            sampling_params.min_p,
-            sampling_params.top_k,
-            sampling_params.repetition_penalty,
-        )
-
-
-    def forward(self, requests: list[GenerationRequest]) -> list[ForwardResult]:
-        """Phase 1.6b Pass 3: Thin wrapper around BatchGenerator."""
-        # Fallback to scheduler's batch_generator for tests that mock it directly
-        bg = self.batch_generator or self.scheduler.batch_generator
+    def forward(self) -> Any:
+        """Execute a single execution cycle and return the native decode iterator."""
+        bg = self.decode_executor
         if bg is None:
-            return []
-            
-        responses = list(bg.next_generated())
-        # We wrap the batch responses in a single ForwardResult's extra dict
-        # until the Scheduler is fully decoupled from BatchGenerator.Response.
-        if not responses:
-            return []
-            
-        result = ForwardResult()
-        result.extra["batch_responses"] = responses
-        return [result]
+            return iter([])
+        return bg.next_generated()
 
     def sample(
         self, ctx: GenerationContext, state: RuntimeState, logits: Any

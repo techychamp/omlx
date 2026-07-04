@@ -69,6 +69,11 @@ class BaseGenerationStrategy(ABC):
         mx.eval([c.state for c in cache])
 
     @abstractmethod
+    def forward(self) -> Any:
+        """Execute a single execution cycle, returning the native decode iterator."""
+        ...
+
+    @abstractmethod
     def execute(self, command: Any) -> None:
         """Execute a pipeline command."""
         ...

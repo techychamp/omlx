@@ -9255,7 +9255,10 @@ class Scheduler:
                 self.batch_generator is not None or self._vlm_mtp_active
             ) and self.running:
                 if self.batch_generator is not None:
-                    responses = list(self.batch_generator.next_generated())
+                    if self.strategy is not None:
+                        responses = list(self.strategy.forward())
+                    else:
+                        responses = list(self.batch_generator.next_generated())
                 else:
                     responses = []
                 # Drive vlm_mtp generators alongside BatchGenerator. Order
