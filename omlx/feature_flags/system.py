@@ -13,6 +13,11 @@ class ImmutableSnapshot:
             LINEAR_SPEC_ENABLED=bool(values.get("linear-spec", False)),
             SHARED_CACHE_ENABLED=bool(values.get("shared-cache", False)),
             VERIFY_ATTENTION_ENABLED=bool(values.get("verify-attention", False)),
+            COMPILER_RUNTIME_PIPELINE_ENABLED=bool(values.get("compiler-runtime-pipeline", False)),
+            CAPABILITY_RUNTIME_ENABLED=bool(values.get("capability-runtime", False)),
+            PLANNER_RUNTIME_ENABLED=bool(values.get("planner-runtime", False)),
+            LOWERING_RUNTIME_ENABLED=bool(values.get("lowering-runtime", False)),
+            ADAPTER_RUNTIME_ENABLED=bool(values.get("adapter-runtime", False)),
         )
 
     def is_enabled(self, name: str) -> bool:
