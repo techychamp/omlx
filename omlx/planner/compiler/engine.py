@@ -4,40 +4,65 @@ Compiler Engine that orchestrates the full pipeline.
 """
 from __future__ import annotations
 import logging
+from typing import Optional, Dict, Any
+from omlx.planner.compiler.cache.utils import compute_cache_key
+
 from omlx.planner.ir.graph import ExecutionIR
 from omlx.planner.ir.physical.graph import PhysicalIR
 from .passes import LogicalPassRegistry, PhysicalPassRegistry
 from .lowering import LoweringEngine
+from .cache.manager import CompilerCacheManager
+from .optimization_pipeline import OptimizationPipeline
+from .dependency_tracker import DependencyTracker
+from .backend.adapter import BaseBackendAdapter
+from .backend.registry import AdapterRegistry
 
 logger = logging.getLogger("omlx.compiler")
 
 class CompilerEngine:
-    """Orchestrates the entire compilation pipeline."""
+    """Orchestrates the entire compilation pipeline with incremental compilation."""
     def __init__(self,
                  logical_registry: LogicalPassRegistry | None = None,
                  physical_registry: PhysicalPassRegistry | None = None,
-                 lowering_engine: LoweringEngine | None = None):
+                 lowering_engine: LoweringEngine | None = None,
+                 cache_manager: CompilerCacheManager | None = None,
+                 dependency_tracker: DependencyTracker | None = None):
         self.logical_registry = logical_registry or LogicalPassRegistry()
         self.physical_registry = physical_registry or PhysicalPassRegistry()
-        self.lowering_engine = lowering_engine or LoweringEngine()
+        self.cache_manager = cache_manager
+        self.dependency_tracker = dependency_tracker or DependencyTracker()
+        self.lowering_engine = lowering_engine or LoweringEngine(cache_manager=cache_manager, dependency_tracker=self.dependency_tracker)
+        self.optimization_pipeline = OptimizationPipeline(self.logical_registry, self.physical_registry)
 
     def compile(self, logical_ir: ExecutionIR) -> PhysicalIR:
-        """Runs the full compiler pipeline: Logical Passes -> Lowering -> Physical Passes."""
+        """Runs the full compiler pipeline: Planning -> IR -> Logical Passes -> Lowering -> Physical Passes."""
+
+
 
         # 1. Logical Optimization
-        optimized_logical_ir = logical_ir
-        for opt_pass in self.logical_registry.get_passes():
-            logger.debug(f"Applying logical pass: {opt_pass.name}")
-            optimized_logical_ir = opt_pass.apply(optimized_logical_ir)
+        logger.debug("Applying logical passes")
+        optimized_logical_ir = self.optimization_pipeline.optimize_logical(logical_ir)
 
         # 2. Lowering
         logger.debug("Lowering Logical IR to Physical IR")
         physical_ir = self.lowering_engine.lower(optimized_logical_ir)
 
+
+
         # 3. Physical Optimization
-        optimized_physical_ir = physical_ir
-        for opt_pass in self.physical_registry.get_passes():
-            logger.debug(f"Applying physical pass: {opt_pass.name}")
-            optimized_physical_ir = opt_pass.apply(optimized_physical_ir)
+        logger.debug("Applying physical passes")
+        optimized_physical_ir = self.optimization_pipeline.optimize_physical(physical_ir)
 
         return optimized_physical_ir
+
+    def translate(self, physical_ir: PhysicalIR, adapter: BaseBackendAdapter) -> Any:
+        """Translates the Physical IR into a Backend Operation Graph using the adapter."""
+        logger.debug(f"Translating Physical IR using adapter {adapter.__class__.__name__}")
+
+        adapter.cache_manager = self.cache_manager
+        adapter.dependency_tracker = self.dependency_tracker
+        result = adapter.translate_with_cache(physical_ir)
+
+
+
+        return result

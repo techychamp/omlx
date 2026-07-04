@@ -1,5 +1,9 @@
-from typing import Any
+from typing import TYPE_CHECKING, Optional, TYPE_CHECKING, Any
 import logging
+if TYPE_CHECKING:
+    from omlx.planner.compiler.cache.manager import CompilerCacheManager
+if TYPE_CHECKING:
+    from omlx.planner.compiler.cache.utils import compute_cache_key
 
 from .descriptor import CapabilityDescriptor, ExecutionFamily
 from .sources import CapabilitySource
@@ -14,7 +18,7 @@ class CapabilityResolver:
     Produces an immutable CapabilityDescriptor.
     """
 
-    def __init__(self, default_sources: list[CapabilitySource] | None = None, validation_rules: list[ValidationRule] | None = None):
+    def __init__(self, default_sources: list[CapabilitySource] | None = None, validation_rules: list[ValidationRule] | None = None, cache_manager: Optional['CompilerCacheManager'] = None):
         self.default_sources = default_sources or []
         rules = validation_rules if validation_rules is not None else [
             DiffusionStreamingRule(),
@@ -24,6 +28,7 @@ class CapabilityResolver:
         ]
         registry = ValidationRegistry(rules)
         self.validation_engine = ValidationEngine(registry)
+        self.cache_manager = cache_manager
 
     def resolve(self, model_descriptor: Any = None, additional_sources: list[CapabilitySource] | None = None) -> CapabilityDescriptor:
         """
@@ -34,6 +39,15 @@ class CapabilityResolver:
         all_sources = list(self.default_sources)
         if additional_sources:
             all_sources.extend(additional_sources)
+
+        # Determine cache key based on sources.
+        # Source objects might not hash well, so use their IDs.
+        cache_key = compute_cache_key("cap_desc", [s.source_id for s in all_sources])
+
+        if self.cache_manager:
+            cached = self.cache_manager.get(cache_key)
+            if cached:
+                return cached.value
 
         # 1. Merge
         merge_result = merge_sources(all_sources, context=model_descriptor)
@@ -59,5 +73,13 @@ class CapabilityResolver:
         valid_keys = CapabilityDescriptor.__dataclass_fields__.keys()
         filtered_caps = {k: v for k, v in merged_caps.items() if k in valid_keys}
 
-        descriptor = CapabilityDescriptor(**filtered_caps, _diagnostics=merge_result.diagnostics)
+
+        diagnostics = dict(merge_result.diagnostics) if merge_result.diagnostics else {}
+        diagnostics["cache_key"] = cache_key
+        descriptor = CapabilityDescriptor(**filtered_caps, _diagnostics=diagnostics)
+
+        if self.cache_manager:
+            # Estimate size roughly for now
+            self.cache_manager.put(cache_key, descriptor, size_bytes=1024, version="v1")
+
         return descriptor

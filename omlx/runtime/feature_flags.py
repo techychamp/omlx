@@ -36,6 +36,10 @@ class FeatureFlags(metaclass=FeatureFlagsMeta):
     PLANNER_RUNTIME_ENABLED: bool = False
     LOWERING_RUNTIME_ENABLED: bool = False
     ADAPTER_RUNTIME_ENABLED: bool = False
+    EXECUTION_PLAN_RUNTIME_ENABLED: bool = False
+    EXECUTION_PROFILE_COMPATIBILITY_ENABLED: bool = False
+    EXECUTION_PLAN_VALIDATION_ENABLED: bool = False
+
 
     @classmethod
     def from_env(cls) -> FeatureFlags:
@@ -50,4 +54,8 @@ class FeatureFlags(metaclass=FeatureFlagsMeta):
             PLANNER_RUNTIME_ENABLED=os.getenv("OMLX_FEATURE_PLANNER_RUNTIME", "0") == "1",
             LOWERING_RUNTIME_ENABLED=os.getenv("OMLX_FEATURE_LOWERING_RUNTIME", "0") == "1",
             ADAPTER_RUNTIME_ENABLED=os.getenv("OMLX_FEATURE_ADAPTER_RUNTIME", "0") == "1",
+            EXECUTION_PLAN_RUNTIME_ENABLED=os.getenv("OMLX_FEATURE_EXECUTION_PLAN_RUNTIME", "0") == "1",
+            EXECUTION_PROFILE_COMPATIBILITY_ENABLED=os.getenv("OMLX_FEATURE_EXECUTION_PROFILE_COMPATIBILITY", "0") == "1",
+            EXECUTION_PLAN_VALIDATION_ENABLED=os.getenv("OMLX_FEATURE_EXECUTION_PLAN_VALIDATION", "0") == "1",
+
         )

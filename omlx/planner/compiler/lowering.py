@@ -4,12 +4,15 @@ Lowering engine for converting Logical IR to Physical IR.
 """
 from __future__ import annotations
 import abc
-from typing import List, Dict, Any
+from typing import Optional, TYPE_CHECKING, List, Dict, Any
 from types import MappingProxyType
 from omlx.planner.ir.graph import ExecutionIR
 from omlx.planner.ir.nodes import IRNodeType
 from omlx.planner.ir.physical.graph import PhysicalIR
 from omlx.planner.ir.physical.operations import PhysicalOperation, PhysicalOperationType
+from omlx.planner.compiler.cache.utils import compute_cache_key
+if TYPE_CHECKING:
+    from omlx.planner.compiler.cache.manager import CompilerCacheManager
 
 class LoweringPass(abc.ABC):
     @property
@@ -53,18 +56,41 @@ class DefaultLoweringPass(LoweringPass):
 
 class LoweringEngine:
     """Transforms Logical ExecutionIR into PhysicalIR."""
-    def __init__(self, passes: List[LoweringPass] | None = None):
+    def __init__(self, passes: List[LoweringPass] | None = None, cache_manager: Optional['CompilerCacheManager'] = None, dependency_tracker: Optional['DependencyTracker'] = None):
         self.passes = passes or [DefaultLoweringPass()]
+        self.cache_manager = cache_manager
+        self.dependency_tracker = dependency_tracker
 
     def lower(self, logical_ir: ExecutionIR) -> PhysicalIR:
+        cache_key = compute_cache_key("phys_ir", logical_ir)
+        if self.cache_manager:
+            cached = self.cache_manager.get(cache_key)
+            if cached:
+                return cached.value
+
         operations: Dict[str, PhysicalOperation] = {}
         metadata: Dict[str, Any] = {"lowered_from": "ExecutionIR"}
 
         for lowering_pass in self.passes:
             lowering_pass.apply(logical_ir, operations, metadata)
 
-        return PhysicalIR(
+        physical_ir = PhysicalIR(
             operations=MappingProxyType(operations),
             roots=logical_ir.roots,
             metadata=MappingProxyType(metadata)
         )
+
+        # Inject cache key explicitly (MappingProxyType is immutable, so we have to do it before, or set it via object)
+        metadata = dict(physical_ir.metadata)
+        metadata["cache_key"] = cache_key
+        object.__setattr__(physical_ir, "metadata", MappingProxyType(metadata))
+
+        if self.cache_manager:
+            self.cache_manager.put(cache_key, physical_ir, size_bytes=8192, version="v1")
+            if getattr(self, 'dependency_tracker', None):
+                from .cache.utils import compute_cache_key
+                upstream_key = logical_ir.metadata.get("cache_key")
+                if upstream_key:
+                    self.dependency_tracker.record_dependency(upstream_key, cache_key)
+
+        return physical_ir
