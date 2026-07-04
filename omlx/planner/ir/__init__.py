@@ -9,6 +9,11 @@ from .builder import IRBuilder
 from .validation import validate_ir, IRValidationError
 from .passes import IROptimizationPass, IRPassRegistry
 
+# Forward imports for easier access to the new subpackages
+from .values.types import Value, ValueType
+from .physical.graph import PhysicalIR
+from .physical.operations import PhysicalOperation, PhysicalOperationType
+
 __all__ = [
     "IRNode",
     "IRNodeType",
@@ -18,4 +23,9 @@ __all__ = [
     "IRValidationError",
     "IROptimizationPass",
     "IRPassRegistry",
+    "Value",
+    "ValueType",
+    "PhysicalIR",
+    "PhysicalOperation",
+    "PhysicalOperationType",
 ]

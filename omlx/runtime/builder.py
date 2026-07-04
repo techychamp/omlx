@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from omlx.capabilities import CapabilityResolver
 from omlx.planner.planner import ExecutionPlanner
 from omlx.planner.ir.builder import IRBuilder
+from omlx.planner.compiler import LoweringEngine
 
 from typing import Any, Optional
 
@@ -68,6 +69,7 @@ class Runtime:
         self.metrics: Any = None
         self.event_bus = EventBus()
         self.ir_builder = IRBuilder()
+        self.lowering_engine = LoweringEngine()
         self.execution_planner = ExecutionPlanner(
             capability_resolver=context.capability_resolver,
             feature_flags=context.feature_flags,

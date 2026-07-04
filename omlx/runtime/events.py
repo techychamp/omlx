@@ -44,6 +44,13 @@ class ExecutionEvent(enum.Enum):
     AFTER_SAMPLE = "after_sample"
     BEFORE_EMIT = "before_emit"
     AFTER_EMIT = "after_emit"
+    LOGICAL_IR_BUILT = "logical_ir_built"
+    LOGICAL_IR_OPTIMIZED = "logical_ir_optimized"
+    LOWERING_STARTED = "lowering_started"
+    LOWERING_COMPLETED = "lowering_completed"
+    PHYSICAL_IR_BUILT = "physical_ir_built"
+    COMPILER_PASS_COMPLETED = "compiler_pass_completed"
+    COMPILATION_FAILED = "compilation_failed"
 
 
 
