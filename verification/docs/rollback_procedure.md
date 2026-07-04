@@ -6,3 +6,8 @@ If a deployed version or merged PR breaks the verification constraints (for inst
 2. Trigger the `revert` on the pull request.
 3. Validate the `revert` pull request runs the exact same Verification Pipeline and passes 100%.
 4. No hotfixes are permitted inside the revert process. The system must return to the prior known-good state entirely before patches are attempted.
+
+## Failing Golden Validations
+If `test_golden_assets.py` catches an unapproved schema/drift:
+1. Revert the commit locally `git revert HEAD`.
+2. Inspect `ArtifactDiff` output which points directly at nested dictionary keys.

@@ -3,20 +3,32 @@
 IR Builder
 """
 
-from typing import Dict, Any, List
+from typing import Optional, TYPE_CHECKING, Dict, Any, List
 from types import MappingProxyType
 from omlx.planner.plan import ExecutionPlan
 from .nodes import IRNode, IRNodeType
 from .graph import ExecutionIR
 from .validation import validate_ir
+from omlx.planner.compiler.cache.utils import compute_cache_key
+if TYPE_CHECKING:
+    from omlx.planner.compiler.dependency_tracker import DependencyTracker
+from omlx.planner.compiler.cache.manager import CompilerCacheManager
 
 class IRBuilder:
     """Builds an ExecutionIR from an ExecutionPlan."""
+    def __init__(self, cache_manager: Optional['CompilerCacheManager'] = None, dependency_tracker: Optional['DependencyTracker'] = None):
+        self.cache_manager = cache_manager
+        self.dependency_tracker = dependency_tracker
 
     def build(self, plan: ExecutionPlan) -> ExecutionIR:
         """
         Lowers the ExecutionPlan into an ExecutionIR DAG.
         """
+        cache_key = compute_cache_key("ir", plan)
+        if self.cache_manager:
+            cached = self.cache_manager.get(cache_key)
+            if cached:
+                return cached.value
 
         nodes: Dict[str, IRNode] = {}
         roots: List[str] = []
@@ -151,5 +163,18 @@ class IRBuilder:
             })
         )
 
+        # Inject cache key into metadata
+        metadata = dict(ir.metadata)
+        metadata["cache_key"] = cache_key
+        object.__setattr__(ir, "metadata", metadata)
+
         validate_ir(ir)
+
+        if self.cache_manager:
+            self.cache_manager.put(cache_key, ir, size_bytes=4096, version="v1")
+            if self.dependency_tracker:
+                upstream_key = plan.planner_metadata.get("cache_key")
+                if upstream_key:
+                    self.dependency_tracker.record_dependency(upstream_key, cache_key)
+
         return ir

@@ -1,0 +1,16 @@
+# Architecture Guides
+
+- [Capability Resolver](./capability_resolver.md)
+- [Execution Planner](./execution_planner.md)
+- [Logical IR](./logical_ir.md)
+- [Lowering](./lowering.md)
+- [Physical IR](./physical_ir.md)
+- [Backend Adapter](./backend_adapter.md)
+- [Backend Intelligence](./backend_intelligence.md)
+- [Runtime](./runtime.md)
+- [Compiler Pipeline](./compiler_pipeline.md)
+- [Optimization Pipeline](./optimization_pipeline.md)
+- [Verification](./verification.md)
+- [Performance](./performance.md)
+- [Tooling](./tooling.md)
+- [Plugin System](./plugin_system.md)
