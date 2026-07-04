@@ -1,0 +1,17 @@
+{
+    "execution_family": "autoregressive",
+    "execution_backend": "autoregressive",
+    "execution_mode": "standard",
+    "execution_topology": "single_node",
+    "cache_strategy": "paged",
+    "scheduler_strategy": "static_batching",
+    "verification_stages": [],
+    "optimization_passes": [],
+    "execution_hints": {
+        "precision": "fp16"
+    },
+    "hardware_requirements": [],
+    "planner_metadata": {
+        "planning_time_ms": 10.0
+    }
+}
