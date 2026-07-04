@@ -28,30 +28,42 @@ The current architecture is highly coupled to specific generation modes via bool
 **Goal**: Move to a declarative registry where capabilities are registered, discovered, and resolved via a generic `ResolutionEngine`. This insulates core components from execution logic and establishes a clean, cohesive abstraction chain:
 
 ```text
-Model
-   ↓
-Model Adapter
-   ↓
+Model Discovery
+        │
+        ▼
+Model Adapter          (RAES-010)
+        │
+        ▼
+Capability Registry    (RAES-008)
+        │
+        ▼
 Capability Resolver
-   ↓
+        │
+        ▼
 Execution Planner
-   ↓
-Execution Graph
-   ↓
+        │
+        ▼
+Execution Graph        (RAES-011)
+        │
+        ▼
+Optimization Passes
+        │
+        ▼
 Generation Strategy
-   ↓
+        │
+        ▼
 Execution Backend
-   ↓
-Execution Pipeline
-   ↓
+        │
+        ▼
 Execution Engine
-   ↓
+        │
+        ▼
 MLX Runtime
 ```
 
 ## 3. Capability Descriptor Design
 
-The registry will handle dynamic registration of capabilities using a `CapabilityDescriptor`. Rather than a flat list of boolean fields, capabilities describe execution characteristics.
+The registry will handle dynamic registration of capabilities using a nested `CapabilityDescriptor`. Rather than a flat list of boolean fields, capabilities describe execution characteristics in isolated concern domains.
 
 Capabilities are divided into two distinct domains:
 
@@ -66,39 +78,48 @@ Resolved dynamically per-execution based on the environment and request.
 - `cache_implementation`, `execution_mode`, `verification_enabled`
 
 ### 3.3. The Descriptor
+To keep each concern isolated, `CapabilityDescriptor` is composed of sub-descriptors:
+
 ```python
 @dataclass
 class VerificationDescriptor:
-    # Verification is metadata about a capability, not a separate registry
     verification_passes: list[str]
-    # e.g., ["n_gram_match", "model_evaluator"]
+
+@dataclass
+class ExecutionDescriptor:
+    execution_family: str
+    attention_type: str
+    cache_type: str
+    scheduler_hints: list[str]
+    execution_graph: str
+    backend: str
+    pipeline: str
+    engine: str
+    adapter: str
+
+@dataclass
+class HardwareDescriptor:
+    required_memory: int
+    required_backend: list[str]
+
+@dataclass
+class UISchemaDescriptor:
+    display_name: str
+    description: str
 
 @dataclass
 class CapabilityDescriptor:
     id: str
-    display_name: str
-    description: str
+    family: str  # e.g., "architecture", "execution", "hardware", "verification", "scheduling"
 
-    # Capability Families
-    family: str  # e.g., "architecture", "execution", "hardware", "verification", "scheduling", "memory", "streaming", "plugins"
+    ui: UISchemaDescriptor
+    execution: ExecutionDescriptor
+    hardware: HardwareDescriptor
+    verification: VerificationDescriptor | None
 
-    # Execution Properties (answering "Does this use X?")
-    execution_family: str       # e.g., "autoregressive", "diffusion"
-    attention_type: str         # e.g., "causal", "bidirectional", "iterative_refinement"
-    cache_type: str             # e.g., "paged_ssd", "standard_kv"
-    scheduler_hints: list[str]  # e.g., ["chunked_prefill"]
-    execution_graph: str        # e.g., "standard_transformer"
-    backend: str                # e.g., "autoregressive_backend"
-    pipeline: str               # e.g., "transformer_pipeline"
-    engine: str                 # e.g., "transformer_execution_engine"
-    adapter: str                # e.g., "llama_adapter"
-
-    # Metadata & Resolution
-    verification_profile: VerificationDescriptor | None
-    hardware_profile_requirements: dict[str, Any]
     dependencies: list[str] = field(default_factory=list)
     conflicts: list[str] = field(default_factory=list)
-    inherits_from: str | None = None  # e.g., "transformer"
+    inherits_from: str | None = None
     priority: int = 0
 ```
 
@@ -115,55 +136,46 @@ Instead of one flat registry, capabilities are organized into **Capability Famil
 * Plugins
 
 ### Capability Inheritance
-
 The registry supports inheritance to define hierarchical capabilities without duplicating base descriptors:
 ```text
-Transformer
-    ↓
-Autoregressive
-    ↓
-Speculative
-    ↓
-Triage
-```
-And:
-```text
-Transformer
-    ↓
-Diffusion
-    ↓
-Image Diffusion
+Transformer -> Autoregressive -> Speculative -> Triage
 ```
 
 ### Capability Composition
-
 The `CapabilityResolver` composes fundamental capabilities into Composite Capabilities at runtime, avoiding an explosion of registered permutations.
 
-Example 1: Streaming MoE
+Example: Streaming MoE
 ```text
 Transformer + Streaming + MoE  ->  Streaming MoE Runtime
 ```
 
-Example 2: Nemotron Triage
-```text
-Transformer + Diffusion + Verification  ->  Nemotron Triage Runtime
+## 5. Resolution Engine & Environment Design
+
+### 5.1 Immutable Execution Environment
+The `ExecutionEnvironment` must be an immutable snapshot generated at startup. Nothing modifies it during runtime.
+```python
+@dataclass(frozen=True)
+class ExecutionEnvironment:
+    mlx_version: str
+    metal_version: str
+    ram_gb: int
+    gpu_type: str
+    cpu_arch: str
+    os_version: str
+    drivers: list[str]
 ```
 
-## 5. Resolution Engine Design
+### 5.2 Lazy Evaluation
+Some capabilities (e.g. memory limits, custom kernels, external plugins) can be expensive to compute. The registry should support **lazy evaluation** mechanisms, allowing capabilities to provide a factory/callback that is only evaluated during resolution, rather than at startup time.
 
-The `CapabilityResolver` composes and resolves runtime components dynamically.
-
-**Inputs**:
-1. Static Capabilities (Model Metadata)
-2. `ExecutionEnvironment` (formerly Hardware registry)
-   - *Includes: MLX version, Metal version, unified memory, CPU, OS, backend availability, custom kernels, quantization support.*
-3. User Overrides (Feature flags)
+### 5.3 Resolution Flow
+The `CapabilityResolver` composes and resolves runtime components dynamically. The **`ExecutionPlanner` is the ONLY consumer of resolved capabilities**. No backend, engine, or scheduler should inspect capabilities directly.
 
 **Process**:
 1. Query registries across all Capability Families.
-2. Filter capabilities against the `ExecutionEnvironment`.
-3. Resolve dependencies, remove conflicts (topological sort), and flatten inheritance chains.
-4. Perform Capability Composition (e.g., `Transformer` + `MoE` + `Streaming`).
+2. Filter capabilities against the immutable `ExecutionEnvironment` snapshot.
+3. Resolve dependencies, remove conflicts (topological sort), and flatten inheritance chains. (Support lazy evaluations here).
+4. Perform Capability Composition.
 5. Output the resolved `CompositeCapability` to the `ExecutionPlanner`.
 6. `ExecutionPlanner` consumes the resolved capabilities and emits an `ExecutionGraph`.
 
@@ -178,9 +190,9 @@ classDiagram
         +get_by_id(id: str) -> CapabilityDescriptor
     }
     class ExecutionEnvironment {
-        +get_mlx_version() -> str
-        +get_memory() -> int
-        +get_backend_availability() -> List[str]
+        +mlx_version: str
+        +metal_version: str
+        +ram_gb: int
     }
     class CapabilityResolver {
         +resolve(model_info, environment, overrides) -> CompositeCapability
@@ -203,14 +215,12 @@ sequenceDiagram
     participant EngineCore
     participant Resolver as CapabilityResolver
     participant Registry as CapabilityRegistry
-    participant Env as ExecutionEnvironment
     participant Planner as ExecutionPlanner
 
-    EngineCore->>Env: detect_environment()
-    Env-->>EngineCore: ExecutionEnvironment
-    EngineCore->>Resolver: resolve(model_static_caps, env, flags)
+    EngineCore->>EngineCore: generate ExecutionEnvironment snapshot
+    EngineCore->>Resolver: resolve(model_static_caps, env_snapshot, flags)
     Resolver->>Registry: get_matching_capabilities()
-    Registry-->>Resolver: List[CapabilityDescriptor]
+    Registry-->>Resolver: List[CapabilityDescriptor] (Lazy Evaluation)
     Resolver->>Resolver: resolve inheritance & compose capabilities
     Resolver->>Resolver: resolve dependencies & conflicts
     Resolver-->>EngineCore: CompositeCapability
@@ -220,42 +230,57 @@ sequenceDiagram
 
 ## 7. Files To Modify
 
-- **NEW `omlx/runtime/capability_registry.py`**: Defines `CapabilityDescriptor`, `VerificationDescriptor`, and family-partitioned registries.
-- **NEW `omlx/runtime/resolver.py`**: Implements the `CapabilityResolver` (graph resolution, static vs runtime composition, inheritance).
-- **NEW `omlx/runtime/environment.py`**: Manages the `ExecutionEnvironment` (hardware, OS, MLX version).
+- **NEW `omlx/runtime/capability_registry.py`**: Defines nested descriptors (`CapabilityDescriptor`, `ExecutionDescriptor`, etc.) and family-partitioned registries.
+- **NEW `omlx/runtime/resolver.py`**: Implements the `CapabilityResolver` (lazy evaluation, static vs runtime composition, inheritance).
+- **NEW `omlx/runtime/environment.py`**: Defines the immutable `ExecutionEnvironment` snapshot.
 - **MODIFIED `omlx/runtime/capabilities.py`**: Deprecate hardcoded boolean dataclasses in favor of dynamic resolution.
 - **MODIFIED `omlx/inference/execution_profile.py`**: Retained/modified as part of the `ExecutionPlanner`'s output, removing old fallback logic.
 - **MODIFIED `omlx/registry/model_info.py`**: Remove hardcoded capability checks.
 - **MODIFIED `omlx/engine_core.py`**: Update initialization to use the new `CapabilityResolver` -> `ExecutionPlanner` pipeline.
 
-## 8. Risk Analysis
+## 8. What This Enables Later
+
+Once this exists, adding a completely new execution family becomes much simpler and highly extensible.
+
+For example, suppose we add **Nemotron Triage**.
+- You don't change the scheduler.
+- You don't change the backend.
+- You simply register new capability descriptors:
+  - Architecture: `Transformer`
+  - Execution: `Verification`
+  - Scheduling: `Draft Verify`
+  - Memory: `Paged Cache`
+
+The resolver composes them automatically. The planner builds an appropriate execution graph. The runtime executes it seamlessly.
+
+## 9. Risk Analysis
 
 - **Cyclic Dependencies**: Capability inheritance or dependencies could create cycles (e.g., A depends on B, B depends on A). The `CapabilityResolver` must implement topological sorting and cycle detection to fail fast during resolution.
-- **Startup Latency**: Dynamically resolving capabilities, resolving inheritance chains, and evaluating hardware could increase `EngineCore` initialization time. The resolver results should be cached per `model_info` configuration.
+- **Startup Latency**: Dynamically resolving capabilities could increase initialization time. We mitigate this through **lazy evaluation** and caching resolver results per `model_info` configuration.
 - **Registration Ordering**: If plugins or capabilities are registered in non-deterministic orders, resolution could fail. The registry must enforce lazy resolution (evaluate after all registrations are complete).
-- **Plugin Loading**: External plugins could inject malformed capabilities or crash the initialization phase. The registry must implement strict validation on capability definitions.
 - **Future Compatibility**: Modifying `EngineCore` logic might break external tools using older SDKs. The resolved structures should expose legacy properties as computed properties to maintain backwards compatibility in the short term.
 - **Verification Implications**: Testing combinatorial capabilities requires exponential test cases. We must rely on `VerificationDescriptor` passes to test the most common composed capabilities rather than enumerating all permutations.
 
-## 9. Verification Plan
+## 10. Verification Plan
 
 1. **Family Registration**: Verify capabilities can be registered under specific families (Architecture, Execution, Streaming, etc.).
 2. **Inheritance & Composition Correctness**: Tests to verify capability inheritance (Autoregressive inherits from Transformer) and composition (Transformer + Streaming + MoE correctly synthesizes into a composite descriptor).
 3. **Static vs Runtime Separation**: Ensure static capabilities from the model dictate which runtime capabilities can be composed.
-4. **Environment Resolution**: Verify `ExecutionEnvironment` correctly restricts capabilities based on MLX version, memory, and custom kernels.
-5. **Execution Planner Consumes Capabilities**: Validate that the resolved capability descriptor successfully maps to a planned `ExecutionGraph`.
+4. **Environment Resolution**: Verify the immutable `ExecutionEnvironment` correctly restricts capabilities based on MLX version, memory, and custom kernels.
+5. **Lazy Evaluation**: Ensure that expensive capability callbacks are only invoked when required during the resolution phase.
+6. **Execution Planner Consumes Capabilities**: Validate that the resolved capability descriptor successfully maps to a planned `ExecutionGraph` and that no other component inspects capabilities.
 
-## 10. Rollback Plan
+## 11. Rollback Plan
 
 - **Version Control**: Work will be done in a feature branch.
 - **Feature Flag**: Introduce a feature flag `OMLX_USE_NEW_RESOLVER` (default to False initially) to allow side-by-side execution if needed.
 - **Reversion**: If the new resolver causes regressions, toggle the flag or revert the branch.
 
-## 11. Recommendation for the Implementation Checkpoint
+## 12. Recommendation for the Implementation Checkpoint
 
 We recommend proceeding with **RAES-008 Checkpoint 1: Capability Registry & Environment Foundation**:
-* **Goal**: Implement `CapabilityDescriptor`, `ExecutionEnvironment`, and the partitioned `CapabilityRegistry`.
-* **Purpose**: Establish the core data structures and ensure they can resolve inheritance, dependencies, conflicts, and basic composition through tests.
+* **Goal**: Implement `CapabilityDescriptor` (with nested descriptors), the immutable `ExecutionEnvironment`, and the partitioned `CapabilityRegistry`.
+* **Purpose**: Establish the core data structures and ensure they can resolve inheritance, dependencies, conflicts, lazy evaluations, and basic composition through tests.
 * **Allowed Files**: `omlx/runtime/capability_registry.py`, `omlx/runtime/resolver.py`, `omlx/runtime/environment.py`, `tests/test_capability_registry.py`.
 * **Forbidden Files**: `omlx/engine_core.py`, `omlx/scheduler.py`.
-* **Exit Criteria**: Registry, environment detection, and resolver logic is implemented and passes unit tests covering inheritance, composition, and static/runtime boundaries.
+* **Exit Criteria**: Registry, immutable environment detection, lazy evaluation, and resolver logic is implemented and passes unit tests covering inheritance, composition, and static/runtime boundaries.
