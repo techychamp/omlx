@@ -177,6 +177,8 @@ from .engine import BaseEngine, VLMBatchedEngine
 from .engine.embedding import EmbeddingEngine
 from .engine.reranker import RerankerEngine
 from .engine_pool import EnginePool
+from .runtime.builder import RuntimeBuilder, RuntimeStateEnum
+
 from .exceptions import (
     EnginePoolError,
     InsufficientMemoryError,
@@ -265,6 +267,7 @@ class ServerState:
     to manage and test.
     """
 
+    runtime: Optional[object] = None
     engine_pool: Optional[EnginePool] = None
     default_model: Optional[str] = None
     mcp_manager: Optional[object] = None
@@ -289,9 +292,15 @@ def get_server_state() -> ServerState:
     """Get the global server state."""
     return _server_state
 
+def get_runtime():
+    """Get the active RuntimeBuilder constructed runtime instance."""
+    return getattr(_server_state, "runtime", None)
+
 
 def get_engine_pool() -> EnginePool:
     """Get the engine pool, raising error if not initialized."""
+    if _server_state.runtime and _server_state.runtime.engine_pool:
+        return _server_state.runtime.engine_pool
     if _server_state.engine_pool is None:
         raise HTTPException(status_code=503, detail="Server not initialized")
     return _server_state.engine_pool
@@ -1744,6 +1753,18 @@ def init_server(
         scheduler_config=scheduler_config,
     )
 
+    # Build the composition root using RuntimeBuilder
+    builder = RuntimeBuilder()
+    builder.with_settings(_server_state.settings_manager)
+    builder.with_engine_pool(_server_state.engine_pool)
+    # The RuntimeContext will capture the feature flags from the environment
+
+    runtime = builder.build()
+    _server_state.runtime = runtime
+
+    # Transition to INITIALIZING state
+    runtime.transition(RuntimeStateEnum.INITIALIZING)
+
     # Discover models (use pinned models from settings file)
     _server_state.engine_pool._settings_manager = _server_state.settings_manager
     _server_state.engine_pool.discover_models(dir_list, pinned_models)
@@ -1753,6 +1774,9 @@ def init_server(
         logger.warning(
             f"No models found in {', '.join(dir_list)}. Add models to serve them."
         )
+
+    if _server_state.runtime:
+        _server_state.runtime.transition(RuntimeStateEnum.READY)
 
     # Set default model (from settings file, fallback to first model)
     available_models = _server_state.engine_pool.get_model_ids()

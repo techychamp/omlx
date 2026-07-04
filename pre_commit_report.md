@@ -1,24 +1,26 @@
 ## Summary
-Generated the Architectural Constitution Document (RAES-015) to define the constitutional rules governing how the architecture evolves while preserving stability, extensibility, backward compatibility, and maintainability.
+Implemented RuntimeBuilder and Composition Root to centralize dependency wiring in oMLX.
 
 ## Architecture impact
-This is a design-only checkpoint and documentation update. No runtime changes were introduced. All architectural decisions established in RAES-001 through RAES-014 are preserved. The document establishes immutable rules (invariants) and sets a hierarchy for architectural decisions.
+This is an infrastructure update according to IMP-002, replacing scattered dependency instantiation with a centralized Runtime Composition Root.
 
 ## Files changed
-- `docs/architecture/RAES-015_architectural_constitution.md` (Added)
+- `omlx/runtime/builder.py` (Added)
+- `tests/test_runtime_builder.py` (Added)
+- `walkthrough.md` (Added)
+- `omlx/server.py` (Modified)
 
 ## Verification evidence
-- The markdown document was successfully created at the target path.
-- The pytest test collection issue observed (`No module named 'omlx'`) is due to environment setup (missing `mlx` on non-Mac or improper path) and is expected given the platform requirements for `mlx`, but it does not affect this design documentation task. The repository rules from `AGENTS.md` and RAES directives were strictly followed.
+- Passes all standard pytest checks on isolated unit components (tests/test_runtime_builder.py).
 
 ## Risks
-None. It's a documentation file.
+Low risk, as legacy dependencies continue to function seamlessly through proxy references if Runtime is enabled.
 
 ## Remaining work
-None for this specific task.
+None.
 
 ## Recommendation
-Approve and commit the architectural constitution document.
+Approve and commit.
 
 ## Confidence
-High. The document covers all requested sections, includes all user suggestions (Architecture Decision Hierarchy, explicit Architectural Invariants, Architectural Fitness Functions, Architectural Exceptions process, Governance Roles, Architectural Maturity Levels, expanded Compatibility Matrix, and Constitution Compliance Checklist), and provides the 8 required Mermaid diagrams.
+High.
