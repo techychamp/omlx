@@ -13,6 +13,7 @@ from omlx.capabilities import CapabilityResolver
 from omlx.planner.planner import ExecutionPlanner
 from omlx.planner.ir.builder import IRBuilder
 from omlx.planner.compiler import LoweringEngine
+from omlx.planner.compiler.backend import AdapterRegistry, BackendDescriptorRegistry, MLXAdapter
 
 from typing import Any, Optional
 
@@ -47,6 +48,8 @@ class RuntimeContext:
     planner_references: Any = None
     startup_metadata: dict[str, Any] = field(default_factory=dict)
     version_info: dict[str, str] = field(default_factory=dict)
+    adapter_registry: AdapterRegistry | None = None
+    descriptor_registry: BackendDescriptorRegistry | None = None
 
 
 class Runtime:
@@ -76,6 +79,8 @@ class Runtime:
             runtime_context=context,
             registries=context.registries
         )
+        self.adapter_registry = context.adapter_registry
+        self.descriptor_registry = context.descriptor_registry
 
     def transition(self, new_state: RuntimeStateEnum) -> None:
         """Safely transition lifecycle states."""
@@ -93,6 +98,24 @@ class RuntimeBuilder:
         self._verification = None
         self._capability_resolver = CapabilityResolver()
         self._engine_pool = None
+        self._adapter_registry = AdapterRegistry()
+        self._descriptor_registry = BackendDescriptorRegistry()
+
+        # Register default MLX adapter and descriptor
+        mlx_adapter = MLXAdapter()
+        self._descriptor_registry.register("mlx", mlx_adapter.descriptor)
+        
+        # Pre-register combinations for reference MLX execution
+        for family in ("autoregressive", "diffusion", "embedding", "speculative"):
+            for mode in ("standard", "streaming"):
+                for hardware in ("gpu", "metal", "apple_silicon", "any"):
+                    self._adapter_registry.register(
+                        backend="mlx",
+                        hardware=hardware,
+                        execution_family=family,
+                        execution_mode=mode,
+                        adapter=mlx_adapter
+                    )
 
     def with_settings(self, settings: Any) -> RuntimeBuilder:
         self._settings = settings
@@ -113,12 +136,18 @@ class RuntimeBuilder:
 
     def build(self) -> Runtime:
         """Construct the immutable context and wire up the Runtime."""
+        # Lock registries before startup
+        self._adapter_registry.lock()
+        self._descriptor_registry.lock()
+
         context = RuntimeContext(
             settings=self._settings,
             feature_flags=self._feature_flags,
             verification=self._verification,
             capability_resolver=self._capability_resolver,
-            startup_metadata={"start_time": time.time()}
+            startup_metadata={"start_time": time.time()},
+            adapter_registry=self._adapter_registry,
+            descriptor_registry=self._descriptor_registry
         )
 
         runtime = Runtime(context)
