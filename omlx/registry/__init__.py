@@ -17,8 +17,34 @@ from .capability_registry import (
 from .model_info import ModelInfo, build_model_info
 from .plugin_discovery import discover_plugins
 
+from .base import (
+    RegistryPhase,
+    RegistryEntry,
+    GenericRegistry,
+    RegistryLockedError,
+    RegistryDuplicateError,
+    RegistryDependencyError,
+)
+
+from .core import (
+    MetadataCapabilityEntry,
+    MetadataCapabilityRegistry,
+    MetadataExecutionModeEntry,
+    MetadataExecutionModeRegistry,
+    MetadataExecutionProfileEntry,
+    MetadataExecutionProfileRegistry,
+    MetadataAdapterEntry,
+    MetadataAdapterRegistry,
+    MetadataPluginEntry,
+    MetadataPluginRegistry,
+    MetadataVerificationEntry,
+    MetadataVerificationRegistry,
+    MetadataBackendEntry,
+    MetadataBackendRegistry,
+)
 
 __all__ = [
+    # Legacy exports
     "CacheHints",
     "CapabilityBundle",
     "GenerationStrategyRegistry",
@@ -29,4 +55,28 @@ __all__ = [
     "build_model_info",
     "discover_plugins",
     "register_default_strategies",
+
+    # Base registry exports
+    "RegistryPhase",
+    "RegistryEntry",
+    "GenericRegistry",
+    "RegistryLockedError",
+    "RegistryDuplicateError",
+    "RegistryDependencyError",
+
+    # Core registry exports
+    "MetadataCapabilityEntry",
+    "MetadataCapabilityRegistry",
+    "MetadataExecutionModeEntry",
+    "MetadataExecutionModeRegistry",
+    "MetadataExecutionProfileEntry",
+    "MetadataExecutionProfileRegistry",
+    "MetadataAdapterEntry",
+    "MetadataAdapterRegistry",
+    "MetadataPluginEntry",
+    "MetadataPluginRegistry",
+    "MetadataVerificationEntry",
+    "MetadataVerificationRegistry",
+    "MetadataBackendEntry",
+    "MetadataBackendRegistry",
 ]
