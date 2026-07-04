@@ -1,8 +1,45 @@
-- Summary: Updated RAES-013 Plugin Architecture specification based on review feedback.
-- Architecture impact: Refined the PluginManifest to use provides/requires/extends for clearer dependency mapping. Expanded the PluginContext to include optional extension points like optimization passes, verification passes, and execution IR nodes. Added support for event hooks and discussed long-term isolation strategies for handling process-wide native MLX crashes.
-- Files changed: Modified `docs/architecture/RAES-013_plugin_architecture.md`.
-- Verification evidence: Verified document updates using `cat`. Ran the test suite to ensure no Python regressions.
-- Risks: Documentation only, minimal risk.
-- Remaining work: N/A for this task.
-- Recommendation: Proceed to Implementation Checkpoint 1.
-- Confidence: High.
+# Checkpoint Complete: PERF-001 Compiler Caching Infrastructure
+
+## Summary
+Implemented the generic compiler caching and performance infrastructure as mandated by PERF-001. All compiler cache layers, cache policies, diagnostics, deterministic key generation, benchmark suite, and profiling framework were added without making any runtime modifications or execution behavior changes.
+
+## Architecture Impact
+Created `omlx/compiler_perf/` as a standalone package representing a generic compiler performance layer. It does not introduce any new architectural dependencies or reverse dependencies from the cache layer back to the runtime stack.
+
+## Files Changed
+- `omlx/compiler_perf/__init__.py`
+- `omlx/compiler_perf/cache.py`
+- `omlx/compiler_perf/manager.py`
+- `omlx/compiler_perf/entries.py`
+- `omlx/compiler_perf/keys.py`
+- `omlx/compiler_perf/policies.py`
+- `omlx/compiler_perf/diagnostics.py`
+- `omlx/compiler_perf/benchmark.py`
+- `omlx/compiler_perf/profiler.py`
+- `tests/test_compiler_perf.py`
+- `docs/perf-001/*.md` (9 architecture & analysis documents)
+
+## Files Intentionally Untouched
+- `omlx/engine/`
+- `omlx/scheduler.py`
+- `omlx/server.py`
+- `omlx/engine_pool.py`
+- `omlx/runtime/`
+
+## Verification Evidence
+- `PYTHONPATH=. pytest tests/test_compiler_perf.py` runs successfully (14/14 tests pass).
+- Deterministic key generation properly avoids object identity matching.
+- Thread-safe caches validated via concurrent thread testing.
+
+## Risks & Known Limitations
+- The cache framework does not yet serialize to disk (SQL-based persistence suggested for PERF-002).
+- Caches are currently unintegrated into the execution pipeline; this is strictly intentional for PERF-001 but relies on the subsequent MIG-001 integration task to handle wiring accurately.
+
+## Remaining Work
+- Wait for the MIG-001 runtime migration to complete, after which `CacheManager` will be injected via `RuntimeBuilder`.
+
+## Recommendation
+- Proceed to PERF-002 for distributed/serialized caching, or proceed with runtime integration once the new architecture migration lands.
+
+## Confidence
+- High. All objectives met strictly according to prompt constraints.
