@@ -35,87 +35,78 @@ An audit of the current oMLX repository reveals several existing and potential e
 
 The architecture must allow external plugins to provide new functionality without modifying oMLX core.
 
-### Plugin Taxonomy
-Based on the audit, plugins fall into the following categories:
+**Crucially, the `PluginManager` must NOT know about specific plugin types.** It should not branch logic based on whether a plugin is a "Backend Plugin" or a "Model Adapter Plugin". Everything is simply a generic "Plugin" that registers components into specific Extension Points.
 
-1. **Execution Plugin (Strategy)**: Provides new `GenerationStrategy` implementations (e.g., Mamba, RWKV).
-2. **Backend Plugin**: Provides new `ExecutionBackend` and `ExecutionPipeline` implementations.
-3. **Model Adapter Plugin**: Handles input/output translation for specific model families (e.g., specific chat templates or tool formats).
-4. **Capability Plugin**: Registers new `GenerationMode` and `AttentionMode` types.
-5. **Execution Profile Plugin**: Registers new logic (`BackendFactory` or resolvers) to map capabilities to backends.
-6. **Cache Plugin**: Registers new cache structures (e.g., new `PagedCache` variants).
-7. **Model Discovery Plugin**: Custom providers to identify and categorize models (useful for proprietary formats).
-8. **Verification Plugin**: Adds custom stages, assets, or assertions to the verification pipeline.
-9. **Optimization/Hardware Plugin**: Injects custom Metal kernels or compilation passes.
-10. **CLI Plugin**: Registers new `click` or `argparse` commands.
-11. **Server/API Plugin**: Registers new FastAPI routers/endpoints.
+### Plugin Taxonomy (Via Extension Points)
+Instead of rigidly typed plugins, plugins register objects against stable Extension Points. Examples include:
+
+- **ExecutionBackendExtension**: Provides new `ExecutionBackend` and `ExecutionPipeline` implementations.
+- **ModelDiscoveryExtension**: Custom providers to identify and categorize models.
+- **VerificationExtension**: Adds custom stages, assets, or assertions to the verification pipeline.
+- **APIExtension**: Registers new FastAPI routers/endpoints.
+- **CLIExtension**: Registers new CLI commands.
 
 ---
 
-## 3. Plugin Manifest Specification
+## 3. Plugin Descriptors & Manifest Specification
 
-Every plugin must provide a metadata manifest (e.g., `plugin.toml` or returned via entry point metadata) to ensure safe loading and dependency resolution.
+Every plugin must expose a **Plugin Descriptor** (e.g., via a standard `get_descriptor()` entry point or declarative manifest). This is structurally similar to ModelAdapters and is easy to inspect.
 
-### Required Fields
+### Descriptor Fields
 - **`plugin_id`**: Unique identifier (e.g., `com.example.omlx.rwkv_backend`).
 - **`version`**: Semantic versioning (e.g., `1.0.0`).
-- **`author`**: Contact information or organization.
-- **`description`**: Brief summary.
-- **`omlx_version_req`**: Supported oMLX versions (e.g., `>=0.5.0`).
-
-### Capability & Registration Fields
-- **`provides`**: List of categories this plugin registers (e.g., `["backend", "strategy"]`).
-- **`supported_capabilities`**: Execution capabilities supported.
-
-### Dependency Fields
 - **`dependencies`**: Required plugins (e.g., `{"com.example.omlx.custom_cache": ">=1.0.0"}`).
-- **`optional_dependencies`**: Optional plugins for enhanced functionality.
-- **`hardware_requirements`**: E.g., minimum memory, specific Apple Silicon features.
-
-### Advanced Fields
-- **`priority`**: Integer for resolution ordering (higher overrides lower).
 - **`feature_flags`**: Required feature flags to activate the plugin.
-- **`verification_requirements`**: Tags indicating what test suites must pass for this plugin.
+- **`verification_metadata`**: Tags indicating what test suites must pass.
+
+### Execution Families
+Instead of specific boolean flags like `supports_diffusion=True`, plugins declare the **Execution Families** they support (aligning with RAES-008):
+- `AUTOREGRESSIVE`
+- `DIFFUSION`
+- `TRIAGE`
+- `STREAMING_MOE`
+- `EMBEDDING`
+- `VISION`
+- `AUDIO`
 
 ---
 
 ## 4. Registration System
 
-Plugins must register their components without introducing runtime branching in the core. The system will rely on an Event/Hook Architecture and Entry Points.
+Plugins must register their components without introducing runtime branching in the core. The system relies on an Event/Hook Architecture and abstract Extension Points.
 
-- **Entry Points**: Use Python's `importlib.metadata` (currently used in `plugin_discovery.py`) under namespaces like `omlx.plugins`.
-- **Plugin Manager Interface**: The core provides a `PluginContext` to the plugin's `register(context)` function.
-  - `context.register_capability_bundle(bundle)`
-  - `context.register_backend_factory(name, factory)`
-  - `context.register_profile_resolver(resolver)`
-  - `context.register_model_discovery_provider(provider)`
-  - `context.register_api_route(router)`
+- **Plugin Manager Interface**: The `PluginContext` abstracts away all registry internals. Plugins do NOT interact directly with `capability_registry` or `profile_registry`.
+- The interface exposes a unified registration method:
+  - `context.register(ExecutionBackendExtension(...))`
+  - `context.register(ModelDiscoveryExtension(...))`
 
-Runtime branching is avoided because the core iterates over registered interfaces (e.g., iterating through profile resolvers until one returns a valid profile) rather than checking for specific hardcoded plugins.
+Runtime branching is avoided because the core simply iterates over registered Extension Point objects.
 
 ---
 
 ## 5. Plugin Lifecycle
 
-1. **Discovery**: `PluginManager` scans `importlib.metadata` for entry points.
-2. **Validation**: Reads the Plugin Manifest. Validates `omlx_version_req` and `hardware_requirements`. Rejects incompatible plugins.
-3. **Dependency Resolution**: Builds a DAG of plugins. Detects circular dependencies or missing requirements. Orders plugins by dependency and `priority`.
-4. **Initialization**: Calls the plugin's `initialize()` hook.
-5. **Registration**: Calls the plugin's `register(context)` hook. Plugins populate core registries (Capability, Profile, Backends, etc.).
-6. **Activation**: Core finalizes the registries. Plugins are now "Active".
-7. **Execution**: Standard runtime flow; core utilizes the injected components via interfaces.
-8. **Shutdown**: Core signals shutdown. Calls plugin `shutdown()` hooks.
-9. **Cleanup**: Plugins release file handles, custom Metal memory, or cache structures.
+The plugin lifecycle includes state tracking and health monitoring.
+
+1. **Loaded**: The plugin module is located and imported via entry points.
+2. **Initialized**: Early startup logic and manifest validation.
+3. **Healthy**: The plugin passes internal health checks (e.g., verifies Metal compatibility).
+4. **Active**: The plugin registers its Extension Points into the `PluginContext`.
+5. **Suspended**: The plugin is temporarily paused (e.g., memory constraints).
+6. **Shutdown**: The plugin cleans up resources before exit.
+
+### Lazy Activation
+Plugins should support **optional lazy activation**.
+For example, a `Diffusion Plugin` does not initialize heavy Metal kernels at startup. Instead, it waits until the first diffusion model is loaded, triggering an `Activate` hook.
 
 ---
 
 ## 6. Dependency Resolution
 
-- **Resolution Engine**: Uses a topological sort on the plugin DAG.
+- **Resolution Engine**: Uses a topological sort on the plugin DAG based on descriptors.
 - **Conflict Detection**: If Plugin A requires Plugin B v1.0 and Plugin C requires Plugin B v2.0, the `PluginManager` halts loading and logs a fatal error.
-- **Priority Ordering**: When multiple plugins provide the same capability (e.g., a default profile resolver vs a custom one), the one with the higher `priority` manifest field is executed first.
+- **Priority Ordering**: Handled implicitly through DAG dependencies.
 - **Optional Dependencies**: If missing, they are ignored; if present, they influence the topological sort.
-- **Lazy Loading**: While components are registered at startup, actual heavy imports (like custom Metal kernels) can be deferred until the factory/resolver is actually invoked.
 
 ---
 
@@ -123,48 +114,38 @@ Runtime branching is avoided because the core iterates over registered interface
 
 The runtime remains entirely generic, interacting only with protocol abstractions.
 
-1. **Model Discovery**: Iterates through registered discovery providers. If a plugin recognizes a proprietary model structure, it returns a `DiscoveredModel`.
-2. **Capability Registry**: Maps the model to required execution capabilities (e.g., identifying a model needs a plugin-provided `GenerationMode.RWKV`).
-3. **Execution Profile Registry**: Evaluates the `ExecutionContext` against all registered resolvers (sorted by priority). The plugin resolver returns an `ExecutionProfile` specifying the plugin's backend.
-4. **Execution Backend / Engine**: The core requests the backend from the factory. The plugin instantiates its custom `ExecutionBackend` and `ExecutionPipeline`.
-5. **Execution**: The Scheduler (remaining dumb) handles batching. The plugin's pipeline executes the forward pass.
-6. **Server**: API endpoints (registered via plugin) handle specific incoming formats.
+1. **Model Discovery**: Iterates through registered `ModelDiscoveryExtension` objects.
+2. **Capability Registry**: Maps the model to required Execution Families.
+3. **Execution Backend / Engine**: The core requests the backend mapped via an `ExecutionBackendExtension`. The plugin instantiates its custom `ExecutionBackend` and `ExecutionPipeline`.
+4. **Execution**: The Scheduler (remaining dumb) handles batching. The plugin's pipeline executes the forward pass.
 
 ---
 
 ## 8. Verification Integration
 
 Verification should not require core framework changes for new plugins.
-- **Test Discovery**: The `PipelineRunner` uses Pytest. Plugins can register custom Pytest markers or drop test scripts into a defined `tests/plugins/` directory.
-- **Golden Assets**: Plugins define their own golden asset paths in their manifest for the `test_golden_assets.py` to ingest.
-- **Equivalence**: Plugins providing custom backends must provide a HF reference model identifier and inputs to the `test_equivalence_runner.py`.
+- **VerificationExtension**: Plugins register specific golden asset paths or equivalence test overrides via this extension point.
 
 ---
 
 ## 9. Security
 
 - **Trust Boundaries**: Plugins run in the same process space. Strict isolation is not feasible in standard Python without heavy IPC overhead.
-- **Permissions**: (Future) Manifest can declare requested permissions (e.g., network access).
 - **Signature Verification**: Production deployments can verify signed wheel packages of plugins to prevent malicious tampering.
-- **Sandboxing**: For Phase 1, no sandboxing. Plugins are assumed to be trusted modules installed by the user/admin.
 
 ---
 
 ## 10. Repository Changes
 
 ### NEW Files
-- `omlx/plugins/manager.py`: Implements discovery, validation, and lifecycle.
-- `omlx/plugins/manifest.py`: Defines the manifest schema (Pydantic/Dataclass).
-- `omlx/plugins/context.py`: The context object passed to plugins for registration.
-- `omlx/plugins/exceptions.py`: Exceptions for dependency conflicts, invalid manifests.
+- `omlx/plugins/manager.py`: Implements generic discovery, lifecycle (Loaded -> Shutdown), and dependency resolution.
+- `omlx/plugins/descriptor.py`: Defines the Plugin Descriptor schema.
+- `omlx/plugins/context.py`: The `PluginContext` providing the generic `register()` method.
+- `omlx/plugins/extensions.py`: Defines the stable ABIs for `ExecutionBackendExtension`, `ModelDiscoveryExtension`, etc.
 
 ### MODIFIED Files
 - `omlx/registry/plugin_discovery.py`: Deprecate/Merge into `manager.py`.
-- `omlx/registry/capability_registry.py`: Expose safe registration methods.
-- `omlx/inference/execution_profile.py`: Ensure `ExecutionProfileRegistry` can accept new resolvers safely.
-- `omlx/model_discovery.py`: Add a hook/list of discovery providers instead of hardcoded `if model_type == "vlm"`.
-- `omlx/api/main.py` (or equivalent server entry): Add hooks to register plugin routers.
-- `verification/scripts/pipeline_runner.py`: Add a step to execute plugin-provided verification suites.
+- `omlx/registry/capability_registry.py` & `omlx/inference/execution_profile.py`: Refactor to consume generic Extension objects rather than exposing themselves.
 
 ### UNTOUCHED Files (Must remain generic)
 - `omlx/scheduler.py`
@@ -173,38 +154,32 @@ Verification should not require core framework changes for new plugins.
 ---
 
 ## 11. Risk Analysis
-
-- **Dependency Hell**: Version conflicts between multiple third-party plugins. *Mitigation*: Strict semantic version checking during Validation phase.
-- **API Stability**: Plugins depend on core interfaces (`ExecutionBackend`, `GenerationStrategy`). Changes to these will break plugins. *Mitigation*: Use Python `Protocol`s and deprecation cycles.
-- **Startup Performance**: Scanning entry points and resolving DAGs can slow startup. *Mitigation*: Caching the resolution graph.
-- **Monkey Patch Conflicts**: If two plugins attempt to monkey-patch `mlx_lm`, unpredictable behavior occurs. *Mitigation*: Discourage patching; enforce capability injection instead.
+- **Dependency Hell**: Version conflicts between multiple third-party plugins.
+- **API Stability**: Plugins depend on core Extension ABIs. Changes here break plugins.
+- **Monkey Patch Conflicts**: If two plugins attempt to monkey-patch `mlx_lm`, unpredictable behavior occurs.
 
 ---
 
 ## 12. Verification Plan (For the Plugin System itself)
 
-1. **Discovery & Manifest**: Create a mock plugin with a valid manifest and test if it is discovered. Create one with an invalid manifest to test rejection.
+1. **Discovery & Descriptor**: Create a mock plugin with a valid descriptor and verify it transitions to the `Loaded` state.
 2. **Dependency Resolution**: Construct mock plugins with circular dependencies and verify the system catches the error.
-3. **Registration**: Verify that a mock plugin can successfully register a dummy Profile Resolver and that the core uses it.
-4. **Lifecycle**: Log messages at every lifecycle stage of a mock plugin and assert the order is strictly: Init -> Register -> Activate -> Shutdown.
+3. **Registration Flow**: Verify a plugin can call `context.register(DummyExtension())` without knowing about the underlying registry.
+4. **Lifecycle**: Assert the full transition: Loaded -> Initialized -> Healthy -> Active -> Suspended -> Shutdown.
 
 ---
 
 ## 13. Rollback Strategy
-
-1. Maintain the current `importlib.metadata` entry point implementation in `plugin_discovery.py` as a fallback.
-2. Develop the new `omlx/plugins/*` module alongside the existing code.
-3. Introduce a feature flag `ENABLE_NEW_PLUGIN_ARCH=True`. If issues arise, toggle the flag to revert to the old hardcoded discovery paths.
+1. Introduce a feature flag `ENABLE_NEW_PLUGIN_ARCH=True`. If issues arise, toggle the flag to revert to the old hardcoded discovery paths.
 
 ---
 
 ## 14. Implementation Recommendation
+1. Define the `PluginDescriptor`, `PluginContext`, and `Extension` base classes.
+2. Implement the `PluginManager` generic lifecycle and DAG resolution.
+3. Migrate an existing feature (e.g., Experimental Diffusion) into an Extension object.
 
-1. **Checkpoint 1**: Define the `PluginManifest` and `PluginContext` data structures.
-2. **Checkpoint 2**: Implement the `PluginManager` DAG resolution and lifecycle hooks.
-3. **Checkpoint 3**: Refactor `ModelDiscovery` and `ExecutionProfileRegistry` to explicitly accept registrations from the `PluginManager`.
-4. **Checkpoint 4**: Migrate an existing "hardcoded" feature (e.g., Experimental Diffusion) into an in-tree plugin to validate the architecture.
-
+---
 
 ## 15. Diagrams
 
@@ -213,112 +188,86 @@ Verification should not require core framework changes for new plugins.
 graph TD
     subgraph Plugin System
         PM[Plugin Manager]
-        PM --> |Discovers via entry points| EntryPoints
-        PM --> |Validates| Manifest
-        PM --> |Resolves DAG| DepGraph[Dependency Graph]
+        PM --> |Discovers| EP[Entry Points]
+        PM --> |Reads| PD[Plugin Descriptors]
+        PM --> |Resolves DAG| DAG[Dependency Graph]
     end
 
-    subgraph Core Registries
-        CR[Capability Registry]
-        ER[Execution Profile Registry]
-        MR[Model Registry]
+    subgraph Core
+        C[Plugin Context]
+        R1[Internal Registries...]
+        C --> |Abstracts| R1
     end
 
     subgraph Plugins
-        EP[Execution Plugin]
-        BP[Backend Plugin]
-        MP[Model Adapter Plugin]
+        P1[Plugin A]
+        P2[Plugin B]
     end
 
-    PM --> |Calls register context | EP
-    PM --> |Calls register context | BP
-    PM --> |Calls register context | MP
+    subgraph Extension Points
+        EBE[ExecutionBackendExtension]
+        MDE[ModelDiscoveryExtension]
+        VE[VerificationExtension]
+    end
 
-    EP -.-> |Registers capability bundle| CR
-    BP -.-> |Registers backend factory| ER
-    MP -.-> |Registers adapter| MR
+    PM --> |Initializes| P1
+    PM --> |Initializes| P2
+
+    P1 -.-> |Instantiates| EBE
+    P1 -.-> |Calls context.register| C
+
+    P2 -.-> |Instantiates| MDE
+    P2 -.-> |Calls context.register| C
 ```
 
 ### Plugin Loading Lifecycle
 ```mermaid
-sequenceDiagram
-    participant System
-    participant PluginManager
-    participant Plugin
-    participant CoreRegistries
+stateDiagram-v2
+    [*] --> Loaded: Module Imported
+    Loaded --> Initialized: Read Descriptor
+    Initialized --> Healthy: Internal Checks Pass
+    Healthy --> Active: context.register() Called
 
-    System->>PluginManager: start()
-    PluginManager->>PluginManager: Discovery (Scan entry points)
-    PluginManager->>PluginManager: Validation (Read Manifests)
-    PluginManager->>PluginManager: Dependency Resolution (Topological Sort)
-    PluginManager->>Plugin: initialize()
-    PluginManager->>Plugin: register(PluginContext)
-    Plugin->>CoreRegistries: inject components via PluginContext
-    PluginManager->>System: Activation Complete
-    System->>System: Execution Phase
-    System->>PluginManager: shutdown()
-    PluginManager->>Plugin: shutdown()
+    Active --> Suspended: Resource constraint / Lazy pause
+    Suspended --> Active: Resumed
+
+    Active --> Shutdown: System exit
+    Suspended --> Shutdown
+    Healthy --> Shutdown
+    Shutdown --> [*]
 ```
 
 ### Registration Flow
 ```mermaid
 graph LR
-    P[Plugin] -->|importlib.metadata| EP[Entry Point]
-    EP --> PM[Plugin Manager]
-    PM --> |Context API| C[Plugin Context]
-    C --> |register_backend_factory| ER[Execution Profile Registry]
-    C --> |register_capability_bundle| CR[Capability Registry]
+    P[Plugin] -->|Creates| E[Extension Object]
+    P --> |Calls| C[context.register]
+    C --> PM[Plugin Manager]
+    PM --> |Routes Extension to| IR[Internal Registry]
 ```
 
 ### Runtime Interaction
 ```mermaid
 sequenceDiagram
     participant Request
-    participant ModelDiscovery
-    participant Core (Capability & Profile Registries)
-    participant ExecutionBackend
-    participant Engine
+    participant Core
+    participant Extension as Registered Extension
+    participant Backend
 
-    Request->>ModelDiscovery: Find Model
-    ModelDiscovery-->>Core: Return DiscoveredModel
-    Core->>Core: Resolve Execution Profile (Plugin Resolver)
-    Core->>ExecutionBackend: Instantiate (Plugin Factory)
-    ExecutionBackend->>Engine: Prepare & Execute pipeline
-    Engine-->>ExecutionBackend: Output
-    ExecutionBackend-->>Request: Response
-```
-
-### Verification Interaction
-```mermaid
-graph TD
-    PR[Pipeline Runner]
-
-    subgraph Core Suites
-        GA[Golden Assets]
-        EA[Equivalence Assertions]
-        CP[Capability Profiles]
-    end
-
-    subgraph Plugin Test Hooks
-        PGA[Plugin Golden Assets]
-        PEA[Plugin Equivalence Tests]
-    end
-
-    PR --> GA
-    PR --> EA
-    PR --> CP
-
-    PR --> |Loads external markers| PGA
-    PR --> |Loads external assertions| PEA
+    Request->>Core: Process Model
+    Core->>Extension: Evaluate capabilities (Execution Families)
+    Extension-->>Core: Provide logic/factory
+    Core->>Backend: Execute pipeline
+    Backend-->>Request: Response
 ```
 
 ### Dependency Graph Example
 ```mermaid
 graph TD
     A[Core System]
-    B[Plugin: RWKV Backend]
-    C[Plugin: RWKV Flash Cache]
-    D[Plugin: Optional UI]
+    B[Plugin: Custom Metal Backend]
+    C[Plugin: Metal Helper Lib]
+    D[Plugin: Optional UI Extensions]
 
     A --> B
     B --> |Requires| C
