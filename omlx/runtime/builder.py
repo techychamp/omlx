@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from .context import RuntimeState
-from .events import EventBus
+from .events import EventBus, RuntimeLifecycleEvent, Event, EventCategory
 from .feature_flags import FeatureFlags
 
 logger = logging.getLogger("omlx.runtime")
@@ -95,6 +95,7 @@ class RuntimeBuilder:
         self._engine_pool = engine_pool
         return self
 
+
     def build(self) -> Runtime:
         """Construct the immutable context and wire up the Runtime."""
         context = RuntimeContext(
@@ -106,6 +107,14 @@ class RuntimeBuilder:
 
         runtime = Runtime(context)
         runtime.engine_pool = self._engine_pool
+
+        # Publish starting event
+        runtime.event_bus.publish(Event(
+            type=RuntimeLifecycleEvent.RUNTIME_STARTING,
+            category=EventCategory.RUNTIME,
+            source="RuntimeBuilder"
+        ))
+
         runtime.transition(RuntimeStateEnum.BOOTSTRAPPING)
 
         # In a full implementation, registries and plugin manager would be initialized here
