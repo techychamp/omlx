@@ -16,188 +16,246 @@ A comprehensive audit of the codebase has been conducted to locate where executi
 - **`omlx/registry/model_info.py`**:
   - `build_model_info` contains static, hardcoded logic for setting modes and attention types based on specific capability boolean flags.
 - **`omlx/registry/capability_registry.py`**:
-  - `GenerationStrategyRegistry.resolve_mode` applies hardcoded fallback logic (checking `capabilities.supports_diffusion` and so on).
+  - `GenerationStrategyRegistry.resolve_mode` applies hardcoded fallback logic.
   - `register_default_strategies` is hardcoded.
 - **`omlx/engine_core.py`**:
   - Combines capabilities, configures the context, resolves the execution profile, and builds the strategy registry inline.
 
 ## 2. Architecture Review
 
-The current architecture is highly coupled to specific generation modes (Autoregressive, Diffusion, Speculative) via boolean fields and `if/else` statements. The introduction of new modes or models requires modifications to core runtime classes.
+The current architecture is highly coupled to specific generation modes via boolean fields and `if/else` statements.
 
-**Goal**: Move to a declarative registry where capabilities are registered, discovered, and resolved via a generic `ResolutionEngine`. This insulates core components (like `Scheduler`, `EngineCore`) from execution logic. In the long term, this feeds into the target abstraction chain: `Capabilities -> Execution Planner -> Execution Plan -> Execution Graph -> Backend`.
-
-## 3. Capability Registry Design
-
-The new registry will handle dynamic registration of capabilities.
-
-- **`CapabilityDefinition`**: Defines a capability dynamically (id, display_name, description, dependencies, conflicts, inheritance).
-- **`CapabilityRegistry`**: Stores and provides lookups for all defined capabilities.
-
-Example JSON-like structure for a capability:
-```python
-@dataclass
-class CapabilityDefinition:
-    id: str  # e.g., "transformer.autoregressive"
-    display_name: str
-    description: str
-    supported_models: list[str]  # Architectures
-    supported_backends: list[str]
-    hardware_requirements: list[str] # e.g., ["metal.unified_memory"]
-    dependencies: list[str] = field(default_factory=list) # e.g., ["attention.causal"]
-    conflicts: list[str] = field(default_factory=list) # e.g., ["attention.diffusion"]
-    priority: int = 0
-    inherits_from: str | None = None  # For inheritance, e.g., "transformer.autoregressive" -> "transformer.speculative"
-    default_parameters: dict[str, Any] = field(default_factory=dict)
-    experimental: bool = False
-    verification_profile: str | None = None
-```
-
-## 4. Resolution Engine Design
-
-The `CapabilityResolver` (or `ResolutionEngine`) will be responsible for composing and resolving runtime components dynamically.
-
-**Inputs**:
-1. `ModelMetadata` (from `config.json` and loaded structure)
-2. `HardwareCapabilities`
-3. `UserOverrides` (Feature Flags, explicit selections)
-4. `Execution Profile`
-
-**Process**:
-1. Query `CapabilityRegistry` to find all capabilities that match the model and inherit properly.
-2. Filter capabilities against `HardwareCapabilities`, `UserOverrides`, and the `Execution Profile`.
-3. Resolve dependencies and remove conflicts (using topological sort/graph resolution).
-4. Compose capabilities (e.g., `Transformer` + `Streaming` + `MoE` = `Streaming MoE`) without creating custom code paths.
-5. Identify the highest priority composite capability.
-6. Map to a resolved `RuntimeCapability`.
-
-## 5. Registry Relationships
+**Goal**: Move to a declarative registry where capabilities are registered, discovered, and resolved via a generic `ResolutionEngine`. This insulates core components from execution logic and establishes a clean, cohesive abstraction chain:
 
 ```text
-[CapabilityRegistry] <--- registers --- [Capability definitions (Plugins/Built-in)]
-        ^
-        | (queries)
-[CapabilityResolver] <--- [ModelMetadata, HardwareProfiles, VerificationProfiles, UserOverrides, ExecutionProfile]
-        |
-        v (outputs resolved capabilities)
-[ExecutionProfileRegistry] ---> matches to ---> [ExecutionProfile]
-        |
-        v
-[ExecutionBackendRegistry] ---> produces ---> [ExecutionBackend]
-        |
-        v
-[ExecutionEngine]
+Model
+   ↓
+Model Adapter
+   ↓
+Capability Resolver
+   ↓
+Execution Planner
+   ↓
+Execution Graph
+   ↓
+Generation Strategy
+   ↓
+Execution Backend
+   ↓
+Execution Pipeline
+   ↓
+Execution Engine
+   ↓
+MLX Runtime
 ```
-Note: As per architecture requirements, the `Scheduler` only receives an already-resolved strategy/backend and does not depend on the registry. The solution will incorporate existing `ExecutionProfileRegistry` while separating concerns into new Registries for Verification and Hardware. Avoid duplicating `ExecutionProfileRegistry` logic.
 
-## 6. Class Diagrams
+## 3. Capability Descriptor Design
 
+The registry will handle dynamic registration of capabilities using a `CapabilityDescriptor`. Rather than a flat list of boolean fields, capabilities describe execution characteristics.
+
+Capabilities are divided into two distinct domains:
+
+### 3.1. Static Capabilities
+Declared by the model itself, these never change.
+- `supports_diffusion`, `supports_vision`, `supports_MoE`
+- `attention_type` (causal, bidirectional)
+
+### 3.2. Runtime Capabilities
+Resolved dynamically per-execution based on the environment and request.
+- `metal_available`, `memory_limits`, `batch_size`
+- `cache_implementation`, `execution_mode`, `verification_enabled`
+
+### 3.3. The Descriptor
+```python
+@dataclass
+class VerificationDescriptor:
+    # Verification is metadata about a capability, not a separate registry
+    verification_passes: list[str]
+    # e.g., ["n_gram_match", "model_evaluator"]
+
+@dataclass
+class CapabilityDescriptor:
+    id: str
+    display_name: str
+    description: str
+
+    # Capability Families
+    family: str  # e.g., "architecture", "execution", "hardware", "verification", "scheduling", "memory", "streaming", "plugins"
+
+    # Execution Properties (answering "Does this use X?")
+    execution_family: str       # e.g., "autoregressive", "diffusion"
+    attention_type: str         # e.g., "causal", "bidirectional", "iterative_refinement"
+    cache_type: str             # e.g., "paged_ssd", "standard_kv"
+    scheduler_hints: list[str]  # e.g., ["chunked_prefill"]
+    execution_graph: str        # e.g., "standard_transformer"
+    backend: str                # e.g., "autoregressive_backend"
+    pipeline: str               # e.g., "transformer_pipeline"
+    engine: str                 # e.g., "transformer_execution_engine"
+    adapter: str                # e.g., "llama_adapter"
+
+    # Metadata & Resolution
+    verification_profile: VerificationDescriptor | None
+    hardware_profile_requirements: dict[str, Any]
+    dependencies: list[str] = field(default_factory=list)
+    conflicts: list[str] = field(default_factory=list)
+    inherits_from: str | None = None  # e.g., "transformer"
+    priority: int = 0
+```
+
+## 4. Capability Families, Composition, & Inheritance
+
+Instead of one flat registry, capabilities are organized into **Capability Families** to remain manageable as the system grows:
+* Architecture
+* Execution
+* Hardware
+* Verification
+* Scheduling
+* Memory
+* Streaming
+* Plugins
+
+### Capability Inheritance
+
+The registry supports inheritance to define hierarchical capabilities without duplicating base descriptors:
+```text
+Transformer
+    ↓
+Autoregressive
+    ↓
+Speculative
+    ↓
+Triage
+```
+And:
+```text
+Transformer
+    ↓
+Diffusion
+    ↓
+Image Diffusion
+```
+
+### Capability Composition
+
+The `CapabilityResolver` composes fundamental capabilities into Composite Capabilities at runtime, avoiding an explosion of registered permutations.
+
+Example 1: Streaming MoE
+```text
+Transformer + Streaming + MoE  ->  Streaming MoE Runtime
+```
+
+Example 2: Nemotron Triage
+```text
+Transformer + Diffusion + Verification  ->  Nemotron Triage Runtime
+```
+
+## 5. Resolution Engine Design
+
+The `CapabilityResolver` composes and resolves runtime components dynamically.
+
+**Inputs**:
+1. Static Capabilities (Model Metadata)
+2. `ExecutionEnvironment` (formerly Hardware registry)
+   - *Includes: MLX version, Metal version, unified memory, CPU, OS, backend availability, custom kernels, quantization support.*
+3. User Overrides (Feature flags)
+
+**Process**:
+1. Query registries across all Capability Families.
+2. Filter capabilities against the `ExecutionEnvironment`.
+3. Resolve dependencies, remove conflicts (topological sort), and flatten inheritance chains.
+4. Perform Capability Composition (e.g., `Transformer` + `MoE` + `Streaming`).
+5. Output the resolved `CompositeCapability` to the `ExecutionPlanner`.
+6. `ExecutionPlanner` consumes the resolved capabilities and emits an `ExecutionGraph`.
+
+## 6. Diagrams
+
+### 6.1. Registry Relationships
 ```mermaid
 classDiagram
     class CapabilityRegistry {
-        +register(cap: CapabilityDefinition)
-        +get_all() -> List[CapabilityDefinition]
-        +get_by_id(id: str) -> CapabilityDefinition
+        +register(cap: CapabilityDescriptor)
+        +get_all() -> List[CapabilityDescriptor]
+        +get_by_id(id: str) -> CapabilityDescriptor
     }
-    class ExecutionProfileRegistry {
-        +register_profile(profile: ExecutionProfile)
-        +resolve(caps: List[str]) -> ExecutionProfile
-    }
-    class BackendRegistry {
-        +register_factory(name: str, factory: BackendFactory)
-        +get_factory(name: str) -> BackendFactory
-    }
-    class HardwareProfileRegistry {
-        +get_current_hardware() -> HardwareProfile
-    }
-    class VerificationProfileRegistry {
-        +get_profile(name: str) -> VerificationProfile
+    class ExecutionEnvironment {
+        +get_mlx_version() -> str
+        +get_memory() -> int
+        +get_backend_availability() -> List[str]
     }
     class CapabilityResolver {
-        +resolve(model_info, hardware_info, profile, overrides) -> ResolvedRuntimeContext
+        +resolve(model_info, environment, overrides) -> CompositeCapability
     }
-    class ResolvedRuntimeContext {
-        +capabilities: List[CapabilityDefinition]
-        +execution_profile: ExecutionProfile
-        +backend_factory: BackendFactory
-        +strategy_class: Type[BaseGenerationStrategy]
+    class ExecutionPlanner {
+        +plan(caps: CompositeCapability) -> ExecutionGraph
     }
-    CapabilityResolver --> CapabilityRegistry
-    CapabilityResolver --> ExecutionProfileRegistry
-    CapabilityResolver --> BackendRegistry
-    CapabilityResolver --> HardwareProfileRegistry
-    CapabilityResolver --> VerificationProfileRegistry
+    class ExecutionGraph {
+        +nodes: List[ExecutionNode]
+    }
+    CapabilityResolver --> CapabilityRegistry : Queries Families
+    CapabilityResolver --> ExecutionEnvironment : Checks hardware/OS limits
+    CapabilityResolver --> ExecutionPlanner : Outputs CompositeCapability
+    ExecutionPlanner --> ExecutionGraph : Outputs
 ```
 
-## 7. Sequence Diagrams
-
-**Initialization Flow**
+### 6.2. Initialization Flow
 ```mermaid
 sequenceDiagram
     participant EngineCore
-    participant CapabilityResolver
-    participant CapabilityRegistry
-    participant HardwareProfileRegistry
-    participant ProfileRegistry
-    participant BackendRegistry
+    participant Resolver as CapabilityResolver
+    participant Registry as CapabilityRegistry
+    participant Env as ExecutionEnvironment
+    participant Planner as ExecutionPlanner
 
-    EngineCore->>CapabilityResolver: resolve_context(model_info, flags)
-    CapabilityResolver->>HardwareProfileRegistry: get_current_hardware()
-    HardwareProfileRegistry-->>CapabilityResolver: HardwareProfile
-    CapabilityResolver->>CapabilityRegistry: get_matching_capabilities(model_info)
-    CapabilityRegistry-->>CapabilityResolver: List[CapabilityDefinition]
-    CapabilityResolver->>CapabilityResolver: filter & compose (dependencies, conflicts, inheritance)
-    CapabilityResolver->>ProfileRegistry: match_profile(resolved_caps)
-    ProfileRegistry-->>CapabilityResolver: ExecutionProfile
-    CapabilityResolver->>BackendRegistry: get_factory(profile.backend_name)
-    BackendRegistry-->>CapabilityResolver: BackendFactory
-    CapabilityResolver-->>EngineCore: ResolvedRuntimeContext
-    EngineCore->>BackendFactory: create(profile)
+    EngineCore->>Env: detect_environment()
+    Env-->>EngineCore: ExecutionEnvironment
+    EngineCore->>Resolver: resolve(model_static_caps, env, flags)
+    Resolver->>Registry: get_matching_capabilities()
+    Registry-->>Resolver: List[CapabilityDescriptor]
+    Resolver->>Resolver: resolve inheritance & compose capabilities
+    Resolver->>Resolver: resolve dependencies & conflicts
+    Resolver-->>EngineCore: CompositeCapability
+    EngineCore->>Planner: generate_plan(composite_capability)
+    Planner-->>EngineCore: ExecutionGraph
 ```
 
-## 8. Files To Modify
+## 7. Files To Modify
 
-- **NEW `omlx/runtime/capability_registry.py`**: To hold `CapabilityDefinition` and `CapabilityRegistry`.
-- **NEW `omlx/runtime/resolver.py`**: To implement the `CapabilityResolver` (graph resolution, dependency/conflict checking, composition, inheritance).
-- **NEW `omlx/runtime/hardware_registry.py`**: To manage hardware profiles.
-- **NEW `omlx/runtime/verification_registry.py`**: To manage verification profiles for capabilities.
-- **MODIFIED `omlx/runtime/capabilities.py`**: Deprecate hardcoded boolean dataclasses in favor of dynamic resolution, or retain them as typed views over the dynamic registry.
-- **MODIFIED `omlx/inference/execution_profile.py`**: Move fallback logic into the `CapabilityResolver`. Clean up `_default_resolver` to use the registry.
-- **MODIFIED `omlx/registry/model_info.py`**: Remove hardcoded capability checks; rely on `CapabilityResolver`.
-- **MODIFIED `omlx/registry/capability_registry.py`**: Rename to `StrategyRegistry` or merge to avoid name collision with the generic `CapabilityRegistry`.
-- **MODIFIED `omlx/engine_core.py`**: Update initialization to use the new `CapabilityResolver` to fetch the complete context, passing the resolved strategy/backend to the `Scheduler`.
-- **UNTOUCHED `omlx/scheduler.py`**: Must remain completely unaware of execution details.
+- **NEW `omlx/runtime/capability_registry.py`**: Defines `CapabilityDescriptor`, `VerificationDescriptor`, and family-partitioned registries.
+- **NEW `omlx/runtime/resolver.py`**: Implements the `CapabilityResolver` (graph resolution, static vs runtime composition, inheritance).
+- **NEW `omlx/runtime/environment.py`**: Manages the `ExecutionEnvironment` (hardware, OS, MLX version).
+- **MODIFIED `omlx/runtime/capabilities.py`**: Deprecate hardcoded boolean dataclasses in favor of dynamic resolution.
+- **MODIFIED `omlx/inference/execution_profile.py`**: Retained/modified as part of the `ExecutionPlanner`'s output, removing old fallback logic.
+- **MODIFIED `omlx/registry/model_info.py`**: Remove hardcoded capability checks.
+- **MODIFIED `omlx/engine_core.py`**: Update initialization to use the new `CapabilityResolver` -> `ExecutionPlanner` pipeline.
 
-## 9. Risk Analysis
+## 8. Risk Analysis
 
 - **Cyclic Dependencies**: Capability inheritance or dependencies could create cycles (e.g., A depends on B, B depends on A). The `CapabilityResolver` must implement topological sorting and cycle detection to fail fast during resolution.
-- **Startup Latency**: Dynamically resolving capabilities, loading plugins, and evaluating hardware could increase `EngineCore` initialization time. The resolver results should be cached per `model_info` configuration.
+- **Startup Latency**: Dynamically resolving capabilities, resolving inheritance chains, and evaluating hardware could increase `EngineCore` initialization time. The resolver results should be cached per `model_info` configuration.
 - **Registration Ordering**: If plugins or capabilities are registered in non-deterministic orders, resolution could fail. The registry must enforce lazy resolution (evaluate after all registrations are complete).
-- **Plugin Loading**: External plugins could inject malformed capabilities or crash the initialization phase. The registry must implement strict validation (`pydantic` or `dataclass` type checking) on capability definitions.
-- **Future Compatibility**: Modifying `EngineCore` logic might break external tools using older SDKs. The `ResolvedRuntimeContext` should expose legacy properties (like `supports_diffusion`) as computed properties to maintain backwards compatibility in the short term.
-- **Verification Implications**: Testing combinatorial capabilities (Transformer + MoE + Streaming + Speculative) requires exponential test cases. We must rely on `VerificationProfiles` to test the most common composed capabilities.
+- **Plugin Loading**: External plugins could inject malformed capabilities or crash the initialization phase. The registry must implement strict validation on capability definitions.
+- **Future Compatibility**: Modifying `EngineCore` logic might break external tools using older SDKs. The resolved structures should expose legacy properties as computed properties to maintain backwards compatibility in the short term.
+- **Verification Implications**: Testing combinatorial capabilities requires exponential test cases. We must rely on `VerificationDescriptor` passes to test the most common composed capabilities rather than enumerating all permutations.
 
-## 10. Verification Plan
+## 9. Verification Plan
 
-1. **Registry Correctness**: Unit tests to verify capabilities can be registered, retrieved, and queried.
-2. **Resolution Correctness**: Unit tests to verify that given a mock model config, the correct set of capabilities is resolved.
-3. **Inheritance Correctness**: Tests to verify capability inheritance (e.g., Speculative inherits from Autoregressive, Image Diffusion inherits from Diffusion).
-4. **Composition Correctness**: Tests to verify capability composition (e.g., Transformer + Streaming + MoE = Streaming MoE) correctly synthesizes a `ResolvedRuntimeCapability`.
-5. **Plugin Registration**: Verify that an external plugin can register a new capability and have it resolved without modifying core code.
-6. **Hardware Resolution**: Verify that capabilities correctly filter based on hardware requirements (e.g., denying certain backends if unified memory is too low).
-7. **Execution Profile Resolution**: Verify that the resolver produces the correct execution profile.
+1. **Family Registration**: Verify capabilities can be registered under specific families (Architecture, Execution, Streaming, etc.).
+2. **Inheritance & Composition Correctness**: Tests to verify capability inheritance (Autoregressive inherits from Transformer) and composition (Transformer + Streaming + MoE correctly synthesizes into a composite descriptor).
+3. **Static vs Runtime Separation**: Ensure static capabilities from the model dictate which runtime capabilities can be composed.
+4. **Environment Resolution**: Verify `ExecutionEnvironment` correctly restricts capabilities based on MLX version, memory, and custom kernels.
+5. **Execution Planner Consumes Capabilities**: Validate that the resolved capability descriptor successfully maps to a planned `ExecutionGraph`.
 
-## 11. Rollback Plan
+## 10. Rollback Plan
 
-- **Version Control**: Work will be done in a feature branch (`feature/raes-008-capability-registry`).
+- **Version Control**: Work will be done in a feature branch.
 - **Feature Flag**: Introduce a feature flag `OMLX_USE_NEW_RESOLVER` (default to False initially) to allow side-by-side execution if needed.
-- **Reversion**: If the new resolver causes regressions, the fallback is to toggle the flag or revert the branch, returning to the static resolution logic in `omlx/engine_core.py`.
+- **Reversion**: If the new resolver causes regressions, toggle the flag or revert the branch.
 
-## 12. Recommendation for the Implementation Checkpoint
+## 11. Recommendation for the Implementation Checkpoint
 
-We recommend proceeding with **RAES-008 Checkpoint 1: Capability Registry Foundation**:
-* **Goal**: Implement `CapabilityDefinition`, `CapabilityRegistry`, and basic `CapabilityResolver` without integrating them into `EngineCore`.
-* **Purpose**: Establish the core data structures and ensure they can resolve dependencies, conflicts, and inheritance correctly through tests.
-* **Allowed Files**: `omlx/runtime/capability_registry.py` (new), `omlx/runtime/resolver.py` (new), `tests/test_capability_registry.py` (new).
-* **Forbidden Files**: `omlx/engine_core.py`, `omlx/scheduler.py`, `omlx/registry/capability_registry.py`.
-* **Exit Criteria**: All registry and resolver logic is implemented and passes unit tests covering resolution, cyclic dependency catching, inheritance, and plugin loading.
+We recommend proceeding with **RAES-008 Checkpoint 1: Capability Registry & Environment Foundation**:
+* **Goal**: Implement `CapabilityDescriptor`, `ExecutionEnvironment`, and the partitioned `CapabilityRegistry`.
+* **Purpose**: Establish the core data structures and ensure they can resolve inheritance, dependencies, conflicts, and basic composition through tests.
+* **Allowed Files**: `omlx/runtime/capability_registry.py`, `omlx/runtime/resolver.py`, `omlx/runtime/environment.py`, `tests/test_capability_registry.py`.
+* **Forbidden Files**: `omlx/engine_core.py`, `omlx/scheduler.py`.
+* **Exit Criteria**: Registry, environment detection, and resolver logic is implemented and passes unit tests covering inheritance, composition, and static/runtime boundaries.
