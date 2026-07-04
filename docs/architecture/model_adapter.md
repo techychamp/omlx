@@ -37,94 +37,123 @@ Our audit of the codebase reveals model-specific logic leaked into several layer
 ## 2. Adapter Architecture
 
 ### Design Philosophy
-The runtime components (`Scheduler`, `EngineCore`, `ExecutionBackend`, `ExecutionEngine`) will remain untouched. Instead, models will be managed by a `BaseModelAdapter`. The adapter will act as the unified interface between a specific model architecture and the runtime pipeline.
 
-### Adapter Hierarchy
+The runtime components (`Scheduler`, `EngineCore`, `ExecutionBackend`, `ExecutionEngine`) will remain untouched. Instead, models will be managed by an Adapter architecture designed around **execution behavior** and **composition**, rather than a rigid taxonomy of model types.
 
-We will use **composition over multiple inheritance** to handle models with overlapping capabilities (e.g., Vision + MoE, Diffusion + Verification) to avoid the diamond problem. However, the foundational families will be defined as an inheritance tree.
+### Adapter Hierarchy: Behavior & Traits
+
+Adapters are organized around foundational execution behaviors rather than model taxonomy. Capabilities like Vision or MoE are mixed in as composable traits rather than top-level adapter classes.
 
 ```text
-BaseModelAdapter
+BaseAdapter
         │
-        ├──────── DenseTransformerAdapter
+        ├──────── AutoregressiveAdapter
         │
         ├──────── DiffusionAdapter
         │
-        ├──────── MoEAdapter
+        ├──────── VerificationAdapter
         │
-        ├──────── VisionAdapter
+        ├──────── EmbeddingAdapter
         │
-        ├──────── AudioAdapter
-        │
-        └──────── EmbeddingAdapter
+        └──────── EncoderAdapter
 ```
 
-**Reasoning for Composition**:
-For composite models (e.g., "Vision + MoE"), a `ModelAdapter` might instantiate or delegate to a `VisionCapability` and an `MoECapability` internally. The runtime only queries the unified adapter interface.
+**Composition and Traits**:
+Instead of creating a `VisionMoEAdapter`, an autoregressive VLM with MoE layers would be represented as:
+`AutoregressiveAdapter` + `VisionTrait` + `MoETrait`.
+This highly scalable composition allows traits to handle specialized tokenizer rules or visual block masks independently of the primary execution mode.
 
-### Adapter Responsibilities
+### Lifecycle Phases
 
-The adapter defines:
-1. `prepare_config(config_dict)`: Fixes up raw `config.json`.
-2. `apply_patches()`: Applies any necessary monkey-patches before model load.
-3. `load_model(weights_path)`: Actually instantiates the model object.
-4. `prepare_tokenizer(tokenizer)`: Handles tokenizer quirks (special tokens, chat templates).
-5. `get_execution_hints()`: Returns hardware, caching, or scaling hints.
-6. `build_attention_mask(context)`: Generates required mask tensors.
-7. `get_capabilities()`: Returns a `ModelCapabilityProfile`.
+To prevent adapters from becoming bloated "god classes," the adapter contract is split into distinct lifecycle phases:
 
-## 3. Future Execution Families Integration
+1. **Discovery Phase**: Analyzes the model directory to identify required traits, capabilities, and execution family.
+2. **Configuration Phase**: Cleans, parses, and normalizes `config.json` into a standardized format.
+3. **Loading Phase**: Handles the execution of patches, instantiates the model object, and loads weights.
+4. **Runtime Phase**: Prepares tokenizers, builds attention masks, provides chat templates, and supports forward-pass metadata.
+5. **Cleanup Phase**: Safely tears down resources, unloads context, and cleans up references.
+
+### Structured Descriptors (Metadata vs. Behavior)
+
+Instead of querying dozens of independent methods (e.g., `get_execution_hints()`), adapters expose a structured descriptor that defines exactly what the model is and what it needs.
+
+**AdapterDescriptor**:
+- `CapabilityDescriptor`: High-level traits (e.g., Vision, MoE).
+- `ExecutionHints`: Optimization flags, parallelization strategies.
+- `HardwareRequirements`: Memory bounds, required accelerator features.
+- `VerificationProfile`: Golden prompts, expected tolerances.
+- `PatchRequirements`: Declares which patches must be applied.
+
+## 3. Patch Pipeline Plugins
+
+Monkey patches will no longer be monolithic `maybe_apply_...` functions. Instead, patches become isolated, reusable adapter plugins.
+
+**Execution Flow**:
+`Adapter` → `Patch Pipeline` → `[Patch 1, Patch 2, ...]`
+
+Adapters declare a list of required `PatchRequirements` in their descriptor. The Patch Pipeline executes them sequentially during the Loading phase. This isolates side effects, makes patches reusable across adapters (e.g., `SDPAPatch`, `Llama4RoPEPatch`), and dramatically simplifies testing.
+
+## 4. Execution Graph Metadata
+
+Adapters will act as the source of truth for the execution planner. Instead of the backend trying to infer what to build, the adapter provides explicit execution graph metadata:
+
+- `ExecutionGraphType` (e.g., single-pass, recurrent)
+- `CacheLayout` (e.g., paged KV, rotating, block-sparse)
+- `AttentionType` (e.g., dense, sliding window, native MTP)
+- `SamplingType` (e.g., greedy, speculative, rejection)
+- `VerificationStages` (e.g., draft, verify, correct)
+- `ExecutionFamily`
+
+## 5. Interaction with Runtime
+
+Long term, the explicit `AdapterFactory` will be phased out in favor of integration with the Capability Resolver.
+
+**Component Resolution Flow**:
+`Model Discovery` → `Capability Resolver` → `Execution Planner` → `Adapter Resolver` → `Adapter Instantiation`
+
+This turns the Adapter into just another resolved component in the pipeline, completely decoupling model loading from the execution loop.
+
+## 6. Future Execution Families Integration
 
 The design cleanly isolates future functionality:
 
-- **Nemotron Labs Diffusion / DiffusionGemma**: Will implement `DiffusionAdapter`, providing iterative denoising metadata, block masks, and custom scheduling hooks via the adapter interface, not by changing `ExecutionBackend`.
-- **Nemotron Triage**: Will use an adapter that provides verification hooks and draft generation metadata.
-- **Streaming MoE**: An `MoEAdapter` will provide expert routing and partial loading hints that the `ExecutionBackend` uses without knowing it's an MoE.
+- **Nemotron Labs Diffusion / DiffusionGemma**: Implemented via `DiffusionAdapter`. Uses a `DiffusionTrait` to inject required iterative denoising metadata and block masks.
+- **Nemotron Triage**: Implemented via `VerificationAdapter` using draft generation and verification stage traits.
+- **Streaming MoE**: An `MoETrait` applied to an `AutoregressiveAdapter` handles expert routing and partial loading cache hints.
 
-## 4. Interaction with Runtime
+## 7. Interaction with Verification Framework
 
-**Current Flow**:
-Model Load -> Engine Instantiation -> Backend Execution
+Adapters will expose their verification metadata interface through the `VerificationProfile` inside the `AdapterDescriptor`.
+This automatically supplies `verification_framework.md` with:
+- Golden prompts and HF equivalency targets.
+- Precision tolerances.
+- Cache comparison metrics.
 
-**New Flow**:
-Model Discovery -> Registry resolves `BaseModelAdapter` -> Adapter configures capabilities -> Profile built -> `ExecutionBackend` initialized with Profile -> `ExecutionEngine` executed.
+## 8. Risk Analysis
 
-The `ExecutionBackend` will query the adapter for masks, cache layouts, and processing instructions, remaining agnostic to whether the model is a Transformer or a Diffusion model.
+1. **Trait Combinatorics**: Overlapping traits could conflict. *Mitigation*: Traits must be scoped strictly to their domain (e.g., VisionTrait only handles image inputs).
+2. **Patch Unloading**: Modifying global state is risky. *Mitigation*: The Patch Pipeline must track applied patches and ideally support a rollback mechanism or restrict application to isolated processes.
+3. **Execution Graph Complexity**: Exposing graph definitions from the adapter may couple it too tightly to the backend. *Mitigation*: Adapters emit declarative enum/dataclass hints, not actual execution logic.
 
-## 5. Interaction with Verification Framework
+## 9. Verification Plan (No Implementation)
 
-Adapters will expose a verification metadata interface:
-- `get_verification_metadata()`: Returns expected tolerance levels, golden prompt sets, and HF equivalency targets.
-- This allows `verification_framework.md` to automatically pull testing parameters directly from the adapter rather than maintaining parallel config files.
+- **Phase Isolation Test**: Ensure Configuration phase can be run independently of Loading phase.
+- **Descriptor Verification**: Validate `AdapterDescriptor` payload structure matches strict schemas.
+- **Patch Pipeline Test**: Verify isolated patch plugins can be applied and verified without loading a full model.
+- **Resolver Flow Test**: Mock the `Adapter Resolver` to verify it correctly outputs an `AutoregressiveAdapter` with `VisionTrait` for a mock VLM.
 
-## 6. Risk Analysis
-
-1. **Adapter Explosion**: Risk of creating a new adapter for every minor model variation. *Mitigation*: Group by architecture families, use composable capability traits instead of deep inheritance.
-2. **Upstream MLX Changes**: Breaking changes in MLX could break adapters. *Mitigation*: Adapters isolate the blast radius; runtime remains safe.
-3. **Monkey Patch Isolation**: Unloading patches is hard. *Mitigation*: Adapters should document patch scopes clearly; ideally patches are applied once per worker process.
-
-## 7. Verification Plan (No Implementation)
-
-- **Adapter Registration Test**: Verify models resolve to the correct adapter subclass.
-- **Configuration Parsing Test**: Verify adapters correctly transform raw `config.json` inputs.
-- **Metadata Exposure Test**: Ensure `get_execution_hints` and `get_capabilities` return valid schemas.
-- **Tokenizer Handling Test**: Test that tokenizer special tokens are correctly configured by the adapter.
-- **Runtime Compatibility Test**: Mock the adapter interface and ensure `ExecutionBackend` can process a dummy forward pass without architecture-specific code.
-
-## 8. Files to Modify / Create
+## 10. Files to Modify / Create
 
 **NEW**:
-- `omlx/adapter/base.py`: Defines `BaseModelAdapter` and capability interfaces.
-- `omlx/adapter/transformer.py`: `DenseTransformerAdapter`.
-- `omlx/adapter/moe.py`: `MoEAdapter`.
-- `omlx/adapter/vlm.py`: `VisionAdapter`.
-- `omlx/adapter/factory.py`: Registration and resolution logic.
-- `omlx/adapter/models/`: Directory for specific model implementations if they can't fit generic families.
+- `omlx/adapter/base.py`: Defines lifecycle interfaces and structured descriptors.
+- `omlx/adapter/behaviors.py`: Defines `AutoregressiveAdapter`, `DiffusionAdapter`, etc.
+- `omlx/adapter/traits.py`: Defines `VisionTrait`, `MoETrait`, etc.
+- `omlx/adapter/plugins/`: Directory for isolated patch plugins.
+- `omlx/adapter/resolver.py`: The `Adapter Resolver` component.
 
 **MODIFIED**:
-- `omlx/utils/model_loading.py`: Delegate pre-load patches to the adapter factory.
-- `omlx/engine_pool.py`: Use adapter for metadata extraction instead of hardcoding `model_type` checks.
-- `omlx/engine/vlm.py` (and others): Remove `is_qwen`, `model_type == "gemma4"` logic, delegate to adapter.
+- `omlx/utils/model_loading.py`: Deprecate `maybe_apply_pre_load_patches` in favor of the adapter Patch Pipeline.
+- `omlx/engine_pool.py`: Use `Adapter Resolver` to construct the adapter and read its descriptor.
 
 **UNTOUCHED**:
 - `Scheduler`
@@ -132,15 +161,13 @@ Adapters will expose a verification metadata interface:
 - `ExecutionEngine`
 - `Server`
 
-## Recommendation for Next Checkpoint
-The next checkpoint should focus exclusively on creating `omlx/adapter/base.py`, `omlx/adapter/factory.py`, and porting one simple model (e.g., a standard dense transformer) to the adapter architecture to validate the interface before migrating complex VLMs or MoEs.
+## 11. Recommendation for Next Checkpoint
+The next checkpoint should focus on implementing the lifecycle interface (`BaseAdapter`), the structured `AdapterDescriptor`, and the `Patch Pipeline`. We should port one simple model (e.g., standard dense autoregressive) to validate the resolver and patching behavior before addressing traits like Vision or MoE.
 
-## 9. Rollback Strategy
-
-Since the adapter migration touches model initialization and monkey patches, any issues could prevent models from loading.
+## 12. Rollback Strategy
 
 **Strategy**:
-1. **Side-by-Side Implementation**: The `AdapterFactory` and initial adapters (e.g., `DenseTransformerAdapter`) will be introduced alongside existing `load_text_model` and engine factory logic.
-2. **Feature Flagging**: The migration will be gated behind an environment variable (e.g., `OMLX_USE_ADAPTERS=1`). If the flag is absent or `0`, the system will fall back to the legacy `model_type` string checking and patch dispatch in `model_loading.py`.
-3. **Incremental Migration**: Models will be migrated to the adapter system one family at a time (e.g., Dense Transformers first, then MoE, then VLM, then Diffusion). This allows for reverting specific model families without rolling back the entire architecture.
-4. **Fast Revert**: If an adapter causes regression in production, removing the adapter registration mapping for that `model_type` will instantly revert it to the legacy codepath.
+1. **Side-by-Side Implementation**: The `Adapter Resolver` will be introduced alongside existing legacy `load_text_model` and patch logic.
+2. **Feature Flagging**: The migration will be gated behind an environment variable (e.g., `OMLX_USE_ADAPTERS=1`). If absent, the system falls back to the legacy string-based checks.
+3. **Incremental Migration**: Models will be migrated to the new behavior+traits system one family at a time.
+4. **Fast Revert**: If an adapter causes regression in production, removing it from the `Adapter Resolver` registry will instantly revert that model type to the legacy codepath.
