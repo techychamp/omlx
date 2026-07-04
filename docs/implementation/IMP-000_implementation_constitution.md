@@ -2,6 +2,15 @@
 
 ## 1. Executive Summary
 
+### Repository Audit Findings (Initial State)
+Before establishing these rules, an audit of the current repository was performed:
+*   **Existing coding standards:** Defined loosely in `docs/CONTRIBUTING.md`. Requires strict typing.
+*   **Testing strategy:** Uses `pytest` with specific markers (`slow`, `integration`). Found some failures in non-Mac environments.
+*   **CI/CD:** Managed via GitHub Actions (`ci.yml`, `update-formula.yml`).
+*   **Implementation state:** Initial architecture code is present (`tests`, `omlx`, `apps/omlx-mac`, `packaging`), but lacks a formal roadmap execution structure.
+*   **Compatibility/Technical debt:** Multiple `TODO`, `FIXME`, and patch implementations observed (e.g. `test_glm_moe_dsa_patch.py`, `test_mlx_vlm_minimax_m3_compat.py`).
+*   **Feature flags:** Some initial feature flags exist but need a standardized lifecycle as defined in this document.
+
 ### Purpose
 The Master Implementation Constitution defines the strict engineering, testing, and process rules required to safely migrate the oMLX repository to the target RAES architecture. It dictates *how* implementation must proceed without redefining *what* the architecture is.
 
@@ -69,6 +78,15 @@ Every implementation checkpoint must include the following documented artifacts 
 *   **Performance report:** Impact on latency, memory, or throughput.
 *   **Remaining work:** Hand-off notes for the next checkpoint.
 
+### Architecture Drift Detection
+Every checkpoint must answer the following to prevent erosion of the architecture:
+
+*   **Did this checkpoint introduce a new abstraction?** [YES / NO]
+    *   If yes, **why?**
+    *   **ADR?** [Link to ADR]
+    *   **Approved?** [Yes/No]
+    *   **Rollback?** [Plan]
+
 ### Checkpoint Template
 
 | Field | Description |
@@ -81,6 +99,15 @@ Every implementation checkpoint must include the following documented artifacts 
 | **Rollback Trigger** | e.g., >2% latency regression |
 
 ## 5. Coding Rules
+
+### Public API Freeze Rules
+Following RAES-015, APIs are now stable. Strict rules govern modification:
+*   **Public APIs:** Guaranteed stable. Changes require an ADR and major version bump.
+*   **Internal APIs:** Can be modified by checkpoint owners if all internal consumers are updated simultaneously.
+*   **Experimental APIs:** Opt-in only. Can break at any time without warning.
+*   **Deprecated APIs:** Documented for removal. No new consumers allowed.
+
+### Core Coding Standards
 
 *   **Dependency injection only:** Top-down flow, explicit state passing. No implicit global state resolution.
 *   **No new globals:** Global singletons (like `_server_state`) are strictly forbidden. Use the Composition Root.
@@ -144,19 +171,33 @@ All architectural changes must be protected by feature flags to ensure a safe, i
 
 Testing is non-negotiable. No checkpoint merges without absolute proof of health.
 
-Every checkpoint must pass:
-*   **Unit tests:** Isolated component logic using mocked dependencies.
-*   **Integration tests:** Cross-component execution, usually via the HTTP or Engine boundary.
-*   **Golden tests:** Specific prompts must yield deterministic, exact character-for-character responses.
-*   **HF equivalence:** Numerical parity with standard Hugging Face implementations (logits, perplexity).
-*   **Performance tests:** Latency and throughput must remain within 2% of the established baseline.
-*   **Architecture fitness tests:** Automated checks enforcing dependency rules (e.g., UI cannot import Engine directly).
-*   **Regression suite:** All existing bugs previously fixed must remain fixed.
-*   **Memory validation:** Strict checks to ensure no process memory enforcer leaks or OOM conditions occur during steady state.
-*   **Long-running tests:** The server must survive 24 hours of simulated varied load without degradation.
+### Repository Fitness Gates
+This forms the mandatory CI pipeline. Every checkpoint must pass:
+*   **architecture tests**
+*   **import dependency tests**
+*   **public API stability**
+*   **type checking**
+*   **lint**
+*   **formatting**
+*   **documentation consistency**
+*   **benchmark regression**
+*   **golden outputs**
+*   **HF equivalence**
+*   **memory regression**
+*   **startup validation**
+*   **shutdown validation**
+*   **plugin validation**
+
+### Performance Budget
+Regressions beyond these thresholds will automatically fail the build:
+*   **TTFT:** < 2%
+*   **TPS:** < 3%
+*   **Peak RAM:** < 5%
+*   **Peak VRAM:** < 3%
+*   **Plugin overhead:** < 1%
+*   **Planner overhead:** < 0.5%
 
 **Rule:** A single failing verification blocks the merge pipeline.
-
 ## 9. Documentation Rules
 
 Code is incomplete if undocumented.
@@ -165,10 +206,18 @@ Every checkpoint must explicitly update:
 *   **Architecture:** Relevant `RAES` or `docs/architecture` files if clarification is needed (no drift).
 *   **Walkthrough:** Step-by-step developer guides for new pathways.
 *   **Implementation report:** Summarizing what was accomplished vs the checkpoint plan.
-*   **Migration status:** Updating the overall roadmap traceability matrix.
 *   **Verification report:** Linking to CI/CD runs and performance benchmarks.
 *   **Changelog:** User-facing and developer-facing notes.
 
+### Migration Dashboard
+A master dashboard must be maintained to track overall progress across checkpoints.
+
+| Component | Progress | Status |
+| :--- | :--- | :--- |
+| RAES-006 | ██████████ 100% | Implemented |
+| RAES-007 | ██████████ 100% | Implemented |
+| RAES-008 | ██████░░░░ 60% | In Progress |
+| RAES-009 | ██░░░░░░░░ 20% | In Progress |
 ## 10. Code Review Constitution
 
 Reviewers act as the guardians of the Constitution.
@@ -225,6 +274,13 @@ Checkpoints progress through an explicit state machine:
 
 To prevent the migration from creating an unmaintainable state, the repository must respect specific limits on technical debt.
 
+### Architectural Debt Register
+Instead of scattered TODOs, all technical debt must be tracked in the Architectural Debt Register.
+
+| Debt ID | Reason | Owner | Created | Expected Removal | Risk | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| DEBT-001 | Example temporary shim | jdoe | 2024-01-01 | IMP-005 | Medium | Active |
+
 ### Repository Health Metrics
 
 | Metric | Limit | Action on Breach |
@@ -239,6 +295,22 @@ To prevent the migration from creating an unmaintainable state, the repository m
 ## 14. Definition of Done
 
 The definition of "done" scales based on the scope of work.
+
+### Release Readiness Matrix
+Before every release, this production gate must be completely verified:
+
+| Gate | Status |
+| :--- | :--- |
+| Architecture | PASS |
+| Verification | PASS |
+| Performance | PASS |
+| Documentation | PASS |
+| Migration | PASS |
+| Compatibility | PASS |
+| Security | PASS |
+| Observability | PASS |
+
+### Lifecycle Checkpoints
 
 *   **Checkpoint:** Code is written, tested locally, reviewed, and merged behind a feature flag. Documentation is updated.
 *   **Phase:** A collection of related checkpoints (e.g., all of RAES-010 Execution Planner) is merged, the feature flag is flipped to Primary, and old code is deleted.
