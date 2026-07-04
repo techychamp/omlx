@@ -27,7 +27,17 @@ class BackendValidationResult:
     """Rich validation results returned by adapters."""
     is_valid: bool
     unsupported_operations: tuple[str, ...] = tuple()
+    unsupported_execution_families: tuple[str, ...] = tuple()
+    unsupported_execution_modes: tuple[str, ...] = tuple()
     unsupported_capabilities: tuple[str, ...] = tuple()
+    unsupported_optimizations: tuple[str, ...] = tuple()
+    unsupported_quantization_formats: tuple[str, ...] = tuple()
+    unsupported_precision_formats: tuple[str, ...] = tuple()
+    unsupported_graph_features: tuple[str, ...] = tuple()
+    missing_capabilities: tuple[str, ...] = tuple()
+    missing_synchronization: tuple[str, ...] = tuple()
+    missing_routing: tuple[str, ...] = tuple()
+    missing_cache_strategies: tuple[str, ...] = tuple()
     warnings: tuple[str, ...] = tuple()
     estimated_fallbacks: MappingProxyType[str, str] = field(default_factory=lambda: MappingProxyType({}))
     diagnostics: tuple[str, ...] = tuple()
@@ -36,10 +46,16 @@ class BackendValidationResult:
 class TranslationResult:
     """Rich compilation results returned by backend translation."""
     backend_graph: BackendOperationGraph
+    translation_latency: float = 0.0
+    translation_warnings: tuple[str, ...] = tuple()
+    operation_statistics: MappingProxyType[str, int] = field(default_factory=lambda: MappingProxyType({}))
+    graph_statistics: MappingProxyType[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+    fallback_decisions: MappingProxyType[str, str] = field(default_factory=lambda: MappingProxyType({}))
+    translation_metadata: MappingProxyType[str, Any] = field(default_factory=lambda: MappingProxyType({}))
     warnings: tuple[str, ...] = tuple()
     diagnostics: tuple[str, ...] = tuple()
     statistics: MappingProxyType[str, Any] = field(default_factory=lambda: MappingProxyType({}))
-    backend_descriptor: BackendDescriptor = field(default=None)
+    backend_descriptor: BackendDescriptor | None = field(default=None)
 
 class BaseBackendAdapter(abc.ABC):
     """Abstract base class for all hardware/software backend adapters."""
@@ -80,19 +96,45 @@ class MLXAdapter(BaseBackendAdapter):
         self._descriptor = BackendDescriptor(
             backend_id="mlx",
             backend_version=mlx_version,
+            backend_family="mlx",
+            backend_generation="mlx_gen1",
             supported_execution_semantics=("forward", "sampling", "cache_lookup", "cache_update", "synchronization", "noop"),
             supported_operation_mappings=("mlx_forward", "mlx_sampling", "mlx_cache_lookup", "mlx_cache_update", "mlx_synchronization", "mlx_noop"),
             supported_execution_families=("autoregressive", "diffusion", "embedding"),
             supported_cache_layouts=("paged", "flat", "none"),
             supported_synchronization_primitives=("metal_synchronize",),
             supported_optimization_capabilities=("graph_compilation", "unified_memory"),
+            supported_quantization_formats=("awq", "gptq"),
+            supported_precision_formats=("fp16", "bf16", "fp32"),
+            supported_cache_strategies=("rotating", "sliding_window"),
+            supported_execution_modes=("eager", "compiled"),
+            supported_routing_strategies=("static", "dynamic"),
+            supported_graph_features=("control_flow", "loop_unrolling"),
             hardware_capabilities=("unified_memory", "apple_silicon"),
+            hardware_metadata=MappingProxyType({"unified": True}),
             memory_model="unified",
+            memory_topology="flat",
             execution_topology="single_node",
-            backend_metadata=MappingProxyType({"framework": "mlx", "device": "gpu"})
+            stream_model="single_stream",
+            device_topology="single_device",
+            backend_metadata=MappingProxyType({
+                "framework": "mlx",
+                "device": "gpu",
+                "supported_quantization_families": ("awq", "gptq"),
+                "supported_quantization_layouts": ("int4", "int8"),
+                "supported_calibration_methods": ("kl_div", "mse"),
+                "supports_streaming_quantization": False,
+                "supports_diffusion_quantization": False,
+                "supports_moe_quantization": False,
+                "supports_activation_quantization": False,
+                "supports_weight_only_quantization": True,
+                "supports_mixed_precision": True,
+                "supports_runtime_quantization": False
+            })
         )
 
         self._capabilities = {
+            BackendCapability.AUTOREGRESSIVE,
             BackendCapability.SPECULATIVE_DECODING,
             BackendCapability.DIFFUSION,
             BackendCapability.VERIFICATION,
@@ -145,7 +187,17 @@ class MLXAdapter(BaseBackendAdapter):
         return BackendValidationResult(
             is_valid=is_valid,
             unsupported_operations=tuple(unsupported_ops),
+            unsupported_execution_families=tuple(),
+            unsupported_execution_modes=tuple(),
             unsupported_capabilities=tuple(),
+            unsupported_optimizations=tuple(),
+            unsupported_quantization_formats=tuple(),
+            unsupported_precision_formats=tuple(),
+            unsupported_graph_features=tuple(),
+            missing_capabilities=tuple(),
+            missing_synchronization=tuple(),
+            missing_routing=tuple(),
+            missing_cache_strategies=tuple(),
             warnings=tuple(warnings),
             estimated_fallbacks=MappingProxyType(fallbacks),
             diagnostics=tuple(diagnostics)
@@ -162,6 +214,7 @@ class MLXAdapter(BaseBackendAdapter):
         ops_dict = {}
         warnings: list[str] = list(val_result.warnings)
         diagnostics: list[str] = list(val_result.diagnostics)
+        op_counts: dict[str, int] = {}
 
         for op_id, op in physical_ir.operations.items():
             # Standard mapping of PhysicalOperationType to MLX subclasses
@@ -223,10 +276,15 @@ class MLXAdapter(BaseBackendAdapter):
                 )
             ops_dict[op_id] = mlx_op
 
+            op_type_name = mlx_op.__class__.__name__
+            op_counts[op_type_name] = op_counts.get(op_type_name, 0) + 1
+
         backend_graph = BackendOperationGraph(
             backend_id=self.descriptor.backend_id,
             operations=MappingProxyType(ops_dict),
             roots=physical_ir.roots,
+            barriers=tuple(),
+            synchronization_points=tuple(),
             metadata=MappingProxyType({"translation_layer": "MLXAdapter"}),
         )
 
@@ -238,8 +296,16 @@ class MLXAdapter(BaseBackendAdapter):
 
         diagnostics.append(f"Successfully translated {len(ops_dict)} physical operations to MLX operation graph.")
 
+        translation_latency = time.perf_counter() - start_time
+
         return TranslationResult(
             backend_graph=backend_graph,
+            translation_latency=translation_latency,
+            translation_warnings=tuple(warnings),
+            operation_statistics=MappingProxyType(op_counts),
+            graph_statistics=MappingProxyType({"total_nodes": len(ops_dict), "total_edges": sum(len(o.dependencies) for o in ops_dict.values())}),
+            fallback_decisions=val_result.estimated_fallbacks,
+            translation_metadata=MappingProxyType({"adapter": "MLXAdapter", "version": self.descriptor.backend_version}),
             warnings=tuple(warnings),
             diagnostics=tuple(diagnostics),
             statistics=MappingProxyType(stats),

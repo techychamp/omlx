@@ -22,6 +22,8 @@ class BackendOperationGraph:
     backend_id: str
     operations: MappingProxyType[str, BackendOperation]
     roots: tuple[str, ...]
+    barriers: tuple[str, ...] = tuple()
+    synchronization_points: tuple[str, ...] = tuple()
     metadata: MappingProxyType[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
 @dataclass(frozen=True)
