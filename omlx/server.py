@@ -2919,6 +2919,16 @@ async def create_completion(
         load_start = time.perf_counter()
         engine = await get_engine_for_model(request.model, lease=lease)
         model_load_duration = time.perf_counter() - load_start
+        # Run compiler pipeline if enabled
+        if _server_state.runtime:
+            try:
+                pipeline_runner = CompilerPipelineRunner(_server_state.runtime)
+                translation_result = pipeline_runner.run_pipeline(request.model)
+                if translation_result:
+                    logger.debug(f"Compiler pipeline translation generated for {request.model}")
+            except Exception as e:
+                logger.error(f"Compiler pipeline non-blocking failure: {e}", exc_info=True)
+
 
         # Handle single prompt or list of prompts
         prompts = (
@@ -3131,6 +3141,16 @@ async def create_chat_completion(
         load_start = time.perf_counter()
         engine = await get_engine_for_model(request.model, lease=lease)
         model_load_duration = time.perf_counter() - load_start
+        # Run compiler pipeline if enabled
+        if _server_state.runtime:
+            try:
+                pipeline_runner = CompilerPipelineRunner(_server_state.runtime)
+                translation_result = pipeline_runner.run_pipeline(request.model)
+                if translation_result:
+                    logger.debug(f"Compiler pipeline translation generated for {request.model}")
+            except Exception as e:
+                logger.error(f"Compiler pipeline non-blocking failure: {e}", exc_info=True)
+
 
         # Resolve alias to real model ID for settings lookups
         resolved_model = resolve_model_id(request.model) or request.model
@@ -5457,6 +5477,16 @@ async def create_response(
     try:
         engine = await get_engine_for_model(request.model, lease=lease)
         model_load_duration = time.perf_counter() - load_start
+        # Run compiler pipeline if enabled
+        if _server_state.runtime:
+            try:
+                pipeline_runner = CompilerPipelineRunner(_server_state.runtime)
+                translation_result = pipeline_runner.run_pipeline(request.model)
+                if translation_result:
+                    logger.debug(f"Compiler pipeline translation generated for {request.model}")
+            except Exception as e:
+                logger.error(f"Compiler pipeline non-blocking failure: {e}", exc_info=True)
+
 
         resolved_model = resolve_model_id(request.model) or request.model
 
