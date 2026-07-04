@@ -2,6 +2,17 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+from types import MappingProxyType
+
+def freeze_value(val: Any) -> Any:
+    if isinstance(val, dict):
+        return MappingProxyType({k: freeze_value(v) for k, v in val.items()})
+    elif isinstance(val, list):
+        return tuple(freeze_value(v) for v in val)
+    elif isinstance(val, set):
+        return frozenset(freeze_value(v) for v in val)
+    return val
+
 class ExecutionFamily(str, Enum):
     AUTOREGRESSIVE = "autoregressive"
     DIFFUSION = "diffusion"
@@ -46,7 +57,10 @@ class CapabilityDescriptor:
     hardware_requirements: tuple[str, ...] = tuple()
     execution_hints: dict[str, Any] = field(default_factory=dict)
 
+    # Internal diagnostics for provenance tracking. Not part of the public API.
+    _diagnostics: dict[str, Any] | None = field(default=None, repr=False, hash=False, compare=False)
+
     def __post_init__(self):
-        # Enforce that lists/dicts are immutable at runtime if needed,
-        # but tuples and frozen dataclass already cover most.
-        pass
+        for field_name in self.__dataclass_fields__:
+            val = getattr(self, field_name)
+            object.__setattr__(self, field_name, freeze_value(val))

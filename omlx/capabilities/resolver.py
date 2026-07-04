@@ -4,7 +4,7 @@ import logging
 from .descriptor import CapabilityDescriptor, ExecutionFamily
 from .sources import CapabilitySource
 from .merge import merge_sources
-from .validation import validate_capabilities
+from .validation import ValidationRule, ValidationRegistry, ValidationEngine, DiffusionStreamingRule, DiffusionAttentionRule, EmbeddingStreamingRule, AutoregressiveAttentionRule
 
 logger = logging.getLogger("omlx.capabilities.resolver")
 
@@ -14,8 +14,16 @@ class CapabilityResolver:
     Produces an immutable CapabilityDescriptor.
     """
 
-    def __init__(self, default_sources: list[CapabilitySource] | None = None):
+    def __init__(self, default_sources: list[CapabilitySource] | None = None, validation_rules: list[ValidationRule] | None = None):
         self.default_sources = default_sources or []
+        rules = validation_rules if validation_rules is not None else [
+            DiffusionStreamingRule(),
+            DiffusionAttentionRule(),
+            EmbeddingStreamingRule(),
+            AutoregressiveAttentionRule()
+        ]
+        registry = ValidationRegistry(rules)
+        self.validation_engine = ValidationEngine(registry)
 
     def resolve(self, model_descriptor: Any = None, additional_sources: list[CapabilitySource] | None = None) -> CapabilityDescriptor:
         """
@@ -28,14 +36,15 @@ class CapabilityResolver:
             all_sources.extend(additional_sources)
 
         # 1. Merge
-        merged_caps = merge_sources(all_sources, context=model_descriptor)
+        merge_result = merge_sources(all_sources, context=model_descriptor)
+        merged_caps = merge_result.merged_values
 
         # 2. Validate
         # Fallback if no family is set
         if "execution_family" not in merged_caps:
              merged_caps["execution_family"] = ExecutionFamily.AUTOREGRESSIVE
 
-        validate_capabilities(merged_caps)
+        self.validation_engine.validate(merged_caps)
 
         # 3. Create Immutable Descriptor
         # Ensure enums are handled if strings are passed
@@ -50,5 +59,5 @@ class CapabilityResolver:
         valid_keys = CapabilityDescriptor.__dataclass_fields__.keys()
         filtered_caps = {k: v for k, v in merged_caps.items() if k in valid_keys}
 
-        descriptor = CapabilityDescriptor(**filtered_caps)
+        descriptor = CapabilityDescriptor(**filtered_caps, _diagnostics=merge_result.diagnostics)
         return descriptor

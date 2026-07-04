@@ -68,3 +68,83 @@ def test_validation_failure_attention():
 
     with pytest.raises(CapabilityValidationError, match="Diffusion models cannot use causal attention"):
         resolver.resolve(additional_sources=[source])
+
+def test_deep_immutability():
+    resolver = CapabilityResolver()
+    source = RuntimeOverrideSource({
+        "execution_hints": {"nested": [1, 2, 3], "nested_dict": {"a": 1}},
+        "supported_modalities": ["text", "image"]
+    })
+    descriptor = resolver.resolve(additional_sources=[source])
+
+    assert isinstance(descriptor.execution_hints, __import__('types').MappingProxyType)
+    assert isinstance(descriptor.execution_hints["nested"], tuple)
+    assert isinstance(descriptor.execution_hints["nested_dict"], __import__('types').MappingProxyType)
+    assert isinstance(descriptor.supported_modalities, tuple)
+
+    with pytest.raises(TypeError):
+        descriptor.execution_hints["new_key"] = "value"
+
+    with pytest.raises(TypeError):
+        descriptor.execution_hints["nested"][0] = 5
+
+def test_merge_provenance():
+    resolver = CapabilityResolver()
+    source1 = ModelMetadataSource({"model_type": "stable_diffusion"})
+    source2 = RuntimeOverrideSource({"execution_family": ExecutionFamily.AUTOREGRESSIVE, "attention_types": [AttentionType.CAUSAL]})
+
+    descriptor = resolver.resolve(additional_sources=[source1, source2])
+
+    assert descriptor._diagnostics is not None
+    prov = descriptor._diagnostics["execution_family"]
+    assert prov.value == ExecutionFamily.AUTOREGRESSIVE
+    assert prov.winner == "RuntimeOverrideSource"
+    assert prov.history == ["ModelMetadataSource", "RuntimeOverrideSource"]
+
+    prov_attention = descriptor._diagnostics["attention_types"]
+    assert prov_attention.value == [AttentionType.CAUSAL]
+    assert prov_attention.winner == "RuntimeOverrideSource"
+    assert prov_attention.history == ["ModelMetadataSource", "RuntimeOverrideSource"]
+
+from omlx.capabilities.validation import ValidationRule
+
+class DummyRule(ValidationRule):
+    def validate(self, caps):
+        if caps.get("supports_verification", False):
+            raise CapabilityValidationError("Dummy rule failed")
+
+def test_extensible_validation():
+    resolver = CapabilityResolver(validation_rules=[DummyRule()])
+    source = RuntimeOverrideSource({"supports_verification": True})
+
+    with pytest.raises(CapabilityValidationError, match="Dummy rule failed"):
+        resolver.resolve(additional_sources=[source])
+
+import concurrent.futures
+
+def test_thread_safety():
+    resolver = CapabilityResolver()
+    source1 = ModelMetadataSource({"model_type": "stable_diffusion"})
+    source2 = ModelMetadataSource({"model_type": "llama"})
+    source3 = RuntimeOverrideSource({"supports_streaming": True})
+
+    def resolve_diff():
+        return resolver.resolve(additional_sources=[source1])
+
+    def resolve_auto():
+        return resolver.resolve(additional_sources=[source2, source3])
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+        futures = []
+        for _ in range(50):
+            futures.append(executor.submit(resolve_diff))
+            futures.append(executor.submit(resolve_auto))
+
+        for idx, f in enumerate(futures):
+            desc = f.result()
+            if idx % 2 == 0:
+                assert desc.execution_family == ExecutionFamily.DIFFUSION
+                assert desc.supports_streaming is False
+            else:
+                assert desc.execution_family == ExecutionFamily.AUTOREGRESSIVE
+                assert desc.supports_streaming is True
