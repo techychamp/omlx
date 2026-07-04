@@ -30,6 +30,28 @@ class BackendCapability(str, enum.Enum):
     STREAMING = "supports_streaming"
     CUSTOM_SYNCHRONIZATION = "supports_custom_synchronization"
 
+class QuantizationIntelligence(str, enum.Enum):
+    SUPPORTED_FAMILIES = "supported_families"
+    PREFERRED = "preferred"
+    RECOMMENDED_PRECISION = "recommended_precision"
+    MIXED_PRECISION = "mixed_precision"
+    RUNTIME_SWITCHING = "runtime_switching"
+    EXPERT = "expert"
+    DIFFUSION = "diffusion"
+    STREAMING = "streaming"
+    ACTIVATION = "activation"
+    WEIGHT_ONLY = "weight_only"
+
+class SchedulingIntelligence(str, enum.Enum):
+    CONTINUOUS_BATCHING = "continuous_batching"
+    STATIC_BATCHING = "static_batching"
+    PRIORITY_SCHEDULING = "priority_scheduling"
+    ASYNC_EXECUTION = "async_execution"
+    GRAPH_EXECUTION = "graph_execution"
+    PIPELINE_EXECUTION = "pipeline_execution"
+    PARALLEL_EXECUTION = "parallel_execution"
+    VERIFICATION_EXECUTION = "verification_execution"
+
 @dataclass(frozen=True)
 class BackendDescriptor:
     backend_id: str
@@ -55,6 +77,41 @@ class BackendDescriptor:
     execution_topology: str
     stream_model: str
     device_topology: str
+
+    # Intelligence Metadata
+    estimated_throughput: float = 0.0
+    estimated_latency: float = 0.0
+    estimated_memory_usage: float = 0.0
+    peak_memory_estimate: float = 0.0
+    memory_bandwidth_class: str = ""
+    compute_class: str = ""
+    supported_concurrency: int = 1
+    graph_execution_efficiency: float = 1.0
+    streaming_efficiency: float = 1.0
+    speculative_execution_efficiency: float = 1.0
+    expert_routing_efficiency: float = 1.0
+    verification_efficiency: float = 1.0
+    cache_efficiency: float = 1.0
+    scheduler_compatibility: tuple[str, ...] = tuple()
+    precision_preferences: tuple[str, ...] = tuple()
+    quantization_preferences: tuple[str, ...] = tuple()
+    hardware_preferences: tuple[str, ...] = tuple()
+    backend_maturity: str = ""
+
+    # Quantization Metadata
+    supported_quantization_families: tuple[str, ...] = tuple()
+    preferred_quantization: str = ""
+    recommended_precision: str = ""
+    mixed_precision_support: bool = False
+    runtime_precision_switching: bool = False
+    expert_quantization: bool = False
+    diffusion_quantization: bool = False
+    streaming_quantization: bool = False
+    activation_quantization: bool = False
+    weight_only_quantization: bool = False
+
+    # Scheduling Metadata
+    scheduling_characteristics: tuple[str, ...] = tuple()
     backend_metadata: MappingProxyType[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
 class BackendDescriptorRegistry:

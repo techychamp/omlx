@@ -55,6 +55,15 @@ class TranslationResult:
     warnings: tuple[str, ...] = tuple()
     diagnostics: tuple[str, ...] = tuple()
     statistics: MappingProxyType[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+
+    # Diagnostics Estimates
+    estimated_execution_cost: float = 0.0
+    estimated_memory_cost: float = 0.0
+    estimated_synchronization_cost: float = 0.0
+    estimated_graph_complexity: float = 0.0
+    estimated_routing_complexity: float = 0.0
+    estimated_cache_pressure: float = 0.0
+    estimated_hardware_utilization: float = 0.0
     backend_descriptor: BackendDescriptor | None = field(default=None)
 
 class BaseBackendAdapter(abc.ABC):
@@ -117,6 +126,41 @@ class MLXAdapter(BaseBackendAdapter):
             execution_topology="single_node",
             stream_model="single_stream",
             device_topology="single_device",
+            # Intelligence Metadata
+            estimated_throughput=100.0,
+            estimated_latency=10.0,
+            estimated_memory_usage=2.5,
+            peak_memory_estimate=4.0,
+            memory_bandwidth_class="high",
+            compute_class="high",
+            supported_concurrency=4,
+            graph_execution_efficiency=0.9,
+            streaming_efficiency=0.95,
+            speculative_execution_efficiency=0.8,
+            expert_routing_efficiency=0.85,
+            verification_efficiency=0.9,
+            cache_efficiency=0.95,
+            scheduler_compatibility=("continuous_batching", "static_batching"),
+            precision_preferences=("fp16",),
+            quantization_preferences=("awq",),
+            hardware_preferences=("apple_silicon",),
+            backend_maturity="production",
+
+            # Quantization Metadata
+            supported_quantization_families=("awq", "gptq"),
+            preferred_quantization="awq",
+            recommended_precision="fp16",
+            mixed_precision_support=True,
+            runtime_precision_switching=False,
+            expert_quantization=False,
+            diffusion_quantization=False,
+            streaming_quantization=False,
+            activation_quantization=False,
+            weight_only_quantization=True,
+
+            # Scheduling Metadata
+            scheduling_characteristics=("continuous_batching", "async_execution", "graph_execution"),
+
             backend_metadata=MappingProxyType({
                 "framework": "mlx",
                 "device": "gpu",
@@ -309,5 +353,13 @@ class MLXAdapter(BaseBackendAdapter):
             warnings=tuple(warnings),
             diagnostics=tuple(diagnostics),
             statistics=MappingProxyType(stats),
-            backend_descriptor=self.descriptor
+            backend_descriptor=self.descriptor,
+
+            estimated_execution_cost=0.0,
+            estimated_memory_cost=0.0,
+            estimated_synchronization_cost=0.0,
+            estimated_graph_complexity=0.0,
+            estimated_routing_complexity=0.0,
+            estimated_cache_pressure=0.0,
+            estimated_hardware_utilization=0.0,
         )
