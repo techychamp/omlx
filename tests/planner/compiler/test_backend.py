@@ -40,7 +40,19 @@ class StubAdapter(BaseBackendAdapter):
             hardware_capabilities=(),
             memory_model="unified",
             execution_topology="single_node",
-            backend_metadata=MappingProxyType({}),
+            backend_family="stub",
+            backend_generation="stub",
+            supported_quantization_formats=(),
+            supported_precision_formats=(),
+            supported_cache_strategies=(),
+            supported_execution_modes=(),
+            supported_routing_strategies=(),
+            supported_graph_features=(),
+            hardware_metadata=MappingProxyType({}),
+            memory_topology="stub",
+            stream_model="stub",
+            device_topology="stub",
+
         )
 
     @property

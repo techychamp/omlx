@@ -72,3 +72,40 @@ class CompilerInspector:
         if hasattr(graph, "to_dict"):
             return graph.to_dict()
         return {"type": str(type(graph)), "repr": repr(graph)}
+
+    def inspect_semantic_plan(self, plan: ExecutionPlan) -> dict[str, Any]:
+        """Provides a semantic, human-readable summary of the ExecutionPlan."""
+        # Note: the fields are extracted based on the attributes available on ExecutionPlan
+
+        is_streaming = plan.execution_mode == "streaming"
+
+        summary = {
+            "execution_family": plan.execution_family.value if hasattr(plan.execution_family, "value") else str(plan.execution_family),
+            "execution_backend": plan.execution_backend,
+            "execution_mode": plan.execution_mode,
+            "cache_strategy": plan.cache_strategy.value if hasattr(plan.cache_strategy, "value") else str(plan.cache_strategy),
+            "is_streaming": is_streaming,
+            "human_readable": (
+                f"Executes {plan.execution_family} model on {plan.execution_backend} "
+                f"using {plan.cache_strategy} cache in {'streaming' if is_streaming else 'standard'} mode."
+            ),
+            "optimizations": list(plan.optimization_passes),
+            "verifications": list(plan.verification_stages)
+        }
+        return summary
+
+    def inspect_semantic_ir(self, ir: ExecutionIR) -> dict[str, Any]:
+        """Provides a semantic summary of the Logical IR nodes."""
+        node_counts = {}
+        for node in ir.nodes.values():
+            node_type = node.node_type.value if hasattr(node.node_type, "value") else str(node.node_type)
+            node_counts[node_type] = node_counts.get(node_type, 0) + 1
+
+        summary = {
+            "total_nodes": len(ir.nodes),
+            "node_types": node_counts,
+            "has_attention": "attention" in node_counts,
+            "has_forward": "forward" in node_counts,
+            "roots": list(ir.roots)
+        }
+        return summary

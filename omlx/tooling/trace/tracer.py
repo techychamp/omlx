@@ -49,3 +49,28 @@ class CompilerTracer:
             if self.current_trace:
                 self.current_trace.record_event(f"pass_end_{pass_name}", {"duration_sec": duration})
                 self.current_trace.timings[pass_name] = duration
+
+class InteractiveTrace(CompilerTrace):
+    """Extends CompilerTrace with export formatters."""
+
+    def export_markdown(self) -> str:
+        """Exports the trace timeline as Markdown."""
+        lines = ["# Compiler Trace Timeline\n"]
+        for evt in self.events:
+            lines.append(f"- **{evt['timestamp']}**: {evt['event']} (Data: {evt['data']})")
+        if self.diagnostics:
+            lines.append("\n## Diagnostics\n")
+            for diag in self.diagnostics:
+                lines.append(f"- {diag['msg']}")
+        return "\n".join(lines)
+
+    def export_mermaid(self) -> str:
+        """Exports the trace timeline as a Mermaid Gantt chart."""
+        lines = ["gantt", "    title Compiler Trace Timeline", "    dateFormat  X", "    axisFormat %s"]
+
+        # very simple mapping
+        for idx, evt in enumerate(self.events):
+            # Using index as a proxy for time for simple visualization
+            lines.append(f"    {evt['event']} : {idx}, 1d")
+
+        return "\n".join(lines)
