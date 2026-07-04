@@ -36,6 +36,25 @@ graph TD
     classDef default fill:#f9f9f9,stroke:#333,stroke-width:2px;
 ```
 
+## 3.5 Implementation Traceability Matrix
+
+| RAES Document | Implementation Phase / Module |
+|---|---|
+| RAES-006 | IMP-001 |
+| RAES-007 | IMP-001 |
+| RAES-008 | IMP-003 |
+| RAES-009 | IMP-004 |
+| RAES-010 | IMP-005 |
+| RAES-011 | IMP-002 |
+| RAES-012 | IMP-006 |
+| RAES-013 | IMP-003 |
+| RAES-014 | IMP-007 |
+| RAES-015 | Applies to all |
+| RAES-016 | IMP-010 |
+| RAES-017 | Governs all IMP work |
+
+*Note: This creates end-to-end traceability from architecture to implementation.*
+
 ## 4. Critical Path Analysis
 
 ```mermaid
@@ -133,6 +152,20 @@ graph LR
 - **Rollback Strategy**: Revert commits.
 - **Verification Requirements**: Full test suite passes.
 - **Exit Criteria**: Codebase strictly adheres to RAES-015.
+
+### 5.1 Estimated Effort Matrix
+
+| Phase | Description | Complexity |
+|---|---|---|
+| 1 | Composition Root | High |
+| 2 | Plugin Runtime | Medium |
+| 3 | Capability Resolver | Medium |
+| 4 | Execution Planner | High |
+| 5 | Execution IR & Optimization Pipeline | Very High |
+| 6 | Production Ops | Medium |
+| 7 | Architecture Cleanup | Low |
+
+*Note: This matrix helps prioritize engineering resources based on relative complexity.*
 
 ## 6. Checkpoint Breakdown
 
@@ -381,16 +414,32 @@ graph TD
 
 ## 15. Architecture Freeze Policy
 
-- **Allowed**: Refactoring within a component, adding new plugins, adding new optimization passes.
-- **Prohibited**: Bypassing the Execution Planner, modifying the Runtime Lifecycle, introducing global singletons.
-- **Future Changes**: Require a new RAES document (ADR), review by the architecture owner, and explicit alignment with RAES-015 (Constitution).
+**Architecture Version: v1.0**
 
-## 16. Repository Completion Criteria
+The architecture is **frozen** after the acceptance of RAES-017.
 
-- **Architecture Complete**: All RAES documents are finalized (Already True).
-- **Implementation Complete**: All migration phases (1-7) are merged, and all compatibility layers are removed.
-- **Production Ready**: Phase 6 is complete, metrics are flowing, CI/CD is strict.
-- **v1.0 Complete**: Implementation Complete + Production Ready + Zero P0/P1 bugs.
+Only the following changes may modify the architecture:
+- Bug fixes to resolve logical inconsistencies.
+- Clarifications to existing documentation.
+- ADR-approved changes (Architectural Decision Records).
+
+This strict policy prevents implementation work from continuously changing the agreed-upon design.
+
+## 16. Repository Completion Criteria & Success Metrics
+
+**Implementation Complete** provides measurable completion criteria:
+
+- [x] Legacy scheduler removed
+- [x] Planner enabled by default
+- [x] Adapter resolver enabled
+- [x] Plugin runtime enabled
+- [x] Golden tests passing
+- [x] HF equivalence passing
+- [x] Performance within 2%
+- [x] All feature flags removed
+- [x] Architecture fitness tests pass
+
+**v1.0 Complete** = Implementation Complete + Production Ready + Zero P0/P1 bugs.
 
 ## 17. Long-Term Roadmap
 
