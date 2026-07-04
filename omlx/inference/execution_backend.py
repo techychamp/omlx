@@ -74,19 +74,9 @@ class ExecutionPlan:
     estimated_memory_bytes: int = 0
 
 
-@runtime_checkable
-class ExecutionEngine(Protocol):
-    """The lowest-level execution engine (e.g., wrappers around MLX, Torch)."""
-    pass
 
+from omlx.inference.execution_engine import ExecutionEngine, ExecutionRuntime
 
-@runtime_checkable
-class ExecutionRuntime(Protocol):
-    """Abstracts the underlying compute platform (MLX, Torch, Metal) for a backend."""
-    @property
-    def engine(self) -> ExecutionEngine:
-        """Get the underlying execution engine."""
-        ...
 
 
 @runtime_checkable
@@ -208,7 +198,7 @@ class ExecutionBackend(Protocol):
         """Prepare inputs, caches, and memory for execution."""
         ...
 
-    def execute(self, inputs: Any) -> Any:
+    def execute_cycle(self, inputs: Any) -> Any:
         """Execute the pipeline with the given inputs."""
         ...
 

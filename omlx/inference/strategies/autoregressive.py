@@ -62,25 +62,94 @@ class AutoregressiveStrategy(BaseGenerationStrategy):
 
     def __init__(self, scheduler: Any = None, backend: Any = None) -> None:
         super().__init__(scheduler, backend)
+        self._legacy_batch_generator = None
+
+    def _engine(self) -> Any:
+        """Return the underlying engine if a full backend chain is available."""
+        if self.backend and hasattr(self.backend, "runtime") and self.backend.runtime and self.backend.runtime.engine:
+            return self.backend.runtime.engine
+        return None
 
     @property
     def decode_executor(self) -> Any:
-        """Authoritative execution object for decode iteration."""
-        if self.scheduler is not None:
-            return self.scheduler.batch_generator
-        return None
+        """Authoritative execution object for decode iteration.
+
+        Primary path: engine.batch_generator (permanent architecture).
+        Fallback: _legacy_batch_generator (temporary compatibility layer,
+        active only when backend is not yet injected).
+        """
+        engine = self._engine()
+        if engine is not None:
+            return getattr(engine, "batch_generator", None)
+        return self._legacy_batch_generator
 
     @property
     def batch_generator(self) -> Any:
         """For backwards compatibility and mocking in tests."""
         return self.decode_executor
 
+    @batch_generator.setter
+    def batch_generator(self, value: Any) -> None:
+        """Set batch generator on the underlying execution engine.
+
+        Falls back to _legacy_batch_generator when no backend is present
+        (temporary compatibility layer).
+        """
+        engine = self._engine()
+        if engine is not None:
+            engine.batch_generator = value
+        else:
+            self._legacy_batch_generator = value
+
     def forward(self) -> Any:
         """Execute a single execution cycle and return the native decode iterator."""
-        bg = self.decode_executor
-        if bg is None:
-            return iter([])
-        return bg.next_generated()
+        if self.backend:
+            return self.backend.execute_cycle(None)
+        # Temporary compatibility: drive legacy batch_generator directly.
+        if self._legacy_batch_generator is not None:
+            return self._legacy_batch_generator.next_generated()
+        return iter([])
+
+    def insert(self, *args: Any, **kwargs: Any) -> list[int]:
+        engine = self._engine()
+        if engine is not None:
+            return engine.insert(*args, **kwargs)
+        if self._legacy_batch_generator is not None:
+            return self._legacy_batch_generator.insert(*args, **kwargs)
+        return []
+
+    def remove(self, *args: Any, **kwargs: Any) -> None:
+        engine = self._engine()
+        if engine is not None:
+            engine.remove(*args, **kwargs)
+        elif self._legacy_batch_generator is not None:
+            self._legacy_batch_generator.remove(*args, **kwargs)
+
+    def extract_cache(self, *args: Any, **kwargs: Any) -> Any:
+        engine = self._engine()
+        if engine is not None:
+            return engine.extract_cache(*args, **kwargs)
+        if self._legacy_batch_generator is not None:
+            return self._legacy_batch_generator.extract_cache(*args, **kwargs)
+        return None
+
+    def eval_cache(self) -> int:
+        engine = self._engine()
+        if engine is not None:
+            return engine.eval_cache()
+        return 0
+
+    def ensure_generator(self, sampling_params: Any) -> None:
+        engine = self._engine()
+        if engine is not None:
+            engine.ensure_generator(self.scheduler, sampling_params)
+
+    def has_generator(self) -> bool:
+        engine = self._engine()
+        if engine is not None:
+            return engine.has_generator()
+        # Temporary compatibility: check legacy batch_generator.
+        return self._legacy_batch_generator is not None
 
     def sample(
         self, ctx: GenerationContext, state: RuntimeState, logits: Any
@@ -216,7 +285,7 @@ class AutoregressiveStrategy(BaseGenerationStrategy):
         from omlx.inference.execution_backend import ExecuteCycleCommand
         if isinstance(command, ExecuteCycleCommand):
             if self.backend:
-                return self.backend.execute(None) # backend pipeline handles the forward pass
+                return self.backend.execute_cycle(None) # backend pipeline handles the forward pass
         return []
 
     def handle(self, event: Any) -> None:

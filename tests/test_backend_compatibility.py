@@ -5,10 +5,11 @@ import mlx.core as mx
 from omlx.scheduler import Scheduler
 from omlx.request import Request, SamplingParams
 from omlx.inference.execution_backend import (
-    ExecutionBackend, ExecutionPipeline, ExecutionEngine,
-    ExecutionRuntime, ExecutionContract, BackendStatus, ExecutionPlan, PipelineState,
+    ExecutionBackend, ExecutionPipeline,
+    ExecutionContract, BackendStatus, ExecutionPlan, PipelineState,
     ExecuteCycleCommand
 )
+from omlx.inference.execution_engine import ExecutionEngine, ExecutionRuntime
 from omlx.inference.modes import GenerationMode
 
 class FakeEngine(ExecutionEngine):
@@ -54,7 +55,7 @@ class FakeBackend(ExecutionBackend):
     def validate(self): return BackendStatus(is_valid=True)
     def plan(self): return ExecutionPlan(steps=["fake"], estimated_memory_bytes=0)
     def prepare(self, *args, **kwargs): self.prepared = True
-    def execute(self, inputs): return self.pipeline.execute(inputs, self.runtime)
+    def execute_cycle(self, inputs): return self.pipeline.execute(inputs, self.runtime)
     def synchronize(self): pass
     def finalize(self, *args, **kwargs): pass
     def cleanup(self): pass

@@ -118,10 +118,9 @@ def _default_resolver(context: ExecutionContext) -> ExecutionProfile | None:
     )
 
 def _autoregressive_factory(profile: ExecutionProfile, context: ExecutionContext) -> ExecutionBackend:
-    from omlx.inference.backends.autoregressive_backend import AutoregressiveBackend, AutoregressiveExecutionEngine
-    # The actual BatchGenerator will be populated later by Scheduler or the factory itself
-    # Phase 1.8: Scheduler creates BatchGenerator for now, but we inject the engine wrapper
-    engine = AutoregressiveExecutionEngine(batch_generator=None)
+    from omlx.inference.backends.autoregressive_backend import AutoregressiveBackend
+    from omlx.inference.execution_engine import TransformerExecutionEngine
+    engine = TransformerExecutionEngine(batch_generator=None)
     return AutoregressiveBackend(engine=engine)
 
 def _experimental_nemotron_factory(profile: ExecutionProfile, context: ExecutionContext) -> ExecutionBackend:

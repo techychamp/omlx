@@ -9,9 +9,7 @@ from typing import Any
 
 from omlx.inference.execution_backend import (
     ExecutionBackend,
-    ExecutionEngine,
     ExecutionPipeline,
-    ExecutionRuntime,
     ExecutionStage,
     ExecutionContract,
     BackendStatus,
@@ -20,17 +18,16 @@ from omlx.inference.execution_backend import (
     PipelineState,
     ExecuteCycleCommand
 )
-
-
-class AutoregressiveExecutionEngine(ExecutionEngine):
-    """Wraps the mlx-lm BatchGenerator."""
-    def __init__(self, batch_generator: Any):
-        self.batch_generator = batch_generator
+from omlx.inference.execution_engine import (
+    ExecutionEngine,
+    ExecutionRuntime,
+    TransformerExecutionEngine
+)
 
 
 class AutoregressiveRuntime(ExecutionRuntime):
     """Abstracts MLX runtime state for AR execution."""
-    def __init__(self, engine: AutoregressiveExecutionEngine):
+    def __init__(self, engine: TransformerExecutionEngine):
         self._engine = engine
 
     @property
@@ -48,15 +45,15 @@ class ForwardStage(ExecutionStage):
     def execute(self, inputs: Any, runtime: ExecutionRuntime) -> Any:
         """Execute a forward pass."""
         engine = runtime.engine
-        if not isinstance(engine, AutoregressiveExecutionEngine):
-            raise TypeError("Expected AutoregressiveExecutionEngine")
+        if not isinstance(engine, TransformerExecutionEngine):
+            raise TypeError("Expected TransformerExecutionEngine")
         
-        batch_generator = engine.batch_generator
-        if batch_generator is None:
-            return []
-            
-        if hasattr(batch_generator, "next_generated"):
-            return next(batch_generator.next_generated())
+        responses = engine.forward(inputs)
+        if responses:
+            try:
+                return next(responses)
+            except StopIteration:
+                pass
         return inputs
 
 
@@ -84,9 +81,9 @@ class AutoregressivePipeline(ExecutionPipeline):
 class AutoregressiveBackend(ExecutionBackend):
     """
     Execution backend for standard autoregressive models.
-    Delegates to MLX-LM's BatchGenerator.
+    Delegates model execution and BatchGenerator interactions to TransformerExecutionEngine.
     """
-    def __init__(self, engine: AutoregressiveExecutionEngine) -> None:
+    def __init__(self, engine: TransformerExecutionEngine) -> None:
         self._runtime = AutoregressiveRuntime(engine)
         self._pipeline = AutoregressivePipeline(
             stages=[
@@ -115,7 +112,7 @@ class AutoregressiveBackend(ExecutionBackend):
                 PipelineState.INITIALIZED,
                 PipelineState.PREPARED,
                 PipelineState.RUNNING,
-                PipelineState.SYNCING,
+                PipelineState.SYNCHRONIZING,
                 PipelineState.FINALIZED,
                 PipelineState.CLEANED
             },
@@ -127,9 +124,9 @@ class AutoregressiveBackend(ExecutionBackend):
     def validate(self) -> BackendStatus:
         if self._runtime is None or self._runtime.engine is None:
             return BackendStatus(is_valid=False, errors=["Runtime or Engine is missing"])
-        if not isinstance(self._runtime.engine, AutoregressiveExecutionEngine):
-            return BackendStatus(is_valid=False, errors=["Engine must be an AutoregressiveExecutionEngine"])
-        if self._runtime.engine.batch_generator is None:
+        if not isinstance(self._runtime.engine, TransformerExecutionEngine):
+            return BackendStatus(is_valid=False, errors=["Engine must be a TransformerExecutionEngine"])
+        if not self._runtime.engine.has_generator():
             return BackendStatus(is_valid=False, errors=["BatchGenerator is not initialized"])
         return BackendStatus(is_valid=True)
 
@@ -143,10 +140,10 @@ class AutoregressiveBackend(ExecutionBackend):
         """
         if "events" in kwargs:
             events = kwargs["events"]
-            # Future: Handle RequestAdded, RequestRemoved here by mutating batch_generator state
+            # Future: Handle RequestAdded, RequestRemoved here by mutating engine/batch_generator state
             pass
 
-    def execute(self, inputs: Any) -> Any:
+    def execute_cycle(self, inputs: Any) -> Any:
         # Everything goes through pipeline.run()
         if hasattr(self._pipeline, "run"):
             return self._pipeline.run(inputs, self.runtime)
@@ -163,7 +160,6 @@ class AutoregressiveBackend(ExecutionBackend):
         self._runtime = None
 
 __all__ = [
-    "AutoregressiveExecutionEngine",
     "AutoregressiveRuntime",
     "AutoregressivePipeline",
     "AutoregressiveBackend",

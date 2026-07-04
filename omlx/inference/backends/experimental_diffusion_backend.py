@@ -10,10 +10,11 @@ from typing import Any
 import mlx.core as mx
 
 from omlx.inference.execution_backend import (
-    ExecutionBackend, ExecutionPipeline, ExecutionEngine,
-    ExecutionRuntime, ExecutionContract, BackendStatus, ExecutionPlan, PipelineState,
+    ExecutionBackend, ExecutionPipeline,
+    ExecutionContract, BackendStatus, ExecutionPlan, PipelineState,
     ExecuteCycleCommand
 )
+from omlx.inference.execution_engine import ExecutionEngine, ExecutionRuntime
 from omlx.inference.strategy_types import ForwardResult
 
 logger = logging.getLogger(__name__)
@@ -131,7 +132,7 @@ class ExperimentalNemotronBackend(ExecutionBackend):
     def prepare(self, *args, **kwargs) -> None:
         self._prepared = True
         
-    def execute(self, inputs: Any) -> Any:
+    def execute_cycle(self, inputs: Any) -> Any:
         return self.pipeline.execute(inputs, self.runtime)
         
     def synchronize(self) -> None:

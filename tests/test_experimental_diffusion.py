@@ -71,7 +71,7 @@ def test_pipeline_execution():
     backend = ExperimentalNemotronBackend(engine)
     
     inputs = {"prefix": mx.array([[1, 2, 3]])}
-    result = backend.execute(inputs)
+    result = backend.execute_cycle(inputs)
     
     assert isinstance(result, ForwardResult)
     assert "final_tokens" in result.extra
