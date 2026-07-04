@@ -1,2 +1,1 @@
-def plan_step_complete():
-    print("Step Complete")
+def plan_step_complete(): pass

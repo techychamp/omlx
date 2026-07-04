@@ -7,3 +7,6 @@ Every migration milestone inside the oMLX framework must trace old behavior agai
 2. Execute target replacement workload.
 3. Assert equality or strict tolerance on outputs (latencies, token outputs, execution trees).
 4. Generate `Migration Report` highlighting missing functionality.
+
+## Interpreting Migration Diffs
+When executing migration validation using `verification/scripts/test_migration_verification.py`, structural mappings compare `ExecutionProfile` attributes directly with `ExecutionPlan` fields.
