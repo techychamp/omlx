@@ -31,8 +31,21 @@ A successful production deployment of oMLX requires transitioning from developme
 | **Startup** | Single thread blocking | Parallel pre-flight, lazy capability eval | Optimize Plugin initialization times |
 
 ---
+## 2. SLO / SLA Definition
 
-## 2. Operational Architecture
+Operational teams measure oMLX production objectives against Service Level Objectives (SLOs).
+
+| Objective | Target | Notes |
+| :--- | :--- | :--- |
+| **Availability** | 99.9% | Uptime of the core inference worker |
+| **TTFT (Time To First Token)** | <300 ms | Measured at the 95th percentile |
+| **Latency (P95)** | <1.5 s | End-to-end request latency |
+| **Crash Recovery** | <30 s | Time for worker to restart and serve traffic |
+| **Deployment Rollback** | <5 min | Time to revert to previous image/adapter |
+
+---
+
+## 3. Operational Architecture
 
 The operational architecture defines the lifecycle from code to production execution.
 
@@ -50,7 +63,7 @@ flowchart TD
 
 ---
 
-## 3. Deployment Architecture
+## 4. Deployment Architecture
 
 oMLX targets various deployment topologies, prioritizing Apple Silicon but retaining future-proof flexibility.
 
@@ -87,7 +100,17 @@ graph TD
 
 ---
 
-## 4. Runtime Reliability
+
+### Upgrade Strategy:
+When moving to Docker/Kubernetes, deployments follow:
+1.  **Canary**: Route 5% of traffic to the new version.
+2.  **Blue/Green**: Full deployment of new version alongside old, switch load balancer.
+3.  **Rolling**: Incrementally replace worker nodes.
+4.  **Full Rollout**: 100% traffic on the new version.
+
+---
+
+## 5. Runtime Reliability
 
 Supervision and recovery ensure the inference server remains available despite partial failures.
 
@@ -112,7 +135,7 @@ stateDiagram-v2
 
 ---
 
-## 5. Health Monitoring
+## 6. Health Monitoring
 
 Differentiating between subsystem health states allows orchestrators to route traffic intelligently.
 
@@ -133,7 +156,7 @@ flowchart LR
 
 ---
 
-## 6. Observability Architecture
+## 7. Observability Architecture
 
 Observability provides deep visibility without degrading inference throughput.
 
@@ -154,18 +177,27 @@ flowchart TD
 
 ---
 
-## 7. Performance Architecture
+## 8. Performance Architecture
 
 Production benchmarking must be continuous.
 
-### Tracked Metrics:
-*   **Throughput & Latency**: TTFT, TPS, end-to-end latency.
+
+### Tracked Metrics (Operational):
+*   **Throughput & Latency**: TTFT, TPS, end-to-end latency, Requests/sec, Concurrent sessions.
 *   **Resource Utilization**: Peak Memory, GPU/CPU Utilization.
+*   **System Health**: Queue depth, Cache eviction rate, OOM events, Engine restart count, Plugin failures, Verification failures, Adapter failures.
 *   **Overhead**: Scheduler queueing time, Execution Pipeline traversal time, IR Optimization Cost, Plugin Initialization Cost.
+
+### Cost Monitoring (Cloud/Enterprise):
+*   GPU utilization efficiency
+*   RAM efficiency
+*   Tokens per watt
+*   Tokens per dollar
+
 
 ---
 
-## 8. Capacity Planning
+## 9. Capacity Planning
 
 *   **Memory Budgeting**: The system calculates total available RAM and reserves a fixed percentage for KV cache, model weights, and OS overhead, enforcing strict backpressure when bounds are reached.
 *   **Queue Sizing**: Maximum queue depth prevents unbounded memory growth from pending requests.
@@ -173,7 +205,7 @@ Production benchmarking must be continuous.
 
 ---
 
-## 9. Security Architecture
+## 10. Security Architecture
 
 *   **Plugin Trust Model**: Plugins must be explicitly registered and ideally signed.
 *   **Model Validation**: Models loaded from disk must match expected SHA256 hashes to prevent execution of tampered tensors.
@@ -182,7 +214,7 @@ Production benchmarking must be continuous.
 
 ---
 
-## 10. Release Engineering
+## 11. Release Engineering
 
 ```mermaid
 flowchart LR
@@ -193,13 +225,20 @@ flowchart LR
     Beta --> Stable[Stable/LTS]
 ```
 
+
+### Support Windows:
+*   **Experimental**: 1 release (Best-effort support for new architectures).
+*   **Stable**: 3 releases (Actively maintained, bug fixes).
+*   **LTS (Long Term Support)**: 12 months (Critical fixes only).
+*   **Security**: 18 months (Patches for CVEs).
+
 ### Promotion Criteria:
 *   To Beta: Feature complete, passes HF Equivalence, no critical bugs.
 *   To Stable: Proven under benchmark loads, documentation complete, passes all CI regression gates.
 
 ---
 
-## 11. CI/CD Architecture
+## 12. CI/CD Architecture
 
 ```mermaid
 flowchart TD
@@ -216,7 +255,7 @@ Gates include Model Adapter validation, Execution Graph generation checks, and P
 
 ---
 
-## 12. Distribution Architecture
+## 13. Distribution Architecture
 
 oMLX artifacts are distributed via:
 *   **PyPI**: Standard `pip install omlx` (Source/Wheel).
@@ -226,7 +265,7 @@ oMLX artifacts are distributed via:
 
 ---
 
-## 13. Disaster Recovery
+## 14. Disaster Recovery
 
 ```mermaid
 flowchart TD
@@ -240,7 +279,36 @@ Partial deployments are automatically rolled back if health checks fail to reach
 
 ---
 
-## 14. Maintenance Strategy
+
+
+### Backup Strategy
+Alongside disaster recovery, stateful components require regular backups:
+*   **Configuration Backups**: Store GitOps state of deployment manifests.
+*   **Verification Baseline Backups**: Preserve golden assets and baseline logs.
+*   **Registry Backups**: Back up `CapabilityRegistry` states, local Model Registry indices, and Plugin Registry metadata.
+
+---
+
+## 15. Incident Response
+
+Operational issues follow a structured incident response lifecycle:
+
+```mermaid
+flowchart LR
+    Incident[Incident Detected] --> Severity[Assess Severity]
+    Severity --> Runbook[Execute Runbook]
+    Runbook --> Escalation[Escalation Path]
+    Escalation --> Postmortem[Postmortem Review]
+    Postmortem --> ActionItems[Action Items]
+```
+
+*   **Severity**: Define severity levels (e.g., SEV-1: Complete Outage, SEV-2: Degraded Performance).
+*   **Runbook**: Operators execute predefined actions based on alerts.
+*   **Postmortem**: Root Cause Analysis (RCA) to prevent recurrence, documenting any new constraints for the `ExecutionEnvironment`.
+
+---
+
+## 16. Maintenance Strategy
 
 *   **Cache Cleanup**: Automated scripts to prune unused models/KV cache data.
 *   **Baseline Refresh**: Periodically update golden assets and HF equivalence baselines as upstream `transformers` or `mlx` libraries change.
@@ -248,7 +316,7 @@ Partial deployments are automatically rolled back if health checks fail to reach
 
 ---
 
-## 15. Documentation Architecture
+## 17. Documentation Architecture
 
 Structure for public documentation:
 *   **Developer Docs**: Contributing, building from source.
@@ -259,7 +327,18 @@ Structure for public documentation:
 
 ---
 
-## 16. Production Readiness Checklist
+
+### Operational Runbooks
+Future documentation should include a `runbooks/` directory containing step-by-step guides for operators:
+*   `OOM.md`: Resolving Out-Of-Memory events.
+*   `PluginFailure.md`: Handling initialization or runtime plugin errors.
+*   `SchedulerDeadlock.md`: Recovering a stuck scheduler queue.
+*   `EngineRestart.md`: Safe restarts and cache preservation.
+*   `VerificationFailure.md`: Debugging CI/CD or startup verification failures.
+
+---
+
+## 18. Production Readiness Checklist
 
 *   [ ] Architecture Complete (RAES-001 through RAES-016 adhered to)
 *   [ ] Verification Passing (Unit, Integration, HF Equivalence)
@@ -271,13 +350,13 @@ Structure for public documentation:
 
 ---
 
-## 17. Future Operational Roadmap
+## 19. Future Operational Roadmap
 
 The operational architecture natively supports future extensions (e.g., Diffusion, Streaming MoE, Distributed Inference) without structural changes, as these are exposed via the `CapabilityRegistry` and `ExecutionPlanner`. The monitoring stack simply sees new capabilities; it does not require redesigning K8s deployments or health probes.
 
 ---
 
-## 18. Verification Strategy
+## 20. Verification Strategy
 
 Operational verification goes beyond unit tests:
 *   **Deployment Validation**: Ensuring Docker/Brew packages install and run correctly on fresh systems.
@@ -286,7 +365,7 @@ Operational verification goes beyond unit tests:
 
 ---
 
-## 19. Rollback Strategy
+## 21. Rollback Strategy
 
 *   **Feature Flags**: Rapidly toggle execution logic (e.g., turn off a speculative adapter) via configuration, without a binary release.
 *   **Release Rollback**: Keep previous Docker tags/PyPI versions immutable so orchestrators can instantly revert.
