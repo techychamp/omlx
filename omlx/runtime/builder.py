@@ -10,6 +10,7 @@ import time
 import logging
 from dataclasses import dataclass, field
 from omlx.capabilities import CapabilityResolver
+from omlx.planner.planner import ExecutionPlanner
 from typing import Any, Optional
 
 from .context import RuntimeState
@@ -64,6 +65,12 @@ class Runtime:
         self.engine_pool: Any = None
         self.metrics: Any = None
         self.event_bus = EventBus()
+        self.execution_planner = ExecutionPlanner(
+            capability_resolver=context.capability_resolver,
+            feature_flags=context.feature_flags,
+            runtime_context=context,
+            registries=context.registries
+        )
 
     def transition(self, new_state: RuntimeStateEnum) -> None:
         """Safely transition lifecycle states."""
