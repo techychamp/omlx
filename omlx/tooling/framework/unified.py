@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: Apache-2.0
+"""
+Unified Tooling Framework
+Provides a central access point for developer tooling.
+"""
+from typing import Any
+from .registry import ToolingRegistry
+from omlx.tooling.inspector.inspector import CompilerInspector
+from omlx.tooling.inspector.runtime_inspector import RuntimeInspector
+from omlx.tooling.inspector.execution_inspector import ExecutionInspector
+from omlx.tooling.inspector.backend_inspector import BackendInspector
+from omlx.tooling.validation.validation_helpers import ValidationHelper
+from omlx.tooling.profiling.profiler import DeveloperProfiler
+from omlx.tooling.benchmark.benchmark_helpers import BenchmarkHelper
+from omlx.tooling.snapshot.snapshot import SnapshotManager
+
+
+class UnifiedTooling:
+    """
+    Central framework for developer tooling.
+    It delegates to registered inspectors, profilers, etc.
+    It must never modify runtime behavior.
+    """
+    def __init__(self):
+        self.registry = ToolingRegistry()
+
+        # Register default inspectors
+        self.registry.register_inspector("compiler", CompilerInspector())
+        self.registry.register_inspector("runtime", RuntimeInspector())
+        self.registry.register_inspector("execution", ExecutionInspector())
+        self.registry.register_inspector("backend", BackendInspector())
+
+        # Register default tools
+        self.registry.register_validator("default", ValidationHelper())
+        self.registry.register_profiler("default", DeveloperProfiler())
+        self.registry.register_benchmark("default", BenchmarkHelper())
+
+        # Managers
+        self.snapshot_manager = SnapshotManager()
+
+    def get_inspector(self, name: str) -> Any:
+        return self.registry.get_inspector(name)
+
+    def get_validator(self, name: str) -> Any:
+        return self.registry.get_validator(name)
+
+    def get_profiler(self, name: str) -> Any:
+        return self.registry.get_profiler(name)
+
+    def get_benchmark(self, name: str) -> Any:
+        return self.registry.get_benchmark(name)
+
+# Global instance for easy access
+_unified_tooling = UnifiedTooling()
+
+def get_tooling() -> UnifiedTooling:
+    return _unified_tooling
