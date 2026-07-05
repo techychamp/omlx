@@ -98,7 +98,7 @@ class MLXAdapter(BaseBackendAdapter):
         mlx_version = "unknown"
         try:
             import mlx.core as mx
-            mlx_version = mx.__version__
+            mlx_version = getattr(mx, '__version__', '0.0.0')
         except ImportError:
             pass
 

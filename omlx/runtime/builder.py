@@ -10,7 +10,8 @@ import time
 import logging
 from dataclasses import dataclass, field
 from omlx.capabilities import CapabilityResolver
-from omlx.planner.planner import ExecutionPlanner
+from omlx.capabilities.descriptor import CapabilityDescriptor
+from omlx.planner.planner import ExecutionPlanner, ExecutionPlan
 from omlx.planner.ir.builder import IRBuilder
 from omlx.planner.compiler import LoweringEngine
 from omlx.planner.compiler.backend import AdapterRegistry, BackendDescriptorRegistry, MLXAdapter
@@ -51,6 +52,16 @@ class RuntimeContext:
     adapter_registry: AdapterRegistry | None = None
     descriptor_registry: BackendDescriptorRegistry | None = None
 
+    # Compiler Runtime Artifacts
+    capability_descriptor: CapabilityDescriptor | None = None
+    execution_plan: ExecutionPlan | None = None
+    compiler_session: Any = None
+    backend_operation_graph: Any = None
+    compiler_diagnostics: Any = None
+    translation_result: Any = None
+    compiler_statistics: Any = None
+
+
 
 class Runtime:
     """Central runtime object owning all subsystems.
@@ -81,6 +92,10 @@ class Runtime:
         )
         self.adapter_registry = context.adapter_registry
         self.descriptor_registry = context.descriptor_registry
+
+    def update_context(self, **kwargs) -> None:
+        import dataclasses
+        self.context = dataclasses.replace(self.context, **kwargs)
 
     def transition(self, new_state: RuntimeStateEnum) -> None:
         """Safely transition lifecycle states."""

@@ -286,6 +286,11 @@ class EngineCore:
                 capabilities=model_caps,
             )
 
+            # Consume the translation result from config if present
+            if hasattr(self.config, 'compiler_translation_result') and self.config.compiler_translation_result is not None:
+                self.compiler_translation_result = self.config.compiler_translation_result
+                logger.debug("EngineCore consuming pre-computed compiler artifacts from config")
+
             # 3. Build ExecutionContext and resolve profile / backend factory
             context = ExecutionContext(
                 model_info=model_info,

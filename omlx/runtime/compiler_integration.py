@@ -39,17 +39,11 @@ class CompilerPipelineRunner:
         # 1. Capability Resolution
         descriptor = None
         if flags.CAPABILITY_RUNTIME_ENABLED:
-            if hasattr(self.runtime.context, "capability_resolver") and self.runtime.context.capability_resolver:
-                try:
-                    # In a full integration, context includes model properties.
-                    # For this test, we simply resolve default capabilities.
-                    descriptor = self.runtime.context.capability_resolver.resolve(model_descriptor={"model_id": model_id})
-                    logger.debug(f"Capability resolution completed for {model_id}")
-                except Exception as e:
-                    logger.error(f"Capability resolution failed: {e}", exc_info=True)
-                    return None
-            else:
-                logger.warning("Capability resolver not found on runtime context.")
+            try:
+                descriptor = self.runtime.context.capability_resolver.resolve(model_descriptor={"model_id": model_id})
+                logger.debug(f"Capability resolution completed for {model_id}")
+            except Exception as e:
+                logger.error(f"Capability resolution failed: {e}", exc_info=True)
                 return None
 
         if descriptor is None:
@@ -58,15 +52,11 @@ class CompilerPipelineRunner:
         # 2. Execution Planning
         plan = None
         if flags.PLANNER_RUNTIME_ENABLED:
-            if hasattr(self.runtime, "execution_planner") and self.runtime.execution_planner:
-                try:
-                    plan = self.runtime.execution_planner.plan(descriptor)
-                    logger.debug(f"Execution planning completed for {model_id}")
-                except Exception as e:
-                    logger.error(f"Execution planning failed: {e}", exc_info=True)
-                    return None
-            else:
-                logger.warning("Execution planner not found on runtime.")
+            try:
+                plan = self.runtime.execution_planner.plan(descriptor)
+                logger.debug(f"Execution planning completed for {model_id}")
+            except Exception as e:
+                logger.error(f"Execution planning failed: {e}", exc_info=True)
                 return None
 
         if plan is None:
@@ -75,16 +65,12 @@ class CompilerPipelineRunner:
         # 3. Logical IR Generation & Lowering
         physical_ir = None
         if flags.LOWERING_RUNTIME_ENABLED:
-            if hasattr(self.runtime, "ir_builder") and hasattr(self.runtime, "lowering_engine"):
-                try:
-                    logical_ir = self.runtime.ir_builder.build(plan)
-                    physical_ir = self.runtime.lowering_engine.lower(logical_ir)
-                    logger.debug(f"IR lowering completed for {model_id}")
-                except Exception as e:
-                    logger.error(f"IR lowering failed: {e}", exc_info=True)
-                    return None
-            else:
-                logger.warning("IR Builder or Lowering Engine not found on runtime.")
+            try:
+                logical_ir = self.runtime.ir_builder.build(plan)
+                physical_ir = self.runtime.lowering_engine.lower(logical_ir)
+                logger.debug(f"IR lowering completed for {model_id}")
+            except Exception as e:
+                logger.error(f"IR lowering failed: {e}", exc_info=True)
                 return None
 
         if physical_ir is None:
@@ -93,34 +79,40 @@ class CompilerPipelineRunner:
         # 4. Adapter Translation
         translation_result = None
         if flags.ADAPTER_RUNTIME_ENABLED:
-            if hasattr(self.runtime, "adapter_registry") and self.runtime.adapter_registry:
-                try:
-                    # Resolve backend from plan
-                    backend = plan.execution_backend
-                    hardware = plan.hardware_requirements[0] if plan.hardware_requirements else "any"
+            try:
+                # Resolve backend from plan
+                backend = plan.execution_backend
+                hardware = plan.hardware_requirements[0] if plan.hardware_requirements else "any"
 
-                    adapter = self.runtime.adapter_registry.get_adapter(
-                        backend=backend,
-                        hardware=hardware,
-                        execution_family=plan.execution_family,
-                        execution_mode=plan.execution_mode
-                    )
+                adapter = self.runtime.adapter_registry.resolve(
+                    backend=backend,
+                    hardware=hardware,
+                    execution_family=plan.execution_family,
+                    execution_mode=plan.execution_mode
+                )
 
-                    if adapter:
-                        # Translate Physical IR to Backend Operation Graph
-                        translation_result = adapter.translate(physical_ir)
-                        logger.debug(f"Adapter translation completed for {model_id}")
-                    else:
-                        logger.warning(f"No adapter found for backend={backend}, family={plan.execution_family}")
-                        return None
-                except Exception as e:
-                    logger.error(f"Adapter translation failed: {e}", exc_info=True)
+                if adapter:
+                    # Translate Physical IR to Backend Operation Graph
+                    translation_result = adapter.translate(physical_ir)
+                    logger.debug(f"Adapter translation completed for {model_id}")
+                else:
+                    logger.warning(f"No adapter found for backend={backend}, family={plan.execution_family}")
                     return None
-            else:
-                logger.warning("Adapter registry not found on runtime.")
+            except Exception as e:
+                logger.error(f"Adapter translation failed: {e}", exc_info=True)
                 return None
 
         total_time = (time.time() - start_time) * 1000
         logger.debug(f"Compiler pipeline finished for {model_id} in {total_time:.2f}ms")
+
+        if flags.COMPILER_CONTEXT_ENABLED:
+            # Also store the BackendOperationGraph explicitly if available
+            backend_op_graph = translation_result.backend_operation_graph if translation_result else None
+            self.runtime.update_context(
+                capability_descriptor=descriptor,
+                execution_plan=plan,
+                translation_result=translation_result,
+                backend_operation_graph=backend_op_graph
+            )
 
         return translation_result

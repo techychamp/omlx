@@ -177,8 +177,6 @@ from .engine import BaseEngine, VLMBatchedEngine
 from .engine.embedding import EmbeddingEngine
 from .engine.reranker import RerankerEngine
 from .engine_pool import EnginePool
-from .runtime.builder import RuntimeBuilder, RuntimeStateEnum
-
 from .exceptions import (
     EnginePoolError,
     InsufficientMemoryError,
@@ -187,6 +185,7 @@ from .exceptions import (
     ModelLoadingError,
     ModelNotFoundError,
     ModelTooLargeError,
+    ModelUnavailableError,
     PrefillMemoryExceededError,
     SchedulerQueueFullError,
 )
@@ -267,14 +266,13 @@ class ServerState:
     to manage and test.
     """
 
-    runtime: Optional[object] = None
-    _engine_pool: Optional[EnginePool] = None
+    engine_pool: Optional[EnginePool] = None
     default_model: Optional[str] = None
     mcp_manager: Optional[object] = None
     mcp_executor: Optional[object] = None
     sampling: SamplingDefaults = field(default_factory=SamplingDefaults)
     api_key: Optional[str] = None
-    _settings_manager: Optional[object] = None  # ModelSettingsManager
+    settings_manager: Optional[object] = None  # ModelSettingsManager
     global_settings: Optional[object] = None  # GlobalSettings
     hf_downloader: Optional[object] = None  # HFDownloader
     ms_downloader: Optional[object] = None  # MSDownloader
@@ -282,31 +280,6 @@ class ServerState:
     responses_store: ResponseStore = field(default_factory=ResponseStore)
     oq_manager: Optional[object] = None  # OQManager
     hf_uploader: Optional[object] = None  # HFUploader
-
-    @property
-    def engine_pool(self) -> Optional[EnginePool]:
-        if self.runtime and hasattr(self.runtime, "engine_pool") and self.runtime.engine_pool is not None:
-            return self.runtime.engine_pool
-        return self._engine_pool
-
-    @engine_pool.setter
-    def engine_pool(self, value: Optional[EnginePool]) -> None:
-        self._engine_pool = value
-        if self.runtime:
-            self.runtime.engine_pool = value
-
-    @property
-    def settings_manager(self) -> Optional[object]:
-        if self.runtime and hasattr(self.runtime, "settings") and self.runtime.settings is not None:
-            return self.runtime.settings
-        return self._settings_manager
-
-    @settings_manager.setter
-    def settings_manager(self, value: Optional[object]) -> None:
-        self._settings_manager = value
-        if self.runtime:
-            self.runtime.settings = value
-
 
 
 # Global server state instance
@@ -317,15 +290,9 @@ def get_server_state() -> ServerState:
     """Get the global server state."""
     return _server_state
 
-def get_runtime():
-    """Get the active RuntimeBuilder constructed runtime instance."""
-    return getattr(_server_state, "runtime", None)
-
 
 def get_engine_pool() -> EnginePool:
     """Get the engine pool, raising error if not initialized."""
-    if _server_state.runtime and _server_state.runtime.engine_pool:
-        return _server_state.runtime.engine_pool
     if _server_state.engine_pool is None:
         raise HTTPException(status_code=503, detail="Server not initialized")
     return _server_state.engine_pool
@@ -988,6 +955,8 @@ async def get_engine(
         raise HTTPException(status_code=507, detail=str(e))
     except InsufficientMemoryError as e:
         raise HTTPException(status_code=507, detail=str(e))
+    except ModelUnavailableError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
     except ModelLoadingError as e:
         raise HTTPException(status_code=409, detail=str(e))
     except ModelBusyError as e:
@@ -1120,6 +1089,29 @@ async def get_engine_for_model(
     *,
     lease: _LLMEngineLease | None = None,
 ) -> BaseEngine:
+    # MIG-003: Orchestrate Compiler Pipeline execution before Engine load
+    runtime = get_runtime()
+    if runtime is not None:
+        flags = runtime.feature_flags
+        if getattr(flags, "COMPILER_RUNTIME_ENABLED", False):
+            try:
+                from omlx.runtime.compiler_integration import CompilerPipelineRunner
+                runner = CompilerPipelineRunner(runtime)
+                resolved_model = resolve_model_id(model) if model else model
+
+                # Fetch default model logic if model is None
+                if not resolved_model:
+                    pool = get_engine_pool()
+                    available_models = pool.get_model_ids()
+                    if available_models:
+                        resolved_model = _server_state.default_model or available_models[0]
+
+                if resolved_model:
+                    translation_result = runner.run_pipeline(resolved_model)
+                    if translation_result:
+                        logger.debug(f"Compiler pipeline successfully planned intent for {resolved_model}")
+            except Exception as e:
+                logger.error(f"Compiler pipeline non-blocking failure: {e}", exc_info=True)
     """
     Get LLM engine for the specified model (or default).
 
@@ -1778,18 +1770,6 @@ def init_server(
         scheduler_config=scheduler_config,
     )
 
-    # Build the composition root using RuntimeBuilder
-    builder = RuntimeBuilder()
-    builder.with_settings(_server_state.settings_manager)
-    builder.with_engine_pool(_server_state.engine_pool)
-    # The RuntimeContext will capture the feature flags from the environment
-
-    runtime = builder.build()
-    _server_state.runtime = runtime
-
-    # Transition to INITIALIZING state
-    runtime.transition(RuntimeStateEnum.INITIALIZING)
-
     # Discover models (use pinned models from settings file)
     _server_state.engine_pool._settings_manager = _server_state.settings_manager
     _server_state.engine_pool.discover_models(dir_list, pinned_models)
@@ -1799,9 +1779,6 @@ def init_server(
         logger.warning(
             f"No models found in {', '.join(dir_list)}. Add models to serve them."
         )
-
-    if _server_state.runtime:
-        _server_state.runtime.transition(RuntimeStateEnum.READY)
 
     # Set default model (from settings file, fallback to first model)
     available_models = _server_state.engine_pool.get_model_ids()
@@ -2660,8 +2637,22 @@ async def load_model_public(model_id: str, _: bool = Depends(verify_api_key)):
 
     try:
         await _server_state.engine_pool.get_engine(model_id)
+    except ModelNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except ModelTooLargeError as e:
+        raise HTTPException(status_code=507, detail=str(e)) from e
+    except InsufficientMemoryError as e:
+        raise HTTPException(status_code=507, detail=str(e)) from e
+    except ModelUnavailableError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    except ModelLoadingError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    except ModelBusyError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    except EnginePoolError as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
     return {"status": "ok", "model_id": model_id, "message": f"Loaded {model_id}"}
 
@@ -2919,16 +2910,6 @@ async def create_completion(
         load_start = time.perf_counter()
         engine = await get_engine_for_model(request.model, lease=lease)
         model_load_duration = time.perf_counter() - load_start
-        # Run compiler pipeline if enabled
-        if _server_state.runtime:
-            try:
-                pipeline_runner = CompilerPipelineRunner(_server_state.runtime)
-                translation_result = pipeline_runner.run_pipeline(request.model)
-                if translation_result:
-                    logger.debug(f"Compiler pipeline translation generated for {request.model}")
-            except Exception as e:
-                logger.error(f"Compiler pipeline non-blocking failure: {e}", exc_info=True)
-
 
         # Handle single prompt or list of prompts
         prompts = (
@@ -3141,16 +3122,6 @@ async def create_chat_completion(
         load_start = time.perf_counter()
         engine = await get_engine_for_model(request.model, lease=lease)
         model_load_duration = time.perf_counter() - load_start
-        # Run compiler pipeline if enabled
-        if _server_state.runtime:
-            try:
-                pipeline_runner = CompilerPipelineRunner(_server_state.runtime)
-                translation_result = pipeline_runner.run_pipeline(request.model)
-                if translation_result:
-                    logger.debug(f"Compiler pipeline translation generated for {request.model}")
-            except Exception as e:
-                logger.error(f"Compiler pipeline non-blocking failure: {e}", exc_info=True)
-
 
         # Resolve alias to real model ID for settings lookups
         resolved_model = resolve_model_id(request.model) or request.model
@@ -4215,6 +4186,71 @@ async def stream_completion(
     yield "data: [DONE]\n\n"
 
 
+def _copy_chat_template_messages(messages: list) -> list:
+    return [
+        dict(message) if isinstance(message, dict) else message for message in messages
+    ]
+
+
+def _render_chat_prompt_for_thinking_detection(
+    engine: BaseEngine,
+    messages: list,
+    kwargs: dict,
+) -> tuple[str, list[int] | None]:
+    tokenizer = getattr(engine, "tokenizer", None)
+    if tokenizer is None:
+        return "", None
+
+    template_messages = _copy_chat_template_messages(messages)
+    tools = kwargs.get("tools")
+    chat_template_kwargs = kwargs.get("chat_template_kwargs")
+    is_partial = kwargs.get("is_partial")
+    engine_renderer = getattr(engine, "_apply_chat_template", None)
+
+    if is_partial is not None:
+        for message in template_messages:
+            if isinstance(message, dict):
+                message.pop("partial", None)
+
+    if callable(engine_renderer):
+        prompt = engine_renderer(
+            template_messages,
+            tools,
+            chat_template_kwargs=chat_template_kwargs,
+            is_partial=is_partial,
+        )
+    else:
+        template_kwargs = {
+            "tokenize": False,
+            "add_generation_prompt": not bool(is_partial),
+        }
+        if is_partial:
+            template_kwargs["continue_final_message"] = True
+        if tools:
+            template_kwargs["tools"] = tools
+        if chat_template_kwargs:
+            template_kwargs.update(chat_template_kwargs)
+
+        try:
+            prompt = tokenizer.apply_chat_template(template_messages, **template_kwargs)
+        except TypeError:
+            if chat_template_kwargs:
+                for key in chat_template_kwargs:
+                    template_kwargs.pop(key, None)
+            template_kwargs.pop("tools", None)
+            template_kwargs.pop("enable_thinking", None)
+            prompt = tokenizer.apply_chat_template(template_messages, **template_kwargs)
+
+    if isinstance(prompt, str):
+        return prompt, None
+    if isinstance(prompt, list):
+        try:
+            return "", [int(token_id) for token_id in prompt]
+        except (TypeError, ValueError):
+            return str(prompt), None
+    return str(prompt), None
+
+
 async def stream_chat_completion(
     engine: BaseEngine,
     messages: list,
@@ -4235,7 +4271,19 @@ async def stream_chat_completion(
     last_output = None
     accumulated_text = ""
     has_tools = bool(kwargs.get("tools"))
-    thinking_parser = ThinkingParser()
+    start_in_thinking = False
+    try:
+        tokenizer = getattr(engine, "tokenizer", None)
+        if tokenizer is not None:
+            prompt, prompt_token_ids = _render_chat_prompt_for_thinking_detection(
+                engine, messages, kwargs
+            )
+            start_in_thinking, _ = prompt_opens_thinking(
+                tokenizer, prompt, prompt_token_ids=prompt_token_ids
+            )
+    except Exception as exc:
+        logger.debug("Could not detect chat stream thinking state: %s", exc)
+    thinking_parser = ThinkingParser(start_in_thinking=start_in_thinking)
 
     # Reuse the id pre-minted by the caller (so the keepalive frame can share
     # it); otherwise mint one for direct/non-streaming callers.
@@ -5477,16 +5525,6 @@ async def create_response(
     try:
         engine = await get_engine_for_model(request.model, lease=lease)
         model_load_duration = time.perf_counter() - load_start
-        # Run compiler pipeline if enabled
-        if _server_state.runtime:
-            try:
-                pipeline_runner = CompilerPipelineRunner(_server_state.runtime)
-                translation_result = pipeline_runner.run_pipeline(request.model)
-                if translation_result:
-                    logger.debug(f"Compiler pipeline translation generated for {request.model}")
-            except Exception as e:
-                logger.error(f"Compiler pipeline non-blocking failure: {e}", exc_info=True)
-
 
         resolved_model = resolve_model_id(request.model) or request.model
 
