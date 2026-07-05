@@ -1,51 +1,75 @@
 # SPDX-License-Identifier: Apache-2.0
 """Test golden assets alignment checks."""
 
-import json
 import pytest
-import numpy as np
+import os
+from types import MappingProxyType
+from omlx.planner.plan import ExecutionPlan
+from omlx.planner.ir.graph import ExecutionIR
+from omlx.planner.ir.nodes import IRNode, IRNodeType
+from verification.scripts.utils import GoldenLoader, GoldenComparator, ArtifactSerializer
 
-class GoldenLoader:
-    @staticmethod
-    def get_embedding_pair():
-        return {
-            "sentence_a": "The weather is nice today.",
-            "sentence_b": "It is a sunny day outside.",
-            "expected_cosine": 0.9996
-        }
+# Define test assets directory
+GOLDEN_DIR = "tests/golden"
 
-    @staticmethod
-    def get_diffusion_target():
-        return 0.1254
-
-def calculate_cosine_similarity(vec_a, vec_b):
-    dot_product = np.dot(vec_a, vec_b)
-    norm_a = np.linalg.norm(vec_a)
-    norm_b = np.linalg.norm(vec_b)
-    return dot_product / (norm_a * norm_b)
-
-def test_embedding_golden_alignment():
-    """Verify that sentence embeddings produce expected cosine similarity."""
-    asset = GoldenLoader.get_embedding_pair()
-    
-    vector_a = np.array([0.1, 0.2, 0.3, 0.9])
-    vector_b = np.array([0.11, 0.19, 0.32, 0.88])
-    
-    similarity = calculate_cosine_similarity(vector_a, vector_b)
-    
-    tolerance = 1e-3
-    assert abs(similarity - asset["expected_cosine"]) < tolerance, (
-        f"Cosine similarity ({similarity:.4f}) drifted past tolerance ({tolerance}) "
-        f"from expected ({asset['expected_cosine']:.4f})."
+def _get_dummy_execution_plan() -> ExecutionPlan:
+    return ExecutionPlan(
+        execution_family="autoregressive",
+        execution_backend="autoregressive",
+        execution_mode="standard",
+        execution_topology="single_node",
+        cache_strategy="paged",
+        scheduler_strategy="static_batching",
+        verification_stages=tuple(),
+        optimization_passes=tuple(),
+        execution_hints=MappingProxyType({"precision": "fp16"}),
+        hardware_requirements=tuple(),
+        planner_metadata=MappingProxyType({"planning_time_ms": 10.0})
     )
 
-def test_diffusion_pixel_reproducibility():
-    """Verify that diffusion outputs meet deterministic target metrics."""
-    target_mean = GoldenLoader.get_diffusion_target()
-    
-    output_canvas = np.full((64, 64), 0.1254)
-    
-    actual_mean = np.mean(output_canvas)
-    assert abs(actual_mean - target_mean) < 1e-6, (
-        f"Mean pixel intensity ({actual_mean}) drifted from golden baseline ({target_mean})."
+def _get_dummy_execution_ir() -> ExecutionIR:
+    node = IRNode(
+        id="node_prefill",
+        node_type=IRNodeType.PREFILL,
+        metadata=MappingProxyType({})
     )
+    return ExecutionIR(
+        nodes=MappingProxyType({node.id: node}),
+        roots=("node_prefill",),
+        metadata=MappingProxyType({"execution_mode": "standard"})
+    )
+
+def test_execution_plan_golden_alignment():
+    """Verify that execution plan matches its golden asset."""
+    plan = _get_dummy_execution_plan()
+    golden_path = os.path.join(GOLDEN_DIR, "execution_plan", "dummy_plan.json")
+    
+    if not os.path.exists(golden_path):
+        GoldenLoader.save(ArtifactSerializer.serialize(plan), golden_path)
+        pytest.skip(f"Golden asset created at {golden_path}. Run again to verify.")
+
+    golden_plan = GoldenLoader.load(golden_path)
+    # Exclude metadata like planning_time_ms which might vary
+    actual_dict = ArtifactSerializer.serialize(plan)
+    actual_dict.pop("planner_metadata", None)
+    expected_dict = dict(golden_plan)
+    expected_dict.pop("planner_metadata", None)
+    
+    diff = GoldenComparator.compare(actual_dict, expected_dict)
+    
+    assert not diff.has_differences(), f"ExecutionPlan drifted from golden baseline. Diff: {diff.to_dict()}"
+
+def test_execution_ir_golden_alignment():
+    """Verify that execution IR matches its golden asset."""
+    ir = _get_dummy_execution_ir()
+    golden_path = os.path.join(GOLDEN_DIR, "logical_ir", "dummy_ir.json")
+    
+    if not os.path.exists(golden_path):
+        GoldenLoader.save(ArtifactSerializer.serialize(ir), golden_path)
+        pytest.skip(f"Golden asset created at {golden_path}. Run again to verify.")
+
+    golden_ir = GoldenLoader.load(golden_path)
+    
+    diff = GoldenComparator.compare(ir, golden_ir)
+
+    assert not diff.has_differences(), f"ExecutionIR drifted from golden baseline. Diff: {diff.to_dict()}"

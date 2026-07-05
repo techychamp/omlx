@@ -7,7 +7,10 @@ import abc
 import time
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Any
+from typing import Optional, TYPE_CHECKING, Any
+from omlx.planner.compiler.cache.utils import compute_cache_key
+if TYPE_CHECKING:
+    from omlx.planner.compiler.cache.manager import CompilerCacheManager
 
 from omlx.planner.ir.physical.graph import PhysicalIR
 from omlx.planner.ir.physical.operations import PhysicalOperationType
@@ -79,6 +82,24 @@ class BaseBackendAdapter(abc.ABC):
     def validate(self, physical_ir: PhysicalIR) -> BackendValidationResult:
         """Validate whether the Physical IR is compatible with this backend."""
         pass
+
+    def translate_with_cache(self, physical_ir: PhysicalIR) -> TranslationResult:
+        cache_key = compute_cache_key(f"trans_res_{self.descriptor.backend_id}", physical_ir)
+        if getattr(self, 'cache_manager', None):
+            cached = self.cache_manager.get(cache_key)
+            if cached:
+                return cached.value
+
+        result = self.translate(physical_ir)
+
+        if getattr(self, 'cache_manager', None):
+            self.cache_manager.put(cache_key, result, size_bytes=16384, version="v1")
+            if getattr(self, 'dependency_tracker', None):
+                upstream_key = physical_ir.metadata.get("cache_key")
+                if upstream_key:
+                    self.dependency_tracker.record_dependency(upstream_key, cache_key)
+
+        return result
 
     @abc.abstractmethod
     def translate(self, physical_ir: PhysicalIR) -> TranslationResult:

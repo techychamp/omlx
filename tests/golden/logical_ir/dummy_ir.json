@@ -1,0 +1,16 @@
+{
+    "nodes": {
+        "node_prefill": {
+            "id": "node_prefill",
+            "node_type": "prefill",
+            "dependencies": [],
+            "metadata": {}
+        }
+    },
+    "roots": [
+        "node_prefill"
+    ],
+    "metadata": {
+        "execution_mode": "standard"
+    }
+}
