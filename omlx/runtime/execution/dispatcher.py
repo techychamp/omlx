@@ -19,11 +19,11 @@ class SequentialExecutionDispatcher(ExecutionDispatcher):
     Dispatches graph operations sequentially without scheduling logic.
     Assumes operations are ordered by GraphExecutor.
     """
-    def __init__(self, adapter_registry: Any = None):
-        self.adapter_registry = adapter_registry
+    def __init__(self):
+        pass
 
     def dispatch(self, graph: BackendOperationGraph, context: ExecutionContext, execution_order=None, schedule=None) -> ExecutionResult:
-        logger.debug("ExecutionDispatcher dispatching graph operations")
+        logger.debug("SequentialExecutionDispatcher dispatching graph operations")
 
         if not execution_order and hasattr(graph, 'operations'):
             execution_order = list(graph.operations.keys())
@@ -35,15 +35,19 @@ class SequentialExecutionDispatcher(ExecutionDispatcher):
              )
 
         adapter = getattr(context, 'adapter', None)
-        if adapter is None and self.adapter_registry:
-            adapter = self.adapter_registry.resolve(backend="mlx", hardware="any", execution_family="autoregressive", execution_mode="standard")
+        if adapter is None:
+            logger.error("No BackendAdapter found in ExecutionContext")
+            return ExecutionResult(
+                status=ExecutionStatus.FAILED,
+                model_output=None
+            )
 
         ops_executed = 0
         last_output = None
 
         for op_id in execution_order:
             op = graph.operations[op_id]
-            if adapter and hasattr(adapter, 'execute'):
+            if hasattr(adapter, 'execute'):
                  # Formal BackendAdapter.execute boundary
                  last_output = adapter.execute(op, context)
             ops_executed += 1
@@ -54,61 +58,39 @@ class SequentialExecutionDispatcher(ExecutionDispatcher):
             status=ExecutionStatus.COMPLETED,
             model_output=mock_output,
         )
-import concurrent.futures
-
 class ParallelExecutionDispatcher(ExecutionDispatcher):
     """
     Dispatches graph operations concurrently based on ExecutionGroups provided in the schedule.
     Operations within the same group are executed in parallel.
     """
-    def __init__(self, adapter_registry: Any = None, max_workers: int = None):
-        self.adapter_registry = adapter_registry
+    def __init__(self, max_workers: int = None):
         self.max_workers = max_workers
 
     def dispatch(self, graph: BackendOperationGraph, context: ExecutionContext, execution_order=None, schedule=None) -> ExecutionResult:
         logger.debug("ParallelExecutionDispatcher dispatching graph operations")
 
         if not schedule or not hasattr(schedule, 'execution_groups') or not schedule.execution_groups:
-            logger.warning("ParallelExecutionDispatcher invoked without valid schedule execution_groups, falling back to sequential-like execution")
-            if not execution_order and hasattr(graph, 'operations'):
-                execution_order = list(graph.operations.keys())
-
-            if not execution_order:
-                return ExecutionResult(
-                    status=ExecutionStatus.FAILED,
-                    model_output=None
-                )
-            # Create a fake group to run sequentially or concurrently all at once if no dependencies given
-            # We'll just run them one by one to be safe since no groups were provided
-            adapter = getattr(context, 'adapter', None)
-            if adapter is None and self.adapter_registry:
-                adapter = self.adapter_registry.resolve(backend="mlx", hardware="any", execution_family="autoregressive", execution_mode="standard")
-
-            ops_executed = 0
-            last_output = None
-            for op_id in execution_order:
-                op = graph.operations[op_id]
-                if adapter and hasattr(adapter, 'execute'):
-                    last_output = adapter.execute(op, context)
-                ops_executed += 1
-
-            mock_output = {"status": "dispatched", "operations": ops_executed, "last_output": last_output}
+            logger.error("ParallelExecutionDispatcher requires a valid ExecutionSchedule with execution_groups")
             return ExecutionResult(
-                status=ExecutionStatus.COMPLETED,
-                model_output=mock_output,
+                status=ExecutionStatus.FAILED,
+                model_output=None
             )
 
         adapter = getattr(context, 'adapter', None)
-        if adapter is None and self.adapter_registry:
-            adapter = self.adapter_registry.resolve(backend="mlx", hardware="any", execution_family="autoregressive", execution_mode="standard")
+        if adapter is None:
+            logger.error("No BackendAdapter found in ExecutionContext")
+            return ExecutionResult(
+                status=ExecutionStatus.FAILED,
+                model_output=None
+            )
 
         ops_executed = 0
         last_output = None
         has_failure = False
 
-
         from omlx.runtime.observability import get_observer
         import threading
+        import concurrent.futures
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             for group in schedule.execution_groups:
@@ -122,11 +104,12 @@ class ParallelExecutionDispatcher(ExecutionDispatcher):
                             logger.error(f"Operation {op_id} from schedule not found in graph")
                             has_failure = True
                             break
+
                         op = graph.operations[op_id]
-                        if adapter and hasattr(adapter, 'execute'):
+                        if hasattr(adapter, 'execute'):
                             def exec_with_obs(inner_op, inner_context):
                                 thread_id = threading.get_ident()
-                                with get_observer().observe_phase("Execution", "Worker", f"op_{inner_op.id}_thread_{thread_id}"):
+                                with get_observer().observe_phase("Execution", "Worker", f"op_{inner_op.id if hasattr(inner_op, 'id') else op_id}_thread_{thread_id}"):
                                     return adapter.execute(inner_op, inner_context)
                             futures.append(executor.submit(exec_with_obs, op, context))
                         else:
@@ -144,8 +127,7 @@ class ParallelExecutionDispatcher(ExecutionDispatcher):
                         except Exception as e:
                             logger.error(f"Execution failed during parallel dispatch: {e}", exc_info=True)
                             has_failure = True
-                            break # Stop processing this group
-
+                            break # Stop processing this group, wait for others to finish before raising
 
         if has_failure:
             return ExecutionResult(
