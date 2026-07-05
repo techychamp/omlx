@@ -16,3 +16,56 @@
 *   **Runtime:** The central application object produced by the `RuntimeBuilder` (Composition Root) that owns all subsystems.
 *   **Scheduler:** The execution-agnostic component responsible for queueing, batching, and memory constraints.
 *   **TranslationResult:** The final output of the Adapter Framework translating Physical IR into a Backend Operation Graph.
+# Glossary
+
+## CapabilityDescriptor
+
+Definition of CapabilityDescriptor.
+
+## ExecutionPlan
+
+Definition of ExecutionPlan.
+
+## Logical IR
+
+Definition of Logical IR.
+
+## Physical IR
+
+Definition of Physical IR.
+
+## Backend Operation Graph
+
+Definition of Backend Operation Graph.
+
+## TranslationResult
+
+Definition of TranslationResult.
+
+## Compiler Session
+
+Definition of Compiler Session.
+
+## Replay Session
+
+Definition of Replay Session.
+
+## Optimization Pass
+
+Definition of Optimization Pass.
+
+## Analysis Pass
+
+Definition of Analysis Pass.
+
+## Execution Policy
+
+Definition of Execution Policy.
+
+## Backend Descriptor
+
+Definition of Backend Descriptor.
+
+## Plugin Descriptor
+
+Definition of Plugin Descriptor.

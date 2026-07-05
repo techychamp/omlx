@@ -62,6 +62,7 @@ class LoweringEngine:
         self.dependency_tracker = dependency_tracker
 
     def lower(self, logical_ir: ExecutionIR) -> PhysicalIR:
+        from omlx.planner.compiler.cache.utils import compute_cache_key
         cache_key = compute_cache_key("phys_ir", logical_ir)
         if self.cache_manager:
             cached = self.cache_manager.get(cache_key)
