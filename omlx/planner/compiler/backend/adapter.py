@@ -434,7 +434,7 @@ class MLXAdapter(BaseBackendAdapter):
                             input_ids = mx.array([context.request_context.input_ids])
 
                         logits = context.model(input_ids)
-                        result_data = {"logits_shape": logits.shape}
+                        result_data = {"logits": logits}
                         status = "executed"
 
             elif isinstance(operation, MLXSynchronizationOperation):
