@@ -23,20 +23,8 @@ class CompilerInspector:
 
     def _freeze_dict(self, d: dict) -> dict:
         """Helper to recursively ensure nested structures are safe for export (e.g. enum strings)."""
-        res = {}
-        for k, v in d.items():
-            if hasattr(v, "value"): # Enum
-                res[k] = v.value
-            elif isinstance(v, (dict, list, tuple, set, frozenset)):
-                # basic stringification or json conversion could happen here, keeping simple for now
-                try:
-                    json.dumps(v)
-                    res[k] = v
-                except TypeError:
-                    res[k] = str(v)
-            else:
-                res[k] = v
-        return res
+        from omlx.utils.serialization import serialize_artifact
+        return serialize_artifact(d)
 
     def inspect_capability_descriptor(self, descriptor: CapabilityDescriptor) -> dict[str, Any]:
         """Inspects a CapabilityDescriptor and returns a dict representation."""

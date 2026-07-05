@@ -3,6 +3,9 @@ from typing import Dict, List, Optional, Set, Any, Mapping, Tuple
 from enum import Enum
 from types import MappingProxyType
 
+from omlx.utils.freezer import deep_freeze
+
+
 
 
 class PluginPriority(Enum):
@@ -69,14 +72,6 @@ class PluginConfiguration:
     configuration_diagnostics: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
     def __post_init__(self):
-        def deep_freeze(obj: Any) -> Any:
-            if isinstance(obj, (list, tuple)):
-                return tuple(deep_freeze(x) for x in obj)
-            elif isinstance(obj, (dict, MappingProxyType)):
-                return MappingProxyType({k: deep_freeze(v) for k, v in obj.items()})
-            elif isinstance(obj, set):
-                return frozenset(deep_freeze(x) for x in obj)
-            return obj
 
         object.__setattr__(self, 'configuration_values', deep_freeze(self.configuration_values))
         object.__setattr__(self, 'feature_flags', deep_freeze(self.feature_flags))
@@ -158,15 +153,6 @@ class PluginDescriptor:
     configuration: PluginConfiguration = field(default_factory=PluginConfiguration)
 
     def __post_init__(self):
-        # Deep-freeze mutable structures to enforce strict immutability
-        def deep_freeze(obj: Any) -> Any:
-            if isinstance(obj, (list, tuple)):
-                return tuple(deep_freeze(x) for x in obj)
-            elif isinstance(obj, (dict, MappingProxyType)):
-                return MappingProxyType({k: deep_freeze(v) for k, v in obj.items()})
-            elif isinstance(obj, set):
-                return frozenset(deep_freeze(x) for x in obj)
-            return obj
 
         object.__setattr__(self, 'permissions', deep_freeze(self.permissions))
         object.__setattr__(self, 'required_compiler_stages', deep_freeze(self.required_compiler_stages))
