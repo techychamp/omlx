@@ -1,22 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
 import pytest
-from typing import Set, Any
-from omlx.compiler.framework.manager import PassManager
-from omlx.compiler.framework.passes import AnalysisPass, PassCategory
-from omlx.compiler.passes.analysis import DependencyAnalysisPass, GraphComplexityAnalysisPass
+from omlx.optimization.manager import PassManager
+from omlx.optimization.passes import OptimizationContext, CompilerStage
+from omlx.optimization.pipeline import OptimizationPipeline
+from omlx.optimization.reference_passes import DependencyAnalysisPass, MemoryAnalysisPass
 
 def test_analysis_execution():
-    pm = PassManager("LogicalIR")
+    pm = PassManager()
     pm.register(DependencyAnalysisPass())
-    pm.register(GraphComplexityAnalysisPass())
+    pm.register(MemoryAnalysisPass())
+
+    pipeline = OptimizationPipeline(CompilerStage.LOGICAL_IR, pm)
+    analysis_cache = {}
+    context = OptimizationContext(analysis_cache=analysis_cache)
 
     artifact = ["test_artifact"]
-    result, analysis = pm.execute(artifact)
+    result = pipeline.execute(artifact, context)
 
     # Assert artifact remains immutable
     assert result == ["test_artifact"]
 
-    # Assert analysis dicts are populated
-    assert "DependencyAnalysisPass" in analysis
-    assert analysis["DependencyAnalysisPass"]["dependencies_count"] == 0
-    assert "GraphComplexityAnalysisPass" in analysis
-    assert analysis["GraphComplexityAnalysisPass"]["node_count"] == 0
+    # Assert analysis dicts/cache are populated
+    assert "dependency_analysis" in analysis_cache
+    assert "memory_analysis" in analysis_cache

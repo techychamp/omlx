@@ -4,14 +4,8 @@ from typing import Any
 
 from types import MappingProxyType
 
-def freeze_value(val: Any) -> Any:
-    if isinstance(val, dict):
-        return MappingProxyType({k: freeze_value(v) for k, v in val.items()})
-    elif isinstance(val, list):
-        return tuple(freeze_value(v) for v in val)
-    elif isinstance(val, set):
-        return frozenset(freeze_value(v) for v in val)
-    return val
+from omlx.utils.freezer import deep_freeze as freeze_value
+
 
 class ExecutionFamily(str, Enum):
     AUTOREGRESSIVE = "autoregressive"

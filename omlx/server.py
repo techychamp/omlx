@@ -291,6 +291,11 @@ def get_server_state() -> ServerState:
     return _server_state
 
 
+def get_runtime():
+    """Get the active RuntimeBuilder constructed runtime instance."""
+    return getattr(_server_state, "runtime", None)
+
+
 def get_engine_pool() -> EnginePool:
     """Get the engine pool, raising error if not initialized."""
     if _server_state.engine_pool is None:

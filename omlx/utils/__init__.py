@@ -57,4 +57,16 @@ __all__ = [
     "get_install_method",
     "is_app_bundle",
     "is_homebrew",
+    # Consolidation utilities
+    "deep_freeze",
+    "serialize_artifact",
+    "diff_structures_nested",
+    "diff_structures_flat",
+    "compute_stable_hash",
 ]
+
+from .freezer import deep_freeze
+from .serialization import serialize_artifact
+from .comparator import diff_structures_nested, diff_structures_flat
+from .hashing import compute_stable_hash
+
