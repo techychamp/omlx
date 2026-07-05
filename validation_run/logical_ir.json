@@ -1,0 +1,17 @@
+{
+  "nodes": {
+    "node_prefill": "IRNode(id='node_prefill', node_type=<IRNodeType.PREFILL: 'prefill'>, dependencies=(), metadata=mappingproxy({}))",
+    "node_sample": "IRNode(id='node_sample', node_type=<IRNodeType.SAMPLE: 'sample'>, dependencies=('node_prefill',), metadata=mappingproxy({}))",
+    "node_forward": "IRNode(id='node_forward', node_type=<IRNodeType.FORWARD: 'forward'>, dependencies=('node_sample',), metadata=mappingproxy({}))",
+    "node_verify": "IRNode(id='node_verify', node_type=<IRNodeType.VERIFY: 'verify'>, dependencies=('node_forward',), metadata=mappingproxy({}))",
+    "node_emit": "IRNode(id='node_emit', node_type=<IRNodeType.EMIT: 'emit'>, dependencies=('node_verify',), metadata=mappingproxy({}))"
+  },
+  "roots": [
+    "node_emit"
+  ],
+  "metadata": {
+    "execution_mode": "streaming",
+    "execution_backend": "autoregressive",
+    "cache_key": "ir_45b23dc3d0940eb1b87e391453f1b7e99b9b937d5f8cb38a134259a31c94dca2"
+  }
+}
