@@ -75,7 +75,11 @@ def test_runtime_builder_integration():
     assert hasattr(runtime, 'execution_engine')
     assert runtime.execution_engine is not None
 
-def test_runtime_execute_request():
+def test_runtime_execute_request_integration():
+    """
+    Integration test proving:
+    Runtime.execute_request() -> RuntimeCompilerService -> BackendOperationGraph -> ExecutionEngine -> Dispatcher -> Backend Adapter
+    """
     builder = RuntimeBuilder()
     flags = FeatureFlags(COMPILER_RUNTIME_ENABLED=True)
     builder.with_feature_flags(flags)
@@ -90,12 +94,20 @@ def test_runtime_execute_request():
     mock_translation_result.backend_graph = MockGraph(operations={"op1": mock_op}, roots=("op1",))
     runtime.compiler_service.run_compilation.return_value = mock_translation_result
 
+    # Mock adapter registry
+    mock_adapter = MagicMock()
+    mock_adapter.execute.return_value = "executed_by_adapter"
+    runtime.adapter_registry = MagicMock()
+    runtime.adapter_registry.resolve.return_value = mock_adapter
+
     request = MagicMock()
     request.model = "test_model"
 
     result = runtime.execute_request(request)
     assert result is not None
     assert result.status == ExecutionStatus.COMPLETED
+    assert result.model_output["last_output"] == "executed_by_adapter"
+    assert mock_adapter.execute.call_count == 1
 
 def test_legacy_fallback():
     builder = RuntimeBuilder()
@@ -106,5 +118,5 @@ def test_legacy_fallback():
     request = MagicMock()
     request.model = "test_model"
 
-    result = runtime.execute_request(request)
-    assert result is None
+    with pytest.raises(NotImplementedError):
+        runtime.execute_request(request)

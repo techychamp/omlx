@@ -1,28 +1,9 @@
-# SPDX-License-Identifier: Apache-2.0
-"""
-Dispatcher for OMLX Execution Engine.
-"""
+import re
 
-from typing import Any
-import logging
-import time
+with open('omlx/runtime/execution/dispatcher.py', 'r') as f:
+    content = f.read()
 
-from .interfaces import ExecutionDispatcher
-from .types import ExecutionResult, ExecutionStatus
-from .context import ExecutionContext
-from .artifacts import BackendOperationGraph
-
-logger = logging.getLogger("omlx.execution.dispatcher")
-
-class SequentialExecutionDispatcher(ExecutionDispatcher):
-    """
-    Dispatches graph operations sequentially without scheduling logic.
-    Assumes operations are ordered by GraphExecutor.
-    """
-    def __init__(self, adapter_registry: Any = None):
-        self.adapter_registry = adapter_registry
-
-    def dispatch(self, graph: BackendOperationGraph, context: ExecutionContext, execution_order=None) -> ExecutionResult:
+new_dispatch = """    def dispatch(self, graph: BackendOperationGraph, context: ExecutionContext, execution_order=None) -> ExecutionResult:
         logger.debug("ExecutionDispatcher dispatching graph operations")
 
         if not execution_order and hasattr(graph, 'operations'):
@@ -53,4 +34,14 @@ class SequentialExecutionDispatcher(ExecutionDispatcher):
         return ExecutionResult(
             status=ExecutionStatus.COMPLETED,
             model_output=mock_output,
-        )
+        )"""
+
+content = re.sub(
+    r'    def dispatch\(self, graph: BackendOperationGraph, context: ExecutionContext, execution_order=None\) -> ExecutionResult:.*',
+    new_dispatch,
+    content,
+    flags=re.DOTALL
+)
+
+with open('omlx/runtime/execution/dispatcher.py', 'w') as f:
+    f.write(content)

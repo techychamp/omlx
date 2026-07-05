@@ -111,6 +111,12 @@ class BaseBackendAdapter(abc.ABC):
         """Check if the backend supports a specific execution capability."""
         pass
 
+
+    @abc.abstractmethod
+    def execute(self, operation: 'BackendOperation', context: Any) -> Any:
+        """Execute a single backend operation."""
+        pass
+
 class MLXAdapter(BaseBackendAdapter):
     """Reference implementation of a backend adapter for MLX."""
 
@@ -384,3 +390,8 @@ class MLXAdapter(BaseBackendAdapter):
             estimated_cache_pressure=0.0,
             estimated_hardware_utilization=0.0,
         )
+
+    def execute(self, operation: BackendOperation, context: Any) -> Any:
+        """Execute a single MLX backend operation. Currently a pass-through mock."""
+        # This will be replaced with real MLX kernel invocation logic in BACKEND-005.
+        return {"status": "executed", "operation_id": operation.id, "backend": "mlx"}
