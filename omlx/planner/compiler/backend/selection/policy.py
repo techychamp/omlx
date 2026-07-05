@@ -7,7 +7,6 @@ from types import MappingProxyType
 from typing import Any, Optional, Dict
 import enum
 from abc import ABC, abstractmethod
-from .evaluation import BackendEvaluationReport
 
 class BackendSelectionPolicy(str, enum.Enum):
     LATENCY_OPTIMIZED = "LATENCY_OPTIMIZED"
@@ -21,38 +20,58 @@ class BackendSelectionPolicy(str, enum.Enum):
 class PolicyStrategy(ABC):
     """Base strategy for calculating a score from an evaluation report."""
     @abstractmethod
-    def score(self, evaluation: BackendEvaluationReport) -> float:
+    def score(self, evaluation: Any) -> float:
         pass
 
 class LatencyPolicyStrategy(PolicyStrategy):
-    def score(self, evaluation: BackendEvaluationReport) -> float:
-        if not evaluation.is_compatible: return 0.0
-        return evaluation.score + (1000 / (evaluation.estimated_latency_ms + 1e-9)) * 10
+    def score(self, evaluation: Any) -> float:
+        if hasattr(evaluation, 'is_compatible') and not evaluation.is_compatible: return 0.0
+
+        if hasattr(evaluation, 'estimated_latency_ms'):
+            latency = evaluation.estimated_latency_ms
+        else:
+            latency = evaluation.cost_report.estimated_latency_ms
+
+        # High score for low latency
+        return 10000.0 / (latency + 1e-9)
 
 class MemoryPolicyStrategy(PolicyStrategy):
-    def score(self, evaluation: BackendEvaluationReport) -> float:
-        if not evaluation.is_compatible: return 0.0
-        return evaluation.score + (10000 / (evaluation.estimated_memory_mb + 1e-9))
+    def score(self, evaluation: Any) -> float:
+        if hasattr(evaluation, 'is_compatible') and not evaluation.is_compatible: return 0.0
+
+        if hasattr(evaluation, 'estimated_memory_mb'):
+            memory = evaluation.estimated_memory_mb
+        else:
+            memory = evaluation.cost_report.estimated_peak_memory_mb
+
+        # High score for low memory
+        return 10000.0 / (memory + 1e-9)
 
 class BalancedPolicyStrategy(PolicyStrategy):
-    def score(self, evaluation: BackendEvaluationReport) -> float:
-        if not evaluation.is_compatible: return 0.0
-        return evaluation.score
+    def score(self, evaluation: Any) -> float:
+        if hasattr(evaluation, 'is_compatible') and not evaluation.is_compatible: return 0.0
+        return getattr(evaluation, 'score', getattr(evaluation, 'suitability_score', 0.0))
 
 class MaximumThroughputPolicyStrategy(PolicyStrategy):
-    def score(self, evaluation: BackendEvaluationReport) -> float:
-        if not evaluation.is_compatible: return 0.0
-        return evaluation.score + (evaluation.estimated_throughput_tps * 20)
+    def score(self, evaluation: Any) -> float:
+        if hasattr(evaluation, 'is_compatible') and not evaluation.is_compatible: return 0.0
+
+        if hasattr(evaluation, 'estimated_throughput_tps'):
+            throughput = evaluation.estimated_throughput_tps
+        else:
+            throughput = evaluation.cost_report.estimated_throughput_tokens_per_sec
+
+        return throughput
 
 class EnergyEfficientPolicyStrategy(PolicyStrategy):
-    def score(self, evaluation: BackendEvaluationReport) -> float:
-        if not evaluation.is_compatible: return 0.0
-        return evaluation.score # Stub for now
+    def score(self, evaluation: Any) -> float:
+        if hasattr(evaluation, 'is_compatible') and not evaluation.is_compatible: return 0.0
+        return getattr(evaluation, 'score', getattr(evaluation, 'suitability_score', 0.0))
 
 class DeveloperOverridePolicyStrategy(PolicyStrategy):
-    def score(self, evaluation: BackendEvaluationReport) -> float:
-        if not evaluation.is_compatible: return 0.0
-        return evaluation.score
+    def score(self, evaluation: Any) -> float:
+        if hasattr(evaluation, 'is_compatible') and not evaluation.is_compatible: return 0.0
+        return getattr(evaluation, 'score', getattr(evaluation, 'suitability_score', 0.0))
 
 _STRATEGIES: Dict[BackendSelectionPolicy, PolicyStrategy] = {
     BackendSelectionPolicy.LATENCY_OPTIMIZED: LatencyPolicyStrategy(),
@@ -65,7 +84,6 @@ _STRATEGIES: Dict[BackendSelectionPolicy, PolicyStrategy] = {
 
 def get_policy_strategy(policy_enum: BackendSelectionPolicy) -> PolicyStrategy:
     return _STRATEGIES.get(policy_enum, BalancedPolicyStrategy())
-
 
 @dataclass(frozen=True)
 class ExecutionPolicy:
