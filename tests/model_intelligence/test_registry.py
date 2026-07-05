@@ -1,6 +1,6 @@
 import pytest
 from omlx.framework.model_intelligence.descriptor import ModelDescriptor
-from omlx.framework.model_intelligence.registry import IntelligenceRegistry
+from omlx.framework.model_intelligence.registry import ModelRegistry
 
 def create_mock_descriptor(model_id: str, family: str, arch: str, caps: dict) -> ModelDescriptor:
     return ModelDescriptor(
@@ -31,7 +31,7 @@ def create_mock_descriptor(model_id: str, family: str, arch: str, caps: dict) ->
 
 
 def test_registry():
-    registry = IntelligenceRegistry()
+    registry = ModelRegistry()
 
     # Register models
     d1 = create_mock_descriptor("llama-7b", "Autoregressive", "Transformer", {"kv": True})

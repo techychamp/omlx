@@ -5,13 +5,13 @@ Diagnostics generation.
 
 from typing import Dict, Any, List
 from omlx.framework.model_intelligence.descriptor import ModelDescriptor
-from omlx.framework.model_intelligence.registry import IntelligenceRegistry
+from omlx.framework.model_intelligence.registry import ModelRegistry
 
 class DiagnosticsGenerator:
     """
     Generates reports based on descriptors and the registry.
     """
-    def __init__(self, registry: IntelligenceRegistry):
+    def __init__(self, registry: ModelRegistry):
         self.registry = registry
 
     def generate_model_summary(self, model_id: str) -> Dict[str, Any]:

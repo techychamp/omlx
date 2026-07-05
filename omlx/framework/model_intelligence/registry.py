@@ -9,7 +9,7 @@ from typing import Dict, List, Optional
 from omlx.framework.model_intelligence.descriptor import ModelDescriptor
 import threading
 
-class IntelligenceRegistry:
+class ModelRegistry:
     """
     Registry for discovered model descriptors.
     """

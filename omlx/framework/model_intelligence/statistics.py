@@ -4,13 +4,13 @@ Statistics Collection.
 """
 
 from typing import Dict, Any, List
-from omlx.framework.model_intelligence.registry import IntelligenceRegistry
+from omlx.framework.model_intelligence.registry import ModelRegistry
 
 class StatisticsCollector:
     """
     Collects statistics from the registry.
     """
-    def __init__(self, registry: IntelligenceRegistry):
+    def __init__(self, registry: ModelRegistry):
         self.registry = registry
 
     def collect(self) -> Dict[str, Any]:

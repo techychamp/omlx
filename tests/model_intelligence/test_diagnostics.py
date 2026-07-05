@@ -1,11 +1,11 @@
 import pytest
 from omlx.framework.model_intelligence.descriptor import ModelDescriptor
-from omlx.framework.model_intelligence.registry import IntelligenceRegistry
+from omlx.framework.model_intelligence.registry import ModelRegistry
 from omlx.framework.model_intelligence.diagnostics import DiagnosticsGenerator
 from omlx.framework.model_intelligence.statistics import StatisticsCollector
 
 def test_diagnostics_and_statistics():
-    registry = IntelligenceRegistry()
+    registry = ModelRegistry()
     registry.register(ModelDescriptor(
         model_id="llama-7b",
         model_family="Autoregressive",
