@@ -404,10 +404,6 @@
             oqDtype: 'bfloat16',
             oqSensitivityModelPath: '',
             oqPreserveMtp: false,
-            oqEnhanced: false,
-            oqeReuseImatrixCache: true,
-            oqeImatrixCachePath: '',
-            oqeStrictImatrix: false,
 
             // oQ Uploader state
             uploadHfToken: localStorage.getItem('omlx-hf-upload-token') || '',
@@ -4267,31 +4263,24 @@
                 this.oqSuccess = '';
                 this.oqStarting = true;
                 try {
-                    const payload = {
-                        model_path: this.oqSelectedModelPath,
-                        oq_level: this.oqLevel,
-                        group_size: 64,
-                        sensitivity_model_path: this.oqSensitivityModelPath,
-                        text_only: this.oqTextOnly,
-                        dtype: this.oqDtype,
-                        preserve_mtp: this.oqSelectedModelHasMtp() ? this.oqPreserveMtp : false,
-                    };
-                    if (this.oqEnhanced) {
-                        payload.enhanced = true;
-                        payload.imatrix_reuse_cache = this.oqeReuseImatrixCache;
-                        payload.imatrix_cache_path = this.oqeImatrixCachePath.trim();
-                        payload.imatrix_strict = this.oqeStrictImatrix;
-                    }
                     const response = await fetch('/admin/api/oq/start', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload),
+                        body: JSON.stringify({
+                            model_path: this.oqSelectedModelPath,
+                            oq_level: this.oqLevel,
+                            group_size: 64,
+                            sensitivity_model_path: this.oqSensitivityModelPath,
+                            text_only: this.oqTextOnly,
+                            dtype: this.oqDtype,
+                            preserve_mtp: this.oqSelectedModelHasMtp() ? this.oqPreserveMtp : false,
+                        }),
                     });
                     const data = await response.json().catch(() => ({}));
                     if (response.ok) {
                         const model = this.oqModels.find(m => m.path === this.oqSelectedModelPath);
                         const name = model ? model.name : this.oqSelectedModelPath;
-                        this.oqSuccess = `Quantization started: ${name} → oQ${this.oqLevel}${this.oqEnhanced ? 'e' : ''}`;
+                        this.oqSuccess = `Quantization started: ${name} → oQ${this.oqLevel}`;
                         await this.loadOQTasks();
                         this.startOQRefresh();
                         setTimeout(() => { this.oqSuccess = ''; }, 5000);
@@ -4361,8 +4350,7 @@
 
             formatOQProgress(task) {
                 const pct = Math.round(task.progress || 0);
-                const label = task.progress_detail || task.phase || task.status;
-                return `${pct}% · ${label}`;
+                return `${pct}% · ${task.phase || task.status}`;
             },
 
             formatOQElapsed(task) {
@@ -4383,10 +4371,6 @@
                     m.is_quantized &&
                     m.model_type === source.model_type
                 );
-            },
-
-            oqLevelLabel(level) {
-                return `oQ${level}${this.oqEnhanced ? 'e' : ''}`;
             },
 
             oqSelectedModelIsVLM() {

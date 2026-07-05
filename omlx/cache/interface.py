@@ -116,3 +116,18 @@ class CacheManager(ABC):
         if self.max_size == 0:
             return 0.0
         return self.size / self.max_size
+
+    @property
+    def supports_shared_cache(self) -> bool:
+        """Whether this cache manager supports shared prefix caching."""
+        return False
+
+    @property
+    def supports_partial_accept(self) -> bool:
+        """Whether this cache manager supports partial block acceptance."""
+        return False
+
+    @property
+    def supports_cache_transition(self) -> bool:
+        """Whether this cache manager supports state transition between modes."""
+        return False

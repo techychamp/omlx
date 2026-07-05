@@ -1,0 +1,6 @@
+{
+  "model_id": "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit",
+  "model_label_used_in_compiler": "TinyLlama-1.1B",
+  "execution_family": "autoregressive",
+  "backend": "mlx"
+}

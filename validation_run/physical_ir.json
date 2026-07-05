@@ -1,0 +1,16 @@
+{
+  "operations": {
+    "node_prefill": "PhysicalOperation(id='node_prefill', operation_type=<PhysicalOperationType.NOOP: 'noop'>, inputs=(), outputs=(), dependencies=(), execution_family=None, metadata=mappingproxy({'original_logical_node': 'prefill'}))",
+    "node_sample": "PhysicalOperation(id='node_sample', operation_type=<PhysicalOperationType.SAMPLING: 'sampling'>, inputs=(), outputs=(), dependencies=('node_prefill',), execution_family=None, metadata=mappingproxy({'original_logical_node': 'sample'}))",
+    "node_forward": "PhysicalOperation(id='node_forward', operation_type=<PhysicalOperationType.FORWARD: 'forward'>, inputs=(), outputs=(), dependencies=('node_sample',), execution_family=None, metadata=mappingproxy({'original_logical_node': 'forward'}))",
+    "node_verify": "PhysicalOperation(id='node_verify', operation_type=<PhysicalOperationType.NOOP: 'noop'>, inputs=(), outputs=(), dependencies=('node_forward',), execution_family=None, metadata=mappingproxy({'original_logical_node': 'verify'}))",
+    "node_emit": "PhysicalOperation(id='node_emit', operation_type=<PhysicalOperationType.NOOP: 'noop'>, inputs=(), outputs=(), dependencies=('node_verify',), execution_family=None, metadata=mappingproxy({'original_logical_node': 'emit'}))"
+  },
+  "roots": [
+    "node_emit"
+  ],
+  "metadata": {
+    "lowered_from": "ExecutionIR",
+    "cache_key": "phys_ir_21dd1922788b7d5dff807abecb394d7e35118fa04ca21504a97ad4a5ccf55508"
+  }
+}

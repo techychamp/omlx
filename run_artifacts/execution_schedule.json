@@ -1,0 +1,37 @@
+{
+  "scheduling_report": {
+    "status": "success",
+    "policy": "dependency_driven"
+  },
+  "dependency_report": {
+    "roots": [
+      "node_prefill"
+    ],
+    "leaves": [
+      "node_emit"
+    ],
+    "is_cyclic": false
+  },
+  "critical_path_report": {
+    "path": [
+      "node_prefill",
+      "node_sample",
+      "node_forward",
+      "node_verify",
+      "node_emit"
+    ],
+    "length": 5
+  },
+  "execution_group_report": {
+    "groups_count": 5
+  },
+  "parallelism_report": {
+    "estimated": 1.0
+  },
+  "policy_report": {
+    "active_policy": "dependency_driven"
+  },
+  "execution_ordering_report": {
+    "operations_count": 5
+  }
+}

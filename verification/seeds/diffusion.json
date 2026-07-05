@@ -1,0 +1,21 @@
+{
+  "comment": "Deterministic seed configurations for Diffusion models (Nemotron Labs, Diffusion Gemma, etc.)",
+  "default_seed": 42,
+  "profiles": {
+    "standard_portrait": {
+      "seed": 1024,
+      "cfg_scale": 7.5,
+      "steps": 50
+    },
+    "nemotron_fast": {
+      "seed": 2026,
+      "cfg_scale": 5.0,
+      "steps": 25
+    },
+    "experimental_gemma": {
+      "seed": 9999,
+      "cfg_scale": 8.0,
+      "steps": 30
+    }
+  }
+}

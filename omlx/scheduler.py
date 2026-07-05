@@ -1683,8 +1683,8 @@ class Scheduler:
         self.request_id_to_uid: dict[str, int] = {}
         self.uid_to_request_id: dict[int, str] = {}
 
-        # BatchGenerator - the actual batching engine
-        self.batch_generator: BatchGenerator | None = None
+        # BatchGenerator - the actual batching engine (legacy compatibility)
+        self._legacy_batch_generator: Any | None = None
         self._current_sampler_params: tuple | None = None
         # Boundary cache snapshots for stateful non-sliceable caches (e.g., ArraysCache).
         # request_id -> {token_count -> snapshot_cache_or_None}
@@ -1874,6 +1874,31 @@ class Scheduler:
         # Must be after _is_harmony_model / _generation_config_eos init
         # since _get_xtc_special_tokens() delegates to _get_stop_tokens().
         self._xtc_special_tokens: list[int] = self._get_xtc_special_tokens()
+
+        # Generation strategy reference (injected by EngineCore)
+        self.strategy: Any | None = None
+
+    def set_strategy(self, strategy: Any) -> None:
+        """Set the generation strategy to be used by the scheduler."""
+        self.strategy = strategy
+        # Propagate any pre-existing legacy batch_generator into the strategy
+        # so compatibility tests that set batch_generator before set_strategy
+        # still work. Temporary — to be removed with the compatibility layer.
+        if strategy is not None and self._legacy_batch_generator is not None:
+            strategy.batch_generator = self._legacy_batch_generator
+
+    @property
+    def batch_generator(self) -> Any:
+        """Temporary compatibility property. Deprecated and to be removed."""
+        if self.strategy is not None:
+            return self.strategy.batch_generator
+        return self._legacy_batch_generator
+
+    @batch_generator.setter
+    def batch_generator(self, value: Any) -> None:
+        self._legacy_batch_generator = value
+        if self.strategy is not None:
+            self.strategy.batch_generator = value
 
     @contextmanager
     def _phase_timer(self, phase: str):
@@ -2169,12 +2194,7 @@ class Scheduler:
                 self._collect_rotating_window_sizes(sub_cache, window_sizes)
 
         class_name = type(cache_obj).__name__
-        is_rotating_cache = class_name in ("RotatingKVCache", "BatchRotatingKVCache")
-        if HAS_CACHE_TYPE_HANDLERS and CacheTypeRegistry is not None:
-            is_rotating_cache = (
-                is_rotating_cache or CacheTypeRegistry.is_rotating_family(class_name)
-            )
-        if is_rotating_cache:
+        if class_name in ("RotatingKVCache", "BatchRotatingKVCache"):
             max_size = getattr(cache_obj, "max_size", 0)
             if isinstance(max_size, int) and max_size > 0:
                 window_sizes.add(max_size)
@@ -2505,65 +2525,7 @@ class Scheduler:
             tokens.extend(self._output_parser_factory.stop_token_ids)
         return tokens
 
-    def _create_batch_generator(
-        self, sampling_params: SamplingParams
-    ) -> BatchGenerator:
-        """Create a BatchGenerator with the given sampling parameters."""
-        sampler = omlx_make_sampler(
-            temp=sampling_params.temperature,
-            top_p=sampling_params.top_p,
-            min_p=sampling_params.min_p,
-            top_k=sampling_params.top_k,
-            xtc_probability=sampling_params.xtc_probability,
-            xtc_threshold=sampling_params.xtc_threshold,
-            xtc_special_tokens=self._xtc_special_tokens,
-        )
 
-        # Create logits processors for repetition/presence/frequency penalties
-        logits_processors = make_logits_processors(
-            repetition_penalty=(
-                sampling_params.repetition_penalty
-                if sampling_params.repetition_penalty != 1.0
-                else None
-            ),
-            presence_penalty=(
-                sampling_params.presence_penalty
-                if sampling_params.presence_penalty != 0.0
-                else None
-            ),
-            frequency_penalty=(
-                sampling_params.frequency_penalty
-                if sampling_params.frequency_penalty != 0.0
-                else None
-            ),
-        )
-
-        suppress_processor = _make_suppress_logits_processor(
-            self._model_suppress_tokens
-        )
-        if suppress_processor is not None:
-            logits_processors.append(suppress_processor)
-
-        # Convert stop tokens from Set[int] to Sequence[Sequence[int]]
-        # for the new BatchGenerator API (each stop token is a sequence).
-        stop_tokens_set = self._get_stop_tokens()
-        if sampling_params.stop_token_ids:
-            stop_tokens_set.update(sampling_params.stop_token_ids)
-        stop_tokens_seq = [[t] for t in stop_tokens_set] if stop_tokens_set else None
-
-        bg = BatchGenerator(
-            model=self.model,
-            max_tokens=sampling_params.max_tokens,
-            stop_tokens=stop_tokens_seq,
-            sampler=sampler,
-            logits_processors=logits_processors if logits_processors else [],
-            prefill_batch_size=1,
-            completion_batch_size=self.config.completion_batch_size,
-            prefill_step_size=self.config.prefill_step_size,
-            stream=self._stream,
-        )
-
-        return bg
 
     def _on_prompt_progress(self, updates: list[tuple[int, int, int]]) -> None:
         """Callback from BatchGenerator's prefill loop.
@@ -2756,7 +2718,6 @@ class Scheduler:
                 "RotatingKVCache",
                 "BatchRotatingKVCache",
                 "PrefillReadyRotatingKVCache",
-                "BufferedRotatingKVCache",
                 "TurboQuantKVCache",
                 "BatchTurboQuantKVCache",
             ):
@@ -3034,8 +2995,11 @@ class Scheduler:
                     )
 
             _throttle_pre = get_phys_footprint()
-            self.model(input_arr[:, :n_to_process], cache=prompt_cache, **model_kwargs)
-            mx.eval([c.state for c in prompt_cache])
+            if self.strategy is not None:
+                self.strategy.prefill(self.model, input_arr[:, :n_to_process], cache=prompt_cache, **model_kwargs)
+            else:
+                self.model(input_arr[:, :n_to_process], cache=prompt_cache, **model_kwargs)
+                mx.eval([c.state for c in prompt_cache])
             _throttle_post = get_phys_footprint()
             self._record_chunk_transient(
                 n_to_process,
@@ -4003,8 +3967,11 @@ class Scheduler:
         chunk = state.tokens_remaining[:, :n]
         state.tokens_remaining = state.tokens_remaining[:, n:]
         _throttle_pre = get_phys_footprint()
-        self.model(chunk, cache=state.cache)
-        mx.eval([c.state for c in state.cache])
+        if self.strategy is not None:
+            self.strategy.prefill(self.model, chunk, cache=state.cache)
+        else:
+            self.model(chunk, cache=state.cache)
+            mx.eval([c.state for c in state.cache])
         _throttle_post = get_phys_footprint()
         self._record_chunk_transient(
             n,
@@ -4154,15 +4121,30 @@ class Scheduler:
             mx.random.seed(request.sampling_params.seed)
 
         per_row_lps = state.per_row_lps if state.per_row_lps is not None else []
-        uids = self.batch_generator.insert(
-            [state.last_token],
-            max_tokens=[request.sampling_params.max_tokens],
-            caches=[state.cache] if state.cache else None,
-            all_tokens=[_batch_generator_all_tokens(request)],
-            samplers=[state.sampler],
-            logits_processors=[per_row_lps],
-            state_machines=[state.sm],
-        )
+        if self.strategy is not None:
+            uids = self.strategy.insert(
+                [state.last_token],
+                max_tokens=[request.sampling_params.max_tokens],
+                caches=[state.cache] if state.cache else None,
+                all_tokens=[_batch_generator_all_tokens(request)],
+                samplers=[state.sampler],
+                logits_processors=[per_row_lps],
+                state_machines=[state.sm],
+            )
+        elif self._legacy_batch_generator is not None:
+            # Temporary compatibility: drive legacy batch_generator directly.
+            # To be removed once EnginePool and all integration tests are migrated.
+            uids = self._legacy_batch_generator.insert(
+                [state.last_token],
+                max_tokens=[request.sampling_params.max_tokens],
+                caches=[state.cache] if state.cache else None,
+                all_tokens=[_batch_generator_all_tokens(request)],
+                samplers=[state.sampler],
+                logits_processors=[per_row_lps],
+                state_machines=[state.sm],
+            )
+        else:
+            uids = []
         if uids:
             _register_uid_rows(self.model, uids, [state.sampler], [per_row_lps])
             uid = uids[0]
@@ -4295,8 +4277,7 @@ class Scheduler:
 
             # Ensure a BatchGenerator exists (may not if all requests were
             # previously in chunked prefill with no running decode).
-            self._ensure_batch_generator(request.sampling_params)
-            if self.batch_generator is None:
+            if not self._strategy_instances:
                 # Unlikely, but if BG creation fails put request back.
                 logger.error(
                     "BatchGenerator unavailable at chunked-prefill completion "
@@ -4768,11 +4749,6 @@ class Scheduler:
 
         return True
 
-    def _ensure_batch_generator(self, sampling_params: SamplingParams) -> None:
-        """Ensure BatchGenerator exists with compatible settings."""
-        # Only create once; per-request samplers are passed at insert time.
-        if self.batch_generator is None:
-            self.batch_generator = self._create_batch_generator(sampling_params)
 
         # Track latest params for debugging/metrics.
         self._current_sampler_params = (
@@ -4808,16 +4784,12 @@ class Scheduler:
             return False
 
         # Stateful non-sliceable caches require boundary-safe snapshots.
-        is_rotating_cache = class_name in (
+        if class_name in (
             "RotatingKVCache",
             "BatchRotatingKVCache",
-        )
-        if HAS_CACHE_TYPE_HANDLERS and CacheTypeRegistry is not None:
-            is_rotating_cache = (
-                is_rotating_cache or CacheTypeRegistry.is_rotating_family(class_name)
-            )
-
-        if is_rotating_cache or class_name in ("ArraysCache", "SizedArraysCache"):
+            "ArraysCache",
+            "SizedArraysCache",
+        ):
             return True
 
         if HAS_CACHE_TYPE_HANDLERS and CacheTypeRegistry is not None:
@@ -4972,7 +4944,9 @@ class Scheduler:
         Uses BatchGenerator.extract_cache() which returns
         Dict[uid, (cache_list, tokens_list)].
         """
-        if self.batch_generator is None:
+        _has_strategy_gen = self.strategy is not None and self.strategy.has_generator()
+        _has_legacy_gen = self._legacy_batch_generator is not None
+        if not _has_strategy_gen and not _has_legacy_gen:
             return None
 
         try:
@@ -4982,7 +4956,11 @@ class Scheduler:
                 _safe_sync_stream(self._stream)
             with self._phase_timer("boundary_capture_extract"):
                 with mx.stream(self._stream):
-                    result = self.batch_generator.extract_cache([uid])
+                    if _has_strategy_gen:
+                        result = self.strategy.extract_cache([uid])
+                    else:
+                        # Temporary compatibility: drive legacy batch_generator directly.
+                        result = self._legacy_batch_generator.extract_cache([uid])
                     if uid not in result:
                         return None
                     cache_list, _tokens = result[uid]
@@ -5510,16 +5488,7 @@ class Scheduler:
                         state = layer_cache.state
                         meta = getattr(layer_cache, "meta_state", ())
 
-                    is_rotating_cache = class_name in (
-                        "RotatingKVCache",
-                        "BatchRotatingKVCache",
-                    )
-                    if HAS_CACHE_TYPE_HANDLERS and CacheTypeRegistry is not None:
-                        is_rotating_cache = (
-                            is_rotating_cache
-                            or CacheTypeRegistry.is_rotating_family(class_name)
-                        )
-                    if is_rotating_cache:
+                    if class_name in ("RotatingKVCache", "BatchRotatingKVCache"):
                         state, meta = self._normalize_rotating_snapshot_state(
                             layer_cache,
                             state,
@@ -5544,12 +5513,8 @@ class Scheduler:
                         # null guard for non-KV cache classes.
                         if (
                             class_name in ("KVCache", "RotatingKVCache", "BatchKVCache")
-                            or (
-                                HAS_CACHE_TYPE_HANDLERS
-                                and CacheTypeRegistry is not None
-                                and CacheTypeRegistry.is_rotating_family(class_name)
-                            )
-                        ) and len(state) >= 2:
+                            and len(state) >= 2
+                        ):
                             if state[0] is None or state[1] is None:
                                 logger.debug(
                                     f"Layer {layer_idx} ({class_name}) has None keys/values, "
@@ -6712,10 +6677,12 @@ class Scheduler:
         """
         if uid < 0:
             return
-        if self.batch_generator is None:
-            return
-
-        self.batch_generator.remove([uid])
+        if self.strategy is not None and self.strategy.has_generator():
+            self.strategy.remove([uid])
+        elif self._legacy_batch_generator is not None:
+            # Temporary compatibility: drive legacy batch_generator directly.
+            # To be removed once EnginePool and all integration tests are migrated.
+            self._legacy_batch_generator.remove([uid])
 
     def _check_pending_aborts_for_uids(self, uids: list[int]) -> list[int]:
         """Return UIDs that have pending aborts.
@@ -7032,7 +6999,7 @@ class Scheduler:
         # Reset batch generator only (cache is not corrupted). Every row dies
         # with it; survivors re-register at re-insert.
         _unregister_uid_rows_for_model(self.model)
-        self.batch_generator = None
+        self._strategy_instances = None
         self._current_sampler_params = None
         # Reclaim fragmented Metal buffers after generation failure.
         # Without this, subsequent requests may hit the same resource
@@ -7587,9 +7554,8 @@ class Scheduler:
             self._clear_store_cache_admission_blocker(request.request_id)
 
             # Ensure we have a batch generator
-            self._ensure_batch_generator(request.sampling_params)
 
-            if self.batch_generator is None:
+            if not self._strategy_instances:
                 # Put back and try again later
                 self.waiting.appendleft(request)
                 break
@@ -8198,15 +8164,30 @@ class Scheduler:
             # See vllm-mlx-patched commit 8d4052b for the same root cause
             # in a sibling project, and #934 for the user-visible symptom.
             per_row_lps = list(logits_processors) if logits_processors else []
-            uids = self.batch_generator.insert(
-                [tokens_to_process],
-                max_tokens=[request.sampling_params.max_tokens],
-                caches=[cache_to_use] if cache_to_use else None,
-                all_tokens=[_batch_generator_all_tokens(request)],
-                samplers=[sampler],
-                logits_processors=[per_row_lps],
-                state_machines=[sm],
-            )
+            if self.strategy is not None:
+                uids = self.strategy.insert(
+                    [tokens_to_process],
+                    max_tokens=[request.sampling_params.max_tokens],
+                    caches=[cache_to_use] if cache_to_use else None,
+                    all_tokens=[_batch_generator_all_tokens(request)],
+                    samplers=[sampler],
+                    logits_processors=[per_row_lps],
+                    state_machines=[sm],
+                )
+            elif self._legacy_batch_generator is not None:
+                # Temporary compatibility: drive legacy batch_generator directly.
+                # To be removed once EnginePool and all integration tests are migrated.
+                uids = self._legacy_batch_generator.insert(
+                    [tokens_to_process],
+                    max_tokens=[request.sampling_params.max_tokens],
+                    caches=[cache_to_use] if cache_to_use else None,
+                    all_tokens=[_batch_generator_all_tokens(request)],
+                    samplers=[sampler],
+                    logits_processors=[per_row_lps],
+                    state_machines=[sm],
+                )
+            else:
+                uids = []
             if uids:
                 _register_uid_rows(self.model, uids, [sampler], [per_row_lps])
                 uid = uids[0]
@@ -8886,7 +8867,7 @@ class Scheduler:
     def _recover_from_cache_error(self) -> None:
         """Recover from cache corruption error."""
         # Clear batch generator (this is the source of the corruption)
-        self.batch_generator = None
+        self._strategy_instances = None
         self._current_sampler_params = None
         self._boundary_cache_snapshots.clear()
         if self._boundary_snapshot_store is not None:
@@ -8924,7 +8905,7 @@ class Scheduler:
 
     def _recover_from_generation_overflow_error(self) -> None:
         """Reset decode state after MLX __next_prime overflow."""
-        self.batch_generator = None
+        self._strategy_instances = None
         self._current_sampler_params = None
         self._boundary_snapshot_required = None
 
@@ -9261,11 +9242,17 @@ class Scheduler:
             # Run generation step if we have running requests.
             # Use next_generated() which returns only GenerationBatch.Response
             # objects (prefill is handled externally before insert).
-            if (
-                self.batch_generator is not None or self._vlm_mtp_active
-            ) and self.running:
-                if self.batch_generator is not None:
-                    responses = list(self.batch_generator.next_generated())
+            _has_generator = (
+                (self.strategy is not None and self.strategy.has_generator())
+                or self._legacy_batch_generator is not None
+            )
+            if (_has_generator or self._vlm_mtp_active) and self.running:
+                if self.strategy is not None and self.strategy.has_generator():
+                    responses = list(self.strategy.forward())
+                elif self._legacy_batch_generator is not None:
+                    # Temporary compatibility: drive legacy batch_generator directly.
+                    # To be removed once EnginePool and all integration tests are migrated.
+                    responses = list(self._legacy_batch_generator.next_generated())
                 else:
                     responses = []
                 # Drive vlm_mtp generators alongside BatchGenerator. Order
@@ -9294,9 +9281,7 @@ class Scheduler:
                         and self._tokens_since_kv_cache_eval >= kv_eval_interval
                     ):
                         with mx.stream(self._stream):
-                            evaluated = _eval_generation_batch_cache(
-                                self.batch_generator
-                            )
+                            evaluated = self.strategy.eval_cache() if self.strategy is not None else 0
                         logger.debug(
                             "Materialized decode KV cache state: %d arrays",
                             evaluated,
@@ -9334,7 +9319,7 @@ class Scheduler:
             # BatchGenerator is in an inconsistent state (partial
             # prefill), so reset it entirely. Pending aborts will
             # be processed at the start of the next step().
-            self.batch_generator = None
+            self._strategy_instances = None
             self._current_sampler_params = None
             self._boundary_cache_snapshots.clear()
             if self._boundary_snapshot_store is not None:
@@ -9519,7 +9504,7 @@ class Scheduler:
         self._inflight_store_info.clear()
         self._cache_freshness_waits.clear()
         self._prefix_cache_prepared.clear()
-        self.batch_generator = None
+        self._strategy_instances = None
         self._current_sampler_params = None
         self._boundary_cache_snapshots.clear()
         if self._boundary_snapshot_store is not None:

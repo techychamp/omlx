@@ -1,0 +1,16 @@
+{
+  "comment": "Deterministic seed configurations for Mixture of Experts (MoE: DeepSeek, GLM, Mixtral)",
+  "default_seed": 42,
+  "profiles": {
+    "routing_triage": {
+      "seed": 42,
+      "temperature": 0.0,
+      "top_p": 1.0
+    },
+    "moe_multi_turn": {
+      "seed": 8888,
+      "temperature": 0.0,
+      "top_p": 1.0
+    }
+  }
+}

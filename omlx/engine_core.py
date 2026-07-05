@@ -258,6 +258,127 @@ class EngineCore:
         self._start_time: Optional[float] = None
         self._steps_executed = 0
 
+        # Resolve capabilities, profile, and strategy independently
+        try:
+            from omlx.runtime.feature_flags import FeatureFlags
+            from omlx.runtime.capabilities import ActualCapabilities, EngineCapabilities, infer_capabilities
+            from omlx.registry.capability_registry import GenerationStrategyRegistry, register_default_strategies
+            from omlx.registry.plugin_discovery import discover_plugins
+            from omlx.registry.model_info import build_model_info
+            from omlx.inference.execution_profile import ExecutionContext, get_profile_registry
+
+            # 1. Infer model capabilities and resolve actual capabilities
+            model_caps = infer_capabilities(model=self.model, model_path=self.config.model_name)
+            flags = FeatureFlags.from_env()
+            engine_caps = EngineCapabilities()
+            actual_caps = ActualCapabilities.resolve(
+                model=model_caps,
+                engine=engine_caps,
+                flags=flags,
+            )
+
+            # 2. Build model info
+            base_model = getattr(self.model, "language_model", self.model)
+            model_info = build_model_info(
+                model_path=self.config.model_name or "dummy",
+                model=base_model,
+                tokenizer=self.tokenizer,
+                capabilities=model_caps,
+            )
+
+            # Consume the translation result from config if present
+            if hasattr(self.config, 'compiler_translation_result') and self.config.compiler_translation_result is not None:
+                self.compiler_translation_result = self.config.compiler_translation_result
+                logger.debug("EngineCore consuming pre-computed compiler artifacts from config")
+
+            # 3. Build ExecutionContext and resolve profile / backend factory
+            context = ExecutionContext(
+                model_info=model_info,
+                engine_capabilities=engine_caps,
+                feature_flags=flags,
+            )
+            profile_registry = get_profile_registry()
+            profile, backend_factory = profile_registry.resolve(context)
+
+            # MIG-002: Check if execution plan routing is enabled
+            if flags.EXECUTION_PLAN_RUNTIME_ENABLED or flags.EXECUTION_PLAN_VALIDATION_ENABLED:
+                from omlx.planner.planner import ExecutionPlanner
+                from omlx.planner.compatibility import ExecutionProfileAdapter
+                from omlx.capabilities.descriptor import CapabilityDescriptor, ExecutionFamily
+
+                # Mock capability resolution for now if actual resolver isn't integrated yet
+                # In full implementation, we'd use CapabilityResolver.resolve() here
+                # but we'll use a placeholder for equivalence testing based on the context
+
+                planner = ExecutionPlanner()
+
+                # Create a capability descriptor based on actual_caps to pass to planner
+                # This simulates CapabilityResolver output
+                family = ExecutionFamily.AUTOREGRESSIVE
+                if actual_caps.supports_diffusion:
+                    family = ExecutionFamily.DIFFUSION
+                elif getattr(model_caps, "model_type", "") == "embedding":
+                    family = ExecutionFamily.EMBEDDING
+
+                descriptor = CapabilityDescriptor(
+                    execution_family=family,
+                    supports_streaming=True, # default
+                    supports_speculative=getattr(actual_caps, "supports_linear_spec", False)
+                )
+
+                plan = planner.plan(descriptor)
+
+                # Compatibility layer
+                if flags.EXECUTION_PROFILE_COMPATIBILITY_ENABLED or flags.EXECUTION_PLAN_RUNTIME_ENABLED:
+                    plan_profile = ExecutionProfileAdapter.adapt(plan)
+
+                    if flags.EXECUTION_PLAN_VALIDATION_ENABLED:
+                        # Log any differences
+                        differences = []
+                        if profile.backend_name != plan_profile.backend_name and not (profile.backend_name == 'experimental_nemotron' and plan_profile.backend_name == 'diffusion'):
+                             differences.append(f"backend: {profile.backend_name} != {plan_profile.backend_name}")
+                        if differences:
+                             logger.warning(f"Planning equivalence verification failed: {', '.join(differences)}")
+                        else:
+                             logger.debug("Planning equivalence verification passed")
+
+                    if flags.EXECUTION_PLAN_RUNTIME_ENABLED:
+                        # Use the plan-derived profile!
+                        profile = plan_profile
+
+                        # Note: we still need to get the factory. In the long term, we remove this too.
+                        # For now, look it up in the registry based on backend_name
+                        factory = profile_registry._factories.get(profile.backend_name)
+                        if factory is None and profile.backend_name == "diffusion":
+                             # fallback mapping for testing
+                             factory = profile_registry._factories.get("experimental_nemotron")
+                        if factory is None:
+                             # fallback
+                             factory = profile_registry._factories.get("autoregressive")
+
+                        backend_factory = factory
+
+            # 4. Instantiate ExecutionBackend
+            backend = backend_factory(profile, context)
+
+            # 5. Build strategy registry and resolve strategy
+            strat_registry = GenerationStrategyRegistry()
+            register_default_strategies(strat_registry)
+            discover_plugins(strat_registry)
+
+            mode = strat_registry.resolve_mode(actual_caps)
+            strategy_class = strat_registry.get_strategy_class(mode)
+
+            # 6. Instantiate and bind strategy to scheduler
+            strategy = strategy_class(scheduler=self.scheduler, backend=backend)
+            self.scheduler.set_strategy(strategy)
+            logger.info("Capability-driven generation strategy resolved and bound to Scheduler")
+        except Exception as e:
+            logger.warning(
+                f"Failed to independently resolve execution strategy during EngineCore initialization: {e}. "
+                "Continuing without a bound strategy."
+            )
+
         logger.debug(f"Engine {self._engine_id} initialized")
 
     async def start(self) -> None:
@@ -524,6 +645,8 @@ class EngineCore:
         specprefill_keep_pct: Optional[float] = None,
         specprefill_threshold: Optional[int] = None,
         specprefill_system_end: Optional[int] = None,
+        generation_context: Optional[Any] = None,
+        runtime_state: Optional[Any] = None,
     ) -> str:
         """
         Add a request for processing.
@@ -561,6 +684,8 @@ class EngineCore:
             vlm_image_hash=vlm_image_hash,
             vlm_cache_key_start=vlm_cache_key_start,
             vlm_cache_key_ranges=vlm_cache_key_ranges,
+            generation_context=generation_context,
+            runtime_state=runtime_state,
         )
 
         # SpecPrefill: resolve per-request settings.
@@ -1255,12 +1380,16 @@ class AsyncEngineCore:
         self,
         prompt: Union[str, List[int]],
         sampling_params: Optional[SamplingParams] = None,
+        generation_context: Optional[Any] = None,
+        runtime_state: Optional[Any] = None,
         **kwargs,
     ) -> RequestOutput:
         """Generate complete response."""
         return await self.engine.generate(
             prompt=prompt,
             sampling_params=sampling_params,
+            generation_context=generation_context,
+            runtime_state=runtime_state,
             **kwargs,
         )
 

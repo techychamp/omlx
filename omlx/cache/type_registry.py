@@ -7,7 +7,7 @@ by cache type enum or class name string.
 """
 
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from .type_handlers import (
     ArraysCacheHandler,
@@ -38,45 +38,60 @@ class CacheTypeRegistry:
         cache_type = CacheTypeRegistry.detect_cache_type(cache_obj)
     """
 
-    # Handler instances by cache type
-    _handlers: Dict[CacheType, CacheTypeHandler] = {}
+    _default_instance: Optional["CacheTypeRegistry"] = None
 
-    # Mapping from mlx-lm class names to cache types
-    _class_name_map: Dict[str, CacheType] = {
-        "KVCache": CacheType.KVCACHE,
-        "RotatingKVCache": CacheType.ROTATING_KVCACHE,
-        # mlx-vlm MTP wraps target RotatingKVCache layers with rollback slack
-        # during speculative decode. The live tensor/state representation is
-        # still rotating-cache compatible and must route through the rotating
-        # handler for prefix-cache storage and reconstruction.
-        "BufferedRotatingKVCache": CacheType.ROTATING_KVCACHE,
-        # omlx subclass that overrides size() to clamp by actual buffer
-        # length (defined in omlx/cache/_rotating_subclass.py). Cache
-        # restore serializes type(cache).__name__, so the registry must
-        # recognize this name to route through RotatingKVCacheHandler;
-        # otherwise the default handler reconstructs vanilla
-        # RotatingKVCache and the size() override is lost.
-        "PrefillReadyRotatingKVCache": CacheType.ROTATING_KVCACHE,
-        "BatchKVCache": CacheType.BATCH_KVCACHE,
-        "BatchRotatingKVCache": CacheType.BATCH_ROTATING_KVCACHE,
-        "ArraysCache": CacheType.ARRAYS_CACHE,
-        "QuantizedKVCache": CacheType.QUANTIZED_KVCACHE,
-        "CacheList": CacheType.CACHE_LIST,
-        # TurboQuant: handled specially in prefix_cache/paged_ssd_cache,
-        # mapped to KVCACHE so supports_block_slicing = True (but prefix_cache
-        # checks the class name first and routes to TQ-specific handling)
-        "TurboQuantKVCache": CacheType.KVCACHE,
-        "BatchTurboQuantKVCache": CacheType.KVCACHE,
-        # DeepSeek V4 compressed-attention pool. Handlers live in
-        # patches/deepseek_v4/cache_handlers.py and register on patch apply.
-        "PoolingCache": CacheType.POOLING_CACHE,
-        "BatchPoolingCache": CacheType.BATCH_POOLING_CACHE,
-        "MiniMaxM3KVCache": CacheType.MINIMAX_M3_KVCACHE,
-        "MiniMaxM3BatchKVCache": CacheType.MINIMAX_M3_BATCH_KVCACHE,
-    }
+    def __init__(self) -> None:
+        self._handlers: Dict[CacheType, CacheTypeHandler] = {}
+        self._class_name_map: Dict[str, CacheType] = {
+            "KVCache": CacheType.KVCACHE,
+            "RotatingKVCache": CacheType.ROTATING_KVCACHE,
+            # omlx subclass that overrides size() to clamp by actual buffer
+            # length (defined in omlx/cache/_rotating_subclass.py). Cache
+            # restore serializes type(cache).__name__, so the registry must
+            # recognize this name to route through RotatingKVCacheHandler;
+            # otherwise the default handler reconstructs vanilla
+            # RotatingKVCache and the size() override is lost.
+            "PrefillReadyRotatingKVCache": CacheType.ROTATING_KVCACHE,
+            "BatchKVCache": CacheType.BATCH_KVCACHE,
+            "BatchRotatingKVCache": CacheType.BATCH_ROTATING_KVCACHE,
+            "ArraysCache": CacheType.ARRAYS_CACHE,
+            "QuantizedKVCache": CacheType.QUANTIZED_KVCACHE,
+            "CacheList": CacheType.CACHE_LIST,
+            # TurboQuant: handled specially in prefix_cache/paged_ssd_cache,
+            # mapped to KVCACHE so supports_block_slicing = True (but prefix_cache
+            # checks the class name first and routes to TQ-specific handling)
+            "TurboQuantKVCache": CacheType.KVCACHE,
+            "BatchTurboQuantKVCache": CacheType.KVCACHE,
+            # DeepSeek V4 compressed-attention pool. Handlers live in
+            # patches/deepseek_v4/cache_handlers.py and register on patch apply.
+            "PoolingCache": CacheType.POOLING_CACHE,
+            "BatchPoolingCache": CacheType.BATCH_POOLING_CACHE,
+            "MiniMaxM3KVCache": CacheType.MINIMAX_M3_KVCACHE,
+            "MiniMaxM3BatchKVCache": CacheType.MINIMAX_M3_BATCH_KVCACHE,
+        }
+        self._default_handler: CacheTypeHandler = DefaultCacheHandler()
+        self._initialize_default_handlers()
 
-    # Default handler instance
-    _default_handler: CacheTypeHandler = DefaultCacheHandler()
+    def _initialize_default_handlers(self) -> None:
+        self._register(KVCacheHandler())
+        self._register(RotatingKVCacheHandler())
+        self._register(ArraysCacheHandler())
+        self._register(CacheListHandler())
+        self._register(MiniMaxM3KVCacheHandler())
+        self._register(MiniMaxM3BatchKVCacheHandler())
+
+    def _register(self, handler: CacheTypeHandler) -> None:
+        self._handlers[handler.cache_type] = handler
+
+    @classmethod
+    def _get_active_registry(cls) -> "CacheTypeRegistry":
+        from omlx.server import get_runtime
+        runtime = get_runtime()
+        if runtime and hasattr(runtime, "cache_type_registry") and runtime.cache_type_registry:
+            return runtime.cache_type_registry
+        if cls._default_instance is None:
+            cls._default_instance = cls()
+        return cls._default_instance
 
     @classmethod
     def register(cls, handler: CacheTypeHandler) -> None:
@@ -85,8 +100,7 @@ class CacheTypeRegistry:
         Args:
             handler: Handler instance to register
         """
-        cls._handlers[handler.cache_type] = handler
-        logger.debug(f"Registered handler for {handler.cache_type.value}")
+        cls._get_active_registry()._register(handler)
 
     @classmethod
     def get_handler(cls, cache_type: CacheType) -> CacheTypeHandler:
@@ -98,10 +112,11 @@ class CacheTypeRegistry:
         Returns:
             Handler for the cache type, or default handler if not found
         """
-        handler = cls._handlers.get(cache_type)
+        registry = cls._get_active_registry()
+        handler = registry._handlers.get(cache_type)
         if handler is None:
             logger.debug(f"No handler for {cache_type}, using default")
-            return cls._default_handler
+            return registry._default_handler
         return handler
 
     @classmethod
@@ -114,14 +129,15 @@ class CacheTypeRegistry:
         Returns:
             Handler for the cache type, or default handler if not found
         """
+        registry = cls._get_active_registry()
         # Handle SizedArraysCache wrapper - use ArraysCache handler
         if class_name == "SizedArraysCache":
             return cls.get_handler(CacheType.ARRAYS_CACHE)
 
-        cache_type = cls._class_name_map.get(class_name)
+        cache_type = registry._class_name_map.get(class_name)
         if cache_type is None:
             logger.debug(f"Unknown cache class '{class_name}', using default handler")
-            return cls._default_handler
+            return registry._default_handler
         return cls.get_handler(cache_type)
 
     @classmethod
@@ -140,7 +156,8 @@ class CacheTypeRegistry:
         Returns:
             True if the name maps to a rotating cache type
         """
-        return cls._class_name_map.get(class_name) in (
+        registry = cls._get_active_registry()
+        return registry._class_name_map.get(class_name) in (
             CacheType.ROTATING_KVCACHE,
             CacheType.BATCH_ROTATING_KVCACHE,
         )
@@ -155,12 +172,13 @@ class CacheTypeRegistry:
         Returns:
             Detected CacheType enum value
         """
+        registry = cls._get_active_registry()
         # Handle SizedArraysCache wrapper - detect inner cache type
         if isinstance(cache_obj, SizedArraysCache):
             return CacheType.ARRAYS_CACHE
 
         class_name = type(cache_obj).__name__
-        cache_type = cls._class_name_map.get(class_name)
+        cache_type = registry._class_name_map.get(class_name)
 
         if cache_type is None:
             # CacheList: has .caches attribute (tuple/list of sub-caches)
@@ -223,8 +241,9 @@ class CacheTypeRegistry:
         Returns:
             Class name string
         """
+        registry = cls._get_active_registry()
         # Reverse lookup
-        for class_name, ct in cls._class_name_map.items():
+        for class_name, ct in registry._class_name_map.items():
             if ct == cache_type:
                 return class_name
         return cache_type.value
@@ -236,7 +255,8 @@ class CacheTypeRegistry:
         Returns:
             List of registered CacheType enums
         """
-        return list(cls._handlers.keys())
+        registry = cls._get_active_registry()
+        return list(registry._handlers.keys())
 
     @classmethod
     def list_known_class_names(cls) -> list:
@@ -245,18 +265,14 @@ class CacheTypeRegistry:
         Returns:
             List of class name strings
         """
-        return list(cls._class_name_map.keys())
+        registry = cls._get_active_registry()
+        return list(registry._class_name_map.keys())
 
 
 def _initialize_default_handlers() -> None:
-    """Initialize default handlers on module load."""
-    CacheTypeRegistry.register(KVCacheHandler())
-    CacheTypeRegistry.register(RotatingKVCacheHandler())
-    CacheTypeRegistry.register(ArraysCacheHandler())
-    CacheTypeRegistry.register(CacheListHandler())
-    CacheTypeRegistry.register(MiniMaxM3KVCacheHandler())
-    CacheTypeRegistry.register(MiniMaxM3BatchKVCacheHandler())
+    CacheTypeRegistry._default_instance = CacheTypeRegistry()
 
 
 # Initialize handlers when module is imported
 _initialize_default_handlers()
+

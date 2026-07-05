@@ -291,6 +291,11 @@ def get_server_state() -> ServerState:
     return _server_state
 
 
+def get_runtime():
+    """Get the active RuntimeBuilder constructed runtime instance."""
+    return getattr(_server_state, "runtime", None)
+
+
 def get_engine_pool() -> EnginePool:
     """Get the engine pool, raising error if not initialized."""
     if _server_state.engine_pool is None:
@@ -3097,6 +3102,11 @@ async def create_chat_completion(
     lease = _LLMEngineLease()
     try:
         load_start = time.perf_counter()
+        # MIG-005: Server requests execution via Runtime
+        runtime = get_runtime()
+        if runtime is not None:
+            runtime.execute_request(request)
+
         engine = await get_engine_for_model(request.model, lease=lease)
         model_load_duration = time.perf_counter() - load_start
 
@@ -5375,6 +5385,11 @@ async def count_anthropic_tokens(
 
     lease = _LLMEngineLease()
     try:
+        # MIG-005: Server requests execution via Runtime
+        runtime = get_runtime()
+        if runtime is not None:
+            runtime.execute_request(request)
+
         engine = await get_engine_for_model(request.model, lease=lease)
         await _raise_if_llm_lease_abort_requested(lease)
 
@@ -5500,6 +5515,11 @@ async def create_response(
     load_start = time.perf_counter()
     lease = _LLMEngineLease()
     try:
+        # MIG-005: Server requests execution via Runtime
+        runtime = get_runtime()
+        if runtime is not None:
+            runtime.execute_request(request)
+
         engine = await get_engine_for_model(request.model, lease=lease)
         model_load_duration = time.perf_counter() - load_start
 
