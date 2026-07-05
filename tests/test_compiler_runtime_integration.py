@@ -138,6 +138,7 @@ def test_compiler_runtime_integration():
             mock_adapter = mock.MagicMock()
             mock_translation = mock.MagicMock()
             mock_translation.backend_operation_graph = "mock_graph"
+            mock_translation.backend_graph = "mock_graph"
             mock_adapter.translate.return_value = mock_translation
             mock_get_adapter.return_value = mock_adapter
 

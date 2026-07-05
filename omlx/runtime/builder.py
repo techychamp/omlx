@@ -84,6 +84,8 @@ class Runtime:
         self.event_bus = EventBus()
         self.ir_builder = IRBuilder()
         self.lowering_engine = LoweringEngine()
+        from omlx.runtime.compiler_service import RuntimeCompilerService
+        self.compiler_service = RuntimeCompilerService(self)
         self.execution_planner = ExecutionPlanner(
             capability_resolver=context.capability_resolver,
             feature_flags=context.feature_flags,

@@ -8,7 +8,8 @@ from omlx.planner.validation import validate_plan
 from omlx.planner.compiler.cache.utils import compute_cache_key
 if TYPE_CHECKING:
     from omlx.planner.compiler.dependency_tracker import DependencyTracker
-from omlx.planner.compiler.cache.manager import CompilerCacheManager
+if TYPE_CHECKING:
+    from omlx.planner.compiler.cache.manager import CompilerCacheManager
 
 class ExecutionPlanner:
     """

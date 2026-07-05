@@ -1,9 +1,8 @@
-from typing import TYPE_CHECKING, Optional, TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Optional, Any
 import logging
 if TYPE_CHECKING:
     from omlx.planner.compiler.cache.manager import CompilerCacheManager
-if TYPE_CHECKING:
-    from omlx.planner.compiler.cache.utils import compute_cache_key
+from omlx.planner.compiler.cache.utils import compute_cache_key
 
 from .descriptor import CapabilityDescriptor, ExecutionFamily
 from .sources import CapabilitySource

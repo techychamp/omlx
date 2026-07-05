@@ -44,11 +44,6 @@ class FeatureFlags(metaclass=FeatureFlagsMeta):
     COMPILER_BACKEND_GRAPH_ENABLED: bool = False
     COMPILER_RUNTIME_ENABLED: bool = False
 
-    EXECUTION_PLAN_RUNTIME_ENABLED: bool = False
-    EXECUTION_PROFILE_COMPATIBILITY_ENABLED: bool = False
-    EXECUTION_PLAN_VALIDATION_ENABLED: bool = False
-
-
     @classmethod
     def from_env(cls) -> FeatureFlags:
         """Read flags from OMLX_FEATURE_* environment variables."""
@@ -69,9 +64,4 @@ class FeatureFlags(metaclass=FeatureFlagsMeta):
             COMPILER_CONTEXT_ENABLED=os.getenv("OMLX_FEATURE_COMPILER_CONTEXT_ENABLED", "0") == "1",
             COMPILER_BACKEND_GRAPH_ENABLED=os.getenv("OMLX_FEATURE_COMPILER_BACKEND_GRAPH_ENABLED", "0") == "1",
             COMPILER_RUNTIME_ENABLED=os.getenv("OMLX_FEATURE_COMPILER_RUNTIME_ENABLED", "0") == "1",
-
-            EXECUTION_PLAN_RUNTIME_ENABLED=os.getenv("OMLX_FEATURE_EXECUTION_PLAN_RUNTIME", "0") == "1",
-            EXECUTION_PROFILE_COMPATIBILITY_ENABLED=os.getenv("OMLX_FEATURE_EXECUTION_PROFILE_COMPATIBILITY", "0") == "1",
-            EXECUTION_PLAN_VALIDATION_ENABLED=os.getenv("OMLX_FEATURE_EXECUTION_PLAN_VALIDATION", "0") == "1",
-
         )
