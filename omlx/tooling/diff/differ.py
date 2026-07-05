@@ -4,14 +4,17 @@ Compiler Diff Tool
 Compares two compiler artifacts to identify structural and metadata changes.
 """
 from typing import Any, Dict
+from omlx.verify.structural_compare import StructuralComparator
 
 class CompilerDiffer:
     """Highlights added, removed, and changed elements between two artifacts."""
 
+    def __init__(self):
+        self.comparator = StructuralComparator()
+
     def diff_dicts(self, old_data: dict[str, Any], new_data: dict[str, Any]) -> dict[str, Any]:
         """Generic recursive dictionary differ."""
-        from omlx.utils.comparator import diff_structures_nested
-        return diff_structures_nested(old_data, new_data)
+        return self.comparator.diff_dicts(old_data, new_data)
 
     def diff_graphs(self, old_graph: dict[str, Any], new_graph: dict[str, Any]) -> dict[str, Any]:
         """Specialized diff for exported graph dicts (nodes/edges)."""
