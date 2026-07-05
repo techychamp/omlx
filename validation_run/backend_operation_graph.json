@@ -1,0 +1,19 @@
+{
+  "backend_id": "mlx",
+  "operations": {
+    "op1": {
+      "id": "op1",
+      "inputs": [
+        "in1"
+      ],
+      "outputs": [
+        "out1"
+      ],
+      "dependencies": [],
+      "metadata": "{}"
+    }
+  },
+  "roots": [
+    "op1"
+  ]
+}

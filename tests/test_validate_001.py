@@ -1,0 +1,78 @@
+import pytest
+from typing import Dict, Any
+from types import MappingProxyType
+from unittest.mock import MagicMock
+
+from omlx.api.v1.runtime import RuntimeBuilder
+from omlx.runtime.feature_flags import FeatureFlags
+from omlx.runtime.compiler_service import RuntimeCompilerService
+from omlx.planner.compiler.backend.registry import AdapterRegistry
+from omlx.planner.compiler.backend.adapter import BaseBackendAdapter, TranslationResult
+from omlx.planner.compiler.backend.operations import BackendOperation, BackendOperationGraph
+from omlx.runtime.execution.engine import ExecutionEngine
+from omlx.runtime.execution.context import ExecutionContext
+from omlx.runtime.scheduling.scheduler import GraphScheduler
+from omlx.runtime.execution.types import ExecutionResult, ExecutionStatus
+
+class MockAdapter(BaseBackendAdapter):
+    def __init__(self):
+        super().__init__()
+        op = BackendOperation(id="op1", inputs=("in1",), outputs=("out1",), dependencies=tuple())
+        self.bog = BackendOperationGraph(backend_id="mlx", operations=MappingProxyType({"op1": op}), roots=("op1",))
+
+    @property
+    def descriptor(self): return None
+    def execute(self, *args, **kwargs):
+        return ExecutionResult(status=ExecutionStatus.COMPLETED, model_output={"test": "output"})
+    def supports_capability(self, *args, **kwargs): return True
+    def translate(self, *args, **kwargs):
+        return TranslationResult(backend_graph=self.bog)
+    def validate(self, *args, **kwargs): return True
+
+def test_end_to_end_validation_pipeline():
+    flags = FeatureFlags()
+    flags.COMPILER_RUNTIME_PIPELINE_ENABLED = True
+    flags.CAPABILITY_RUNTIME_ENABLED = True
+    flags.PLANNER_RUNTIME_ENABLED = True
+    flags.LOWERING_RUNTIME_ENABLED = True
+    flags.ADAPTER_RUNTIME_ENABLED = True
+    flags.COMPILER_CONTEXT_ENABLED = True
+
+    runtime_builder = RuntimeBuilder()
+    adapter = MockAdapter()
+
+    runtime_builder._internal_builder._adapter_registry.register(
+        backend="autoregressive", hardware="any", execution_family="autoregressive", execution_mode="streaming", adapter=adapter
+    )
+
+    runtime = runtime_builder.build()
+    runtime.internal_runtime.feature_flags = flags
+
+    svc = RuntimeCompilerService(runtime.internal_runtime)
+    model_id = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+
+    result = svc.run_compilation(model_id)
+
+    assert result is not None, "Translation result should not be None"
+
+    bog = getattr(result, "backend_graph", getattr(result, "backend_operation_graph", None))
+    assert bog is not None, "BackendOperationGraph should be present"
+    assert "op1" in bog.operations
+
+    scheduler = GraphScheduler()
+    schedule = scheduler.build_schedule(bog)
+    assert len(schedule.execution_groups) > 0, "Execution schedule should have at least one group"
+
+    engine = ExecutionEngine()
+    context = ExecutionContext(
+        backend_operation_graph=bog,
+        adapter=adapter,
+        execution_plan=MagicMock(),
+        request_context=MagicMock()
+    )
+
+    engine_result = engine.execute(context)
+    assert engine_result.status == ExecutionStatus.COMPLETED
+    assert engine_result.model_output["status"] == "dispatched"
+    assert "last_output" in engine_result.model_output
+    assert engine_result.model_output["last_output"].model_output == {"test": "output"}
