@@ -27,6 +27,37 @@ class PluginCapability(Enum):
     EXPORTER_EXTENSION = "exporter_extension"
     QUANTIZATION_EXTENSION = "quantization_extension"
 
+class PluginPermission(Enum):
+    COMPILER_ACCESS = "compiler_access"
+    PLANNER_ACCESS = "planner_access"
+    BACKEND_ACCESS = "backend_access"
+    VERIFICATION_ACCESS = "verification_access"
+    TOOLING_ACCESS = "tooling_access"
+    FILESYSTEM_READ = "filesystem_read"
+    FILESYSTEM_WRITE = "filesystem_write"
+    NETWORK_ACCESS = "network_access"
+    CONFIGURATION_ACCESS = "configuration_access"
+    DIAGNOSTICS_ACCESS = "diagnostics_access"
+
+class PluginTrustLevel(Enum):
+    CORE = "core"
+    BUILT_IN = "built_in"
+    VERIFIED = "verified"
+    SIGNED = "signed"
+    THIRD_PARTY = "third_party"
+    EXPERIMENTAL = "experimental"
+    DEVELOPER = "developer"
+    UNTRUSTED = "untrusted"
+
+@dataclass(frozen=True)
+class PluginIsolationPolicy:
+    shared_state_allowed: bool = False
+    read_only_context: bool = True
+    exclusive_extension_point: bool = False
+    stateless_only: bool = True
+    thread_safe_required: bool = True
+    future_sandbox_capable: bool = True
+
 @dataclass(frozen=True)
 class PluginConfiguration:
     enabled: bool = True
@@ -95,6 +126,18 @@ class PluginDescriptor:
     description: str
     category: PluginCategory
 
+    # Security & Trust
+    permissions: Tuple[PluginPermission, ...] = field(default_factory=tuple)
+    trust_level: PluginTrustLevel = PluginTrustLevel.UNTRUSTED
+    isolation_policy: PluginIsolationPolicy = field(default_factory=PluginIsolationPolicy)
+
+    # Capability Restrictions
+    required_compiler_stages: Tuple[str, ...] = field(default_factory=tuple)
+    supported_backend_families: Tuple[str, ...] = field(default_factory=tuple)
+    supported_execution_families: Tuple[str, ...] = field(default_factory=tuple)
+    required_feature_flags: Tuple[str, ...] = field(default_factory=tuple)
+    required_optimization_phases: Tuple[str, ...] = field(default_factory=tuple)
+
     # Version compatibility
     supported_compiler_versions: Tuple[str, ...] = field(default_factory=tuple)
     supported_runtime_versions: Tuple[str, ...] = field(default_factory=tuple)
@@ -125,6 +168,12 @@ class PluginDescriptor:
                 return frozenset(deep_freeze(x) for x in obj)
             return obj
 
+        object.__setattr__(self, 'permissions', deep_freeze(self.permissions))
+        object.__setattr__(self, 'required_compiler_stages', deep_freeze(self.required_compiler_stages))
+        object.__setattr__(self, 'supported_backend_families', deep_freeze(self.supported_backend_families))
+        object.__setattr__(self, 'supported_execution_families', deep_freeze(self.supported_execution_families))
+        object.__setattr__(self, 'required_feature_flags', deep_freeze(self.required_feature_flags))
+        object.__setattr__(self, 'required_optimization_phases', deep_freeze(self.required_optimization_phases))
         object.__setattr__(self, 'supported_compiler_versions', deep_freeze(self.supported_compiler_versions))
         object.__setattr__(self, 'supported_runtime_versions', deep_freeze(self.supported_runtime_versions))
         object.__setattr__(self, 'dependencies', deep_freeze(self.dependencies))

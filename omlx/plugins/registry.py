@@ -2,6 +2,7 @@ import threading
 from typing import Dict, List, Optional, Type, Any, Set
 from .descriptor import PluginDescriptor, PluginLifecycleState
 from .contracts import ExtensionPoint
+from .versioning import SemanticVersion
 
 class PluginRegistry:
     """
@@ -33,7 +34,10 @@ class PluginRegistry:
             "compatibility": {},
             "lifecycle": {},
             "health": {},
-            "discovery": {}
+            "discovery": {},
+            "security": {},
+            "trust": {},
+            "permission": {}
         }
 
     def _check_sealed(self):
@@ -90,48 +94,76 @@ class PluginRegistry:
                  # Check required dependencies
                  for req_plugin_id, req_version in descriptor.dependencies.items():
                      if req_plugin_id not in self._descriptors:
-                         self._diagnostics["dependency"][plugin_id] = f"Missing required dependency: {req_plugin_id}"
+                         if plugin_id not in self._diagnostics["dependency"]:
+                             self._diagnostics["dependency"][plugin_id] = []
+                         if isinstance(self._diagnostics["dependency"][plugin_id], str):
+                             self._diagnostics["dependency"][plugin_id] = [self._diagnostics["dependency"][plugin_id]]
+                         self._diagnostics["dependency"][plugin_id].append(f"Missing required dependency: {req_plugin_id}")
                          self.transition_state(plugin_id, PluginLifecycleState.FAILED)
-                     # (Version constraint checking would go here)
+                         continue
+
+                     req_descriptor = self._descriptors[req_plugin_id]
+                     if not SemanticVersion.is_compatible(req_descriptor.version, req_version):
+                         if plugin_id not in self._diagnostics["dependency"]:
+                             self._diagnostics["dependency"][plugin_id] = []
+                         if isinstance(self._diagnostics["dependency"][plugin_id], str):
+                             self._diagnostics["dependency"][plugin_id] = [self._diagnostics["dependency"][plugin_id]]
+                         self._diagnostics["dependency"][plugin_id].append(f"Incompatible dependency version: {req_plugin_id} {req_descriptor.version} does not satisfy {req_version}")
+                         self.transition_state(plugin_id, PluginLifecycleState.FAILED)
 
                  # Check optional dependencies
                  for opt_plugin_id, opt_version in descriptor.optional_dependencies.items():
                      if opt_plugin_id not in self._descriptors:
                          if plugin_id not in self._diagnostics["dependency"]:
                              self._diagnostics["dependency"][plugin_id] = []
-                         if isinstance(self._diagnostics["dependency"][plugin_id], list):
-                             self._diagnostics["dependency"][plugin_id].append(f"Missing optional dependency: {opt_plugin_id}")
+                         if isinstance(self._diagnostics["dependency"][plugin_id], str):
+                             self._diagnostics["dependency"][plugin_id] = [self._diagnostics["dependency"][plugin_id]]
+                         self._diagnostics["dependency"][plugin_id].append(f"Missing optional dependency: {opt_plugin_id}")
+                     else:
+                         opt_descriptor = self._descriptors[opt_plugin_id]
+                         if not SemanticVersion.is_compatible(opt_descriptor.version, opt_version):
+                             if plugin_id not in self._diagnostics["dependency"]:
+                                 self._diagnostics["dependency"][plugin_id] = []
+                             if isinstance(self._diagnostics["dependency"][plugin_id], str):
+                                 self._diagnostics["dependency"][plugin_id] = [self._diagnostics["dependency"][plugin_id]]
+                             self._diagnostics["dependency"][plugin_id].append(f"Incompatible optional dependency version: {opt_plugin_id} {opt_descriptor.version} does not satisfy {opt_version}")
 
              # Perform topological sort / circular dependency check
              self._check_circular_dependencies()
 
     def _check_circular_dependencies(self) -> None:
-        # Simplified circular dependency check
         visited: Set[str] = set()
         rec_stack: Set[str] = set()
+        cycle_detected = False
 
-        def dfs(node: str) -> bool:
+        def dfs(node: str, path: List[str]) -> bool:
+            nonlocal cycle_detected
             visited.add(node)
             rec_stack.add(node)
+            path.append(node)
 
             descriptor = self._descriptors.get(node)
             if descriptor:
                 for neighbor in descriptor.dependencies:
                     if neighbor not in visited:
-                        if dfs(neighbor):
+                        if dfs(neighbor, path):
                             return True
                     elif neighbor in rec_stack:
+                        cycle_path = path[path.index(neighbor):] + [neighbor]
+                        self._diagnostics["dependency"]["global"] = f"Circular dependency detected: {' -> '.join(cycle_path)}"
+                        for n in cycle_path[:-1]:
+                            self.transition_state(n, PluginLifecycleState.FAILED)
+                        cycle_detected = True
                         return True
 
             rec_stack.remove(node)
+            path.pop()
             return False
 
         for plugin_id in self._descriptors:
             if plugin_id not in visited:
-                if dfs(plugin_id):
-                    self._diagnostics["dependency"]["global"] = f"Circular dependency detected involving {plugin_id}"
-                    self.transition_state(plugin_id, PluginLifecycleState.FAILED)
-                    # Note: in a real implementation we'd fail all involved plugins
+                if dfs(plugin_id, []):
+                    pass
 
     def get_extensions(self, extension_type: Type[ExtensionPoint]) -> List[ExtensionPoint]:
         """Retrieve all registered extensions of a specific type."""
@@ -160,6 +192,40 @@ class PluginRegistry:
         with self._lock:
             return [desc for desc in self._descriptors.values() if desc.priority == priority]
 
+    def get_by_permission(self, permission) -> List[PluginDescriptor]:
+        with self._lock:
+            return [desc for desc in self._descriptors.values() if permission in desc.permissions]
+
+    def get_by_trust_level(self, trust_level) -> List[PluginDescriptor]:
+        with self._lock:
+            return [desc for desc in self._descriptors.values() if desc.trust_level == trust_level]
+
+    def get_by_compiler_stage(self, stage: str) -> List[PluginDescriptor]:
+        with self._lock:
+            return [desc for desc in self._descriptors.values() if stage in desc.required_compiler_stages]
+
+    def get_by_backend_family(self, family: str) -> List[PluginDescriptor]:
+        with self._lock:
+            return [desc for desc in self._descriptors.values() if family in desc.supported_backend_families]
+
+    def get_by_execution_family(self, family: str) -> List[PluginDescriptor]:
+        with self._lock:
+            return [desc for desc in self._descriptors.values() if family in desc.supported_execution_families]
+
+    def get_by_dependency(self, plugin_id: str) -> List[PluginDescriptor]:
+        with self._lock:
+            return [desc for desc in self._descriptors.values() if plugin_id in desc.dependencies or plugin_id in desc.optional_dependencies]
+
+    def get_by_version_compatibility(self, compiler_version: str, runtime_version: str) -> List[PluginDescriptor]:
+        with self._lock:
+            compatible = []
+            for desc in self._descriptors.values():
+                comp_ok = not desc.supported_compiler_versions or compiler_version in desc.supported_compiler_versions
+                run_ok = not desc.supported_runtime_versions or runtime_version in desc.supported_runtime_versions
+                if comp_ok and run_ok:
+                    compatible.append(desc)
+            return compatible
+
     def get_extensions_by_capability(self, capability) -> List[ExtensionPoint]:
         with self._lock:
             extensions = []
@@ -172,4 +238,8 @@ class PluginRegistry:
     def generate_diagnostics_report(self) -> Dict[str, Any]:
         """Return the collected diagnostics report."""
         with self._lock:
+            # Populate trust and permission dynamically
+            for pid, desc in self._descriptors.items():
+                 self._diagnostics["trust"][pid] = desc.trust_level.value
+                 self._diagnostics["permission"][pid] = [p.value for p in desc.permissions]
             return self._diagnostics.copy()

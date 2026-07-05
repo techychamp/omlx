@@ -6,6 +6,7 @@ from .registry import PluginRegistry
 from .context import PluginInitializationContext
 from .descriptor import PluginDescriptor, PluginLifecycleState
 from .compatibility import CompatibilityNegotiator
+from .validation import PluginValidationFramework
 
 logger = logging.getLogger(__name__)
 
@@ -108,27 +109,45 @@ class PluginManager:
         """
         self._registry.validate_dependencies()
 
+        descriptors = list(self._registry._descriptors.values())
+
         # Compatibility check
         negotiator = CompatibilityNegotiator(
             self._registry,
             current_compiler_version="1.0.0", # TODO: Get from context
             current_runtime_version="1.0.0"
         )
-
-        descriptors = list(self._registry._descriptors.values())
         compatibility_diagnostics = negotiator.check_compatibility(descriptors)
+
+        # Validation Framework Check
+        validator = PluginValidationFramework(self._registry)
+        validation_diagnostics = validator.validate_all(descriptors)
 
         # Merge diagnostics
         self._registry._diagnostics["compatibility"] = compatibility_diagnostics
+        self._registry._diagnostics["validation"] = validation_diagnostics
 
         # If conflicts exist, transition to failed
+        # Handle version conflicts
         for pid in compatibility_diagnostics["version_conflicts"]:
-             if pid in self._registry._descriptors:
-                 self._registry.transition_state(pid, PluginLifecycleState.FAILED)
+            # extract pid from string like "Plugin p_ok does not support compiler version 2.0.0"
+            import re
+            match = re.search(r"Plugin ([\w\.-]+) does not", pid)
+            if match:
+                 extracted_pid = match.group(1)
+                 if extracted_pid in self._registry._descriptors:
+                     self._registry.transition_state(extracted_pid, PluginLifecycleState.FAILED)
+            elif "Duplicate plugin ID: " in pid:
+                 extracted_pid = pid.replace("Duplicate plugin ID: ", "")
+                 if extracted_pid in self._registry._descriptors:
+                     self._registry.transition_state(extracted_pid, PluginLifecycleState.FAILED)
+
+        for pid, results in validation_diagnostics.items():
+            if not results["is_valid"]:
+                 if pid in self._registry._descriptors:
+                     self._registry.transition_state(pid, PluginLifecycleState.FAILED)
 
         # Transition healthy plugins to enabled (if validation passed)
-        # We need to access descriptors which is protected, but we can just use the public getter conceptually,
-        # or we just iterate the ones we loaded.
         for plugin_id in self._loaded_modules.keys():
             if self._registry.get_state(plugin_id) not in (PluginLifecycleState.FAILED, PluginLifecycleState.DISABLED):
                 self._registry.transition_state(plugin_id, PluginLifecycleState.ENABLED)
