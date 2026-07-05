@@ -80,15 +80,21 @@ class CompilerPipelineRunner:
         translation_result = None
         if flags.ADAPTER_RUNTIME_ENABLED:
             try:
-                # Resolve backend from plan
-                backend = plan.execution_backend
+                # Resolve backend from plan.
+                # NOTE: plan.execution_backend holds the *logical* execution algorithm name
+                # (e.g. "autoregressive", "speculative"), NOT the hardware backend ID.
+                # The hardware backend registered in AdapterRegistry is "mlx" for the
+                # primary compiler path. We use plan.execution_family and plan.execution_mode
+                # to route into the correct variant within the mlx backend registrations.
                 hardware = plan.hardware_requirements[0] if plan.hardware_requirements else "any"
+                execution_family = plan.execution_family if isinstance(plan.execution_family, str) else str(plan.execution_family.value)
+                execution_mode = plan.execution_mode
 
                 adapter = self.runtime.adapter_registry.resolve(
-                    backend=backend,
+                    backend="mlx",
                     hardware=hardware,
-                    execution_family=plan.execution_family,
-                    execution_mode=plan.execution_mode
+                    execution_family=execution_family,
+                    execution_mode=execution_mode
                 )
 
                 if adapter:
