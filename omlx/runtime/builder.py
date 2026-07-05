@@ -17,6 +17,7 @@ from omlx.planner.compiler import LoweringEngine
 from omlx.planner.compiler.backend import AdapterRegistry, BackendDescriptorRegistry, MLXAdapter
 
 from typing import Any, Optional
+from omlx.runtime.execution import ExecutionEngine, ExecutionContext
 
 from .context import RuntimeState
 from .events import EventBus, RuntimeLifecycleEvent, Event, EventCategory
@@ -96,6 +97,7 @@ class Runtime:
         )
         self.adapter_registry = context.adapter_registry
         self.descriptor_registry = context.descriptor_registry
+        self.execution_engine = ExecutionEngine()
 
     def update_context(self, **kwargs) -> None:
         import dataclasses
@@ -103,14 +105,35 @@ class Runtime:
 
     def execute_request(self, request_context: Any) -> Any:
         """
-        Execute an incoming request using the Compiler service.
+        Execute an incoming request using the Compiler service and Execution Engine.
         """
+        # Fallback to legacy behavior if feature flags say so
+        if self.feature_flags.LEGACY_RUNTIME_ENABLED and not self.feature_flags.COMPILER_RUNTIME_ENABLED:
+            logger.debug("Falling back to legacy runtime execution.")
+            return None # Assuming legacy handling occurs elsewhere since this method only had compiler paths
+
         if self.feature_flags.COMPILER_RUNTIME_ENABLED:
             model_id = request_context.model
             translation_result = self.compiler_service.run_compilation(model_id, request_context)
             if translation_result:
                 logger.debug(f"Compiler pipeline successfully planned intent for {model_id}")
-            return translation_result
+
+                # Execution Engine
+                backend_op_graph = getattr(translation_result, "backend_graph", getattr(translation_result, "backend_operation_graph", None))
+
+                # Construct ExecutionContext
+                exec_context = ExecutionContext(
+                    request_context=request_context,
+                    backend_operation_graph=backend_op_graph,
+                    diagnostics=getattr(translation_result, "diagnostics", None),
+                    statistics=getattr(translation_result, "statistics", None)
+                )
+
+                execution_result = self.execution_engine.execute(exec_context)
+                logger.debug(f"Execution Engine completed with status {execution_result.status}")
+
+                return execution_result
+
         return None
 
     def transition(self, new_state: RuntimeStateEnum) -> None:
