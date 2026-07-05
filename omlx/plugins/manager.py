@@ -111,11 +111,12 @@ class PluginManager:
 
         descriptors = list(self._registry._descriptors.values())
 
+        from omlx import __version__
         # Compatibility check
         negotiator = CompatibilityNegotiator(
             self._registry,
-            current_compiler_version="1.0.0", # TODO: Get from context
-            current_runtime_version="1.0.0"
+            current_compiler_version=__version__,
+            current_runtime_version=__version__
         )
         compatibility_diagnostics = negotiator.check_compatibility(descriptors)
 

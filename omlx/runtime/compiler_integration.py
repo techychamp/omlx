@@ -107,7 +107,7 @@ class CompilerPipelineRunner:
 
         if flags.COMPILER_CONTEXT_ENABLED:
             # Also store the BackendOperationGraph explicitly if available
-            backend_op_graph = translation_result.backend_operation_graph if translation_result else None
+            backend_op_graph = getattr(translation_result, "backend_graph", getattr(translation_result, "backend_operation_graph", None)) if translation_result else None
             self.runtime.update_context(
                 capability_descriptor=descriptor,
                 execution_plan=plan,

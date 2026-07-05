@@ -291,6 +291,11 @@ def get_server_state() -> ServerState:
     return _server_state
 
 
+def get_runtime():
+    """Get the active RuntimeBuilder constructed runtime instance."""
+    return getattr(_server_state, "runtime", None)
+
+
 def get_engine_pool() -> EnginePool:
     """Get the engine pool, raising error if not initialized."""
     if _server_state.engine_pool is None:
@@ -1095,8 +1100,7 @@ async def get_engine_for_model(
         flags = runtime.feature_flags
         if getattr(flags, "COMPILER_RUNTIME_ENABLED", False):
             try:
-                from omlx.runtime.compiler_integration import CompilerPipelineRunner
-                runner = CompilerPipelineRunner(runtime)
+                runner = runtime.compiler_service
                 resolved_model = resolve_model_id(model) if model else model
 
                 # Fetch default model logic if model is None
@@ -1107,7 +1111,7 @@ async def get_engine_for_model(
                         resolved_model = _server_state.default_model or available_models[0]
 
                 if resolved_model:
-                    translation_result = runner.run_pipeline(resolved_model)
+                    translation_result = runner.run_compilation(resolved_model)
                     if translation_result:
                         logger.debug(f"Compiler pipeline successfully planned intent for {resolved_model}")
             except Exception as e:

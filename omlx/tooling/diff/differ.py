@@ -4,35 +4,17 @@ Compiler Diff Tool
 Compares two compiler artifacts to identify structural and metadata changes.
 """
 from typing import Any, Dict
+from omlx.verify.structural_compare import StructuralComparator
 
 class CompilerDiffer:
     """Highlights added, removed, and changed elements between two artifacts."""
 
+    def __init__(self):
+        self.comparator = StructuralComparator()
+
     def diff_dicts(self, old_data: dict[str, Any], new_data: dict[str, Any]) -> dict[str, Any]:
         """Generic recursive dictionary differ."""
-        diff = {"added": {}, "removed": {}, "changed": {}}
-
-        old_keys = set(old_data.keys())
-        new_keys = set(new_data.keys())
-
-        for k in new_keys - old_keys:
-            diff["added"][k] = new_data[k]
-
-        for k in old_keys - new_keys:
-            diff["removed"][k] = old_data[k]
-
-        for k in old_keys & new_keys:
-            v_old = old_data[k]
-            v_new = new_data[k]
-
-            if isinstance(v_old, dict) and isinstance(v_new, dict):
-                sub_diff = self.diff_dicts(v_old, v_new)
-                if any(sub_diff.values()):
-                    diff["changed"][k] = sub_diff
-            elif v_old != v_new:
-                 diff["changed"][k] = {"from": v_old, "to": v_new}
-
-        return diff
+        return self.comparator.diff_dicts(old_data, new_data)
 
     def diff_graphs(self, old_graph: dict[str, Any], new_graph: dict[str, Any]) -> dict[str, Any]:
         """Specialized diff for exported graph dicts (nodes/edges)."""
