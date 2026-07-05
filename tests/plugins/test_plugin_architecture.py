@@ -170,8 +170,8 @@ def test_thread_safety():
 
 def test_registry_rich_queries():
     registry = PluginRegistry()
-    desc1 = PluginDescriptor("p1", "P1", "1", "A", "D", PluginCategory.CAPABILITY, priority=PluginPriority.CORE, capabilities=[PluginCapability.COMPILER_EXTENSION])
-    desc2 = PluginDescriptor("p2", "P2", "1", "A", "D", PluginCategory.CAPABILITY, priority=PluginPriority.EXPERIMENTAL, capabilities=[PluginCapability.PLANNER_EXTENSION])
+    desc1 = PluginDescriptor("p1", "P1", "1", "A", "D", PluginCategory.CAPABILITY, priority=PluginPriority.CORE, capabilities=[PluginCapability.COMPILER_EXTENSION.value])
+    desc2 = PluginDescriptor("p2", "P2", "1", "A", "D", PluginCategory.CAPABILITY, priority=PluginPriority.EXPERIMENTAL, capabilities=[PluginCapability.PLANNER_EXTENSION.value])
 
     registry.register_plugin(desc1)
     registry.register_plugin(desc2)
@@ -180,6 +180,6 @@ def test_registry_rich_queries():
     assert len(core_plugins) == 1
     assert core_plugins[0].plugin_id == "p1"
 
-    compiler_plugins = registry.get_by_capability(PluginCapability.COMPILER_EXTENSION)
+    compiler_plugins = registry.get_by_capability(PluginCapability.COMPILER_EXTENSION.value)
     assert len(compiler_plugins) == 1
     assert compiler_plugins[0].plugin_id == "p1"
