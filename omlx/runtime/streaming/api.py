@@ -7,9 +7,12 @@ from .types import StreamingToken
 from .controller import StreamingController
 from .emitter import TokenEmitter
 
-_global_controller = StreamingController()
+_global_controller = None
 
 def get_controller() -> StreamingController:
+    global _global_controller
+    if _global_controller is None:
+        _global_controller = StreamingController()
     return _global_controller
 
 def stream_events(session_id: str, callback: Callable) -> None:
