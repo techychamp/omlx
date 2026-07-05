@@ -9,9 +9,21 @@ import time
 import logging
 from typing import Any, Protocol, runtime_checkable, Callable
 
-import mlx.core as mx
-from mlx_lm.generate import BatchGenerator
-from mlx_lm.sample_utils import make_logits_processors
+try:
+    import mlx.core as mx
+except ImportError:
+    mx = None
+
+try:
+    from mlx_lm.generate import BatchGenerator
+except ImportError:
+    BatchGenerator = None
+
+try:
+    from mlx_lm.sample_utils import make_logits_processors
+except ImportError:
+    make_logits_processors = None
+
 
 from omlx.utils.sampling import make_sampler as omlx_make_sampler
 

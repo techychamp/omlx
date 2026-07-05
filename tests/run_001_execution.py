@@ -136,7 +136,7 @@ class PhaseBResult:
 # Phase A — Compiler Pipeline Validation
 # ---------------------------------------------------------------------------
 
-def run_phase_a(model_label: str) -> PhaseAResult:
+def run_phase_a(model_label: str, model: "Any" = None, tokenizer: "Any" = None) -> PhaseAResult:
     """
     Drive the full compiler pipeline for model_label, then execute the
     resulting BackendOperationGraph through the ExecutionEngine.
@@ -552,7 +552,28 @@ def main() -> int:
     logger.info("  artifacts : %s/", ARTIFACTS_DIR)
     logger.info("")
 
-    phase_a = run_phase_a(model_label="TinyLlama-1.1B")
+    model, tokenizer = None, None
+    try:
+        from huggingface_hub import snapshot_download
+        import glob
+        import pathlib
+
+        # We handle mock imports during CI vs local environment gracefully
+        try:
+            from mlx_lm.utils import load as mlx_load
+        except ImportError:
+            mlx_load = None
+
+        if mlx_load:
+            logger.info("Pre-loading model for ExecutionContext via mlx_lm...")
+            local_path = snapshot_download(repo_id=MODEL_ID)
+            model, tokenizer = mlx_load(local_path)
+        else:
+            logger.info("mlx_lm not available; bypassing pre-load for Phase A.")
+    except Exception as e:
+        logger.warning(f"Could not load real model: {e}")
+
+    phase_a = run_phase_a(model_label="TinyLlama-1.1B", model=model, tokenizer=tokenizer)
     phase_b = run_phase_b(
         model_id=MODEL_ID,
         prompt=PROMPT,

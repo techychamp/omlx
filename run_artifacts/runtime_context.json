@@ -31,7 +31,7 @@
     "execution_hints": {},
     "hardware_requirements": [],
     "planner_metadata": {
-      "planning_time_ms": 0.00286102294921875,
+      "planning_time_ms": 0.010013580322265625,
       "cache_key": "plan_f59ce4e858ab9f370ad3fb2628c2a2696ff9370586f85e8888fda540f3e1792a"
     }
   },
@@ -110,6 +110,6 @@
     "total_compilations": 1,
     "successful_compilations": 1,
     "failed_compilations": 0,
-    "total_compilation_time_ms": 0.2529621124267578
+    "total_compilation_time_ms": 1.0199546813964844
   }
 }

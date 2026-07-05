@@ -1,7 +1,7 @@
 {
   "executed_operations": 5,
   "backend_invocations": 5,
-  "execution_duration_ms": 0.05602836608886719,
+  "execution_duration_ms": 1.7576217651367188,
   "graph_depth": 5,
   "execution_groups": 5,
   "dispatcher_calls": 5,

@@ -19,7 +19,11 @@ from __future__ import annotations
 import math
 from typing import Callable, List
 
-import mlx.core as mx
+try:
+    import mlx.core as mx
+except ImportError:
+    mx = None
+
 
 
 def apply_top_p(logprobs: mx.array, top_p: float) -> mx.array:
