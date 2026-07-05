@@ -56,6 +56,8 @@ class RuntimeContext:
     capability_descriptor: CapabilityDescriptor | None = None
     execution_plan: ExecutionPlan | None = None
     compiler_session: Any = None
+    logical_ir: Any = None
+    physical_ir: Any = None
     backend_operation_graph: Any = None
     compiler_diagnostics: Any = None
     translation_result: Any = None
@@ -98,6 +100,18 @@ class Runtime:
     def update_context(self, **kwargs) -> None:
         import dataclasses
         self.context = dataclasses.replace(self.context, **kwargs)
+
+    def execute_request(self, request_context: Any) -> Any:
+        """
+        Execute an incoming request using the Compiler service.
+        """
+        if self.feature_flags.COMPILER_RUNTIME_ENABLED:
+            model_id = request_context.model
+            translation_result = self.compiler_service.run_compilation(model_id, request_context)
+            if translation_result:
+                logger.debug(f"Compiler pipeline successfully planned intent for {model_id}")
+            return translation_result
+        return None
 
     def transition(self, new_state: RuntimeStateEnum) -> None:
         """Safely transition lifecycle states."""

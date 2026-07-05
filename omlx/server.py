@@ -1094,28 +1094,6 @@ async def get_engine_for_model(
     *,
     lease: _LLMEngineLease | None = None,
 ) -> BaseEngine:
-    # MIG-003: Orchestrate Compiler Pipeline execution before Engine load
-    runtime = get_runtime()
-    if runtime is not None:
-        flags = runtime.feature_flags
-        if getattr(flags, "COMPILER_RUNTIME_ENABLED", False):
-            try:
-                runner = runtime.compiler_service
-                resolved_model = resolve_model_id(model) if model else model
-
-                # Fetch default model logic if model is None
-                if not resolved_model:
-                    pool = get_engine_pool()
-                    available_models = pool.get_model_ids()
-                    if available_models:
-                        resolved_model = _server_state.default_model or available_models[0]
-
-                if resolved_model:
-                    translation_result = runner.run_compilation(resolved_model)
-                    if translation_result:
-                        logger.debug(f"Compiler pipeline successfully planned intent for {resolved_model}")
-            except Exception as e:
-                logger.error(f"Compiler pipeline non-blocking failure: {e}", exc_info=True)
     """
     Get LLM engine for the specified model (or default).
 
@@ -3124,6 +3102,11 @@ async def create_chat_completion(
     lease = _LLMEngineLease()
     try:
         load_start = time.perf_counter()
+        # MIG-005: Server requests execution via Runtime
+        runtime = get_runtime()
+        if runtime is not None:
+            runtime.execute_request(request)
+
         engine = await get_engine_for_model(request.model, lease=lease)
         model_load_duration = time.perf_counter() - load_start
 
@@ -5402,6 +5385,11 @@ async def count_anthropic_tokens(
 
     lease = _LLMEngineLease()
     try:
+        # MIG-005: Server requests execution via Runtime
+        runtime = get_runtime()
+        if runtime is not None:
+            runtime.execute_request(request)
+
         engine = await get_engine_for_model(request.model, lease=lease)
         await _raise_if_llm_lease_abort_requested(lease)
 
@@ -5527,6 +5515,11 @@ async def create_response(
     load_start = time.perf_counter()
     lease = _LLMEngineLease()
     try:
+        # MIG-005: Server requests execution via Runtime
+        runtime = get_runtime()
+        if runtime is not None:
+            runtime.execute_request(request)
+
         engine = await get_engine_for_model(request.model, lease=lease)
         model_load_duration = time.perf_counter() - load_start
 

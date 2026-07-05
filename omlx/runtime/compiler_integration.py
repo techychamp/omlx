@@ -111,6 +111,8 @@ class CompilerPipelineRunner:
             self.runtime.update_context(
                 capability_descriptor=descriptor,
                 execution_plan=plan,
+                logical_ir=logical_ir if 'logical_ir' in locals() else None,
+                physical_ir=physical_ir,
                 translation_result=translation_result,
                 backend_operation_graph=backend_op_graph
             )
