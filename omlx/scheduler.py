@@ -4277,8 +4277,7 @@ class Scheduler:
 
             # Ensure a BatchGenerator exists (may not if all requests were
             # previously in chunked prefill with no running decode).
-            self._ensure_batch_generator(request.sampling_params)
-            if self.batch_generator is None:
+            if not self._strategy_instances:
                 # Unlikely, but if BG creation fails put request back.
                 logger.error(
                     "BatchGenerator unavailable at chunked-prefill completion "
@@ -4750,10 +4749,6 @@ class Scheduler:
 
         return True
 
-    def _ensure_batch_generator(self, sampling_params: SamplingParams) -> None:
-        """Ensure BatchGenerator exists with compatible settings."""
-        if self.strategy is not None:
-            self.strategy.ensure_generator(sampling_params)
 
         # Track latest params for debugging/metrics.
         self._current_sampler_params = (
@@ -7004,7 +6999,7 @@ class Scheduler:
         # Reset batch generator only (cache is not corrupted). Every row dies
         # with it; survivors re-register at re-insert.
         _unregister_uid_rows_for_model(self.model)
-        self.batch_generator = None
+        self._strategy_instances = None
         self._current_sampler_params = None
         # Reclaim fragmented Metal buffers after generation failure.
         # Without this, subsequent requests may hit the same resource
@@ -7559,9 +7554,8 @@ class Scheduler:
             self._clear_store_cache_admission_blocker(request.request_id)
 
             # Ensure we have a batch generator
-            self._ensure_batch_generator(request.sampling_params)
 
-            if self.batch_generator is None:
+            if not self._strategy_instances:
                 # Put back and try again later
                 self.waiting.appendleft(request)
                 break
@@ -8873,7 +8867,7 @@ class Scheduler:
     def _recover_from_cache_error(self) -> None:
         """Recover from cache corruption error."""
         # Clear batch generator (this is the source of the corruption)
-        self.batch_generator = None
+        self._strategy_instances = None
         self._current_sampler_params = None
         self._boundary_cache_snapshots.clear()
         if self._boundary_snapshot_store is not None:
@@ -8911,7 +8905,7 @@ class Scheduler:
 
     def _recover_from_generation_overflow_error(self) -> None:
         """Reset decode state after MLX __next_prime overflow."""
-        self.batch_generator = None
+        self._strategy_instances = None
         self._current_sampler_params = None
         self._boundary_snapshot_required = None
 
@@ -9325,7 +9319,7 @@ class Scheduler:
             # BatchGenerator is in an inconsistent state (partial
             # prefill), so reset it entirely. Pending aborts will
             # be processed at the start of the next step().
-            self.batch_generator = None
+            self._strategy_instances = None
             self._current_sampler_params = None
             self._boundary_cache_snapshots.clear()
             if self._boundary_snapshot_store is not None:
@@ -9510,7 +9504,7 @@ class Scheduler:
         self._inflight_store_info.clear()
         self._cache_freshness_waits.clear()
         self._prefix_cache_prepared.clear()
-        self.batch_generator = None
+        self._strategy_instances = None
         self._current_sampler_params = None
         self._boundary_cache_snapshots.clear()
         if self._boundary_snapshot_store is not None:

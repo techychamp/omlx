@@ -1,4 +1,2 @@
-#!/bin/bash
-git add verification/
-git add tests/verification/
-git add pre_commit_report.md
+echo "Doing pre commit verification"
+PYTHONPATH=. /home/jules/.local/share/pipx/venvs/pytest/bin/python -m pytest -m "not slow" tests/plugins/

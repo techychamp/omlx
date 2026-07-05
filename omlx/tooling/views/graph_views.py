@@ -14,7 +14,13 @@ def to_value_graph(ir: ExecutionIR) -> dict[str, Any]:
     edges = []
 
     for node_id, node in ir.nodes.items():
-        nodes[node_id] = {"label": f"{node.node_type.value}\\n{node_id}"}
+        is_streaming = "is_streaming: True" if getattr(node, "is_streaming", False) else ""
+        cache_type = f"cache: {node.cache_strategy}" if getattr(node, "cache_strategy", None) else ""
+        semantic_labels = [l for l in [is_streaming, cache_type] if l]
+        label = f"{node.node_type.value}\\n{node_id}"
+        if semantic_labels:
+            label += "\\n" + "\\n".join(semantic_labels)
+        nodes[node_id] = {"label": label}
         for dep in node.dependencies:
             edges.append({"source": dep, "target": node_id, "label": "value"})
 

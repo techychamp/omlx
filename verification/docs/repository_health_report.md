@@ -12,3 +12,6 @@ It is auto-generated and covers metrics such as:
 
 ## Report Generation
 Generated automatically by the CI Verification Pipeline via `verification/scripts/reporting.py`.
+
+## Added Verification Components
+The pipeline now supports `test_thread_safety.py`, `test_compiler_verification.py`, `test_backend_verification.py` and `test_golden_assets.py` driving golden tracking and regression catching.

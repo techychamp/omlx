@@ -1,7 +1,22 @@
-1. **Migration Audit and Documents**: Create necessary documentation such as `runtime_migration_audit.md`, `runtime_integration_walkthrough.md`, `compiler_runtime_integration_report.md`, `compatibility_layer_documentation.md`, `ownership_verification_report.md`, `migration_risk_report.md`, `dependency_verification_report.md`, `repository_impact_report.md`, `rollback_procedure.md`, and `recommendations_for_mig_002.md`.
-2. **Feature Flags**: Add `COMPILER_RUNTIME_PIPELINE_ENABLED`, `PLANNER_RUNTIME_ENABLED`, `LOGICAL_IR_RUNTIME_ENABLED`, `PHYSICAL_IR_RUNTIME_ENABLED`, `ADAPTER_RUNTIME_ENABLED` to `omlx/runtime/feature_flags.py` and `omlx/feature_flags/models.py`.
-3. **Compiler Integration Context**: Create an isolated `CompilerPipelineRunner` (or `OMLXCompilerIntegration`) component to execute the new pipeline alongside the existing request lifecycle. It will take `runtime` and `model_id` as inputs.
-4. **Integration into Endpoints**: Call the new compiler pipeline component inside the `/v1/completions` and `/v1/chat/completions` endpoints, but *before* the actual execution. Use the `feature_flags_system` to conditionally execute the pipeline without blocking or changing legacy execution. The result from the pipeline will just be computed and verified for correctness for now, fulfilling the goal of integrating the pipeline while preserving compatibility.
-5. **Testing**: Add tests in `tests/test_migration.py` to ensure the integration does not break existing flows and successfully exercises the `CapabilityResolver` -> `ExecutionPlanner` -> `IRBuilder` -> `LoweringEngine` -> `AdapterRegistry` pipeline.
-6. **Pre-commit**: Run pre-commit checks.
-7. **Submit**: Submit the changes.
+1. **Fix Pytest Environment & Restore Deleted Files:**
+   - Restore `tests/verification/backend/test_backend.py` and `tests/verification/migration/test_migration.py`.
+   - Add `__init__.py` files to resolve pytest module name conflicts.
+   - Delete scratchpad files (`plan.md`, `pre-commit-report.md`, `update_cli.py`, `update_graph_views.py`).
+
+2. **Artifact Explorer:**
+   - Modify `ArtifactExplorer` to traverse the actual relationships within `ReplaySession` instead of using a hardcoded list.
+
+3. **Semantic Diff:**
+   - Note: The user mentioned reusing structural comparison utilities from VERIFY-001A. We need to check if there is an existing diff utility (like `diff_dicts` we already use) and make sure `diff_semantic` layers on top of it.
+
+4. **CLI Commands:**
+   - Add the actual execution logic (`if args.command == ...`) for the new CLI commands (`inspect-backend`, `trace-session`, `replay`, `export-session`, `show-pipeline`, `summarize`, `validate-session`).
+   - Mock them out properly so they call the right tooling components (like `DiagnosticsEngine`, `ArtifactExplorer`, `InteractiveTrace`, etc.).
+
+5. **Integration Tests:**
+   - Add an integration test that uses all the tooling components (CLI commands, semantic diffing, exploration) to make sure they work end-to-end.
+
+6. **Pre-commit and Code Review:**
+   - Run tests.
+   - Request code review.
+   - Run `pre_commit_instructions`.

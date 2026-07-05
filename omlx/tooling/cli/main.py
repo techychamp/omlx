@@ -52,6 +52,28 @@ def main():
     p_compare.add_argument("file1", help="Path to old plan JSON")
     p_compare.add_argument("file2", help="Path to new plan JSON")
 
+
+    p_inspect_backend = subparsers.add_parser("inspect-backend", help="Inspect a backend graph semantically")
+    p_inspect_backend.add_argument("file", help="Path to Backend Graph JSON")
+
+    p_trace_session = subparsers.add_parser("trace-session", help="Interact with trace timelines")
+    p_trace_session.add_argument("file", help="Path to Session JSON")
+
+    p_replay = subparsers.add_parser("replay", help="Replay a compiler session")
+    p_replay.add_argument("file", help="Path to ReplaySession JSON")
+
+    p_export_session = subparsers.add_parser("export-session", help="Export session data")
+    p_export_session.add_argument("file", help="Path to Session JSON")
+
+    p_show_pipeline = subparsers.add_parser("show-pipeline", help="Show optimization pipeline")
+    p_show_pipeline.add_argument("file", help="Path to Session JSON")
+
+    p_summarize = subparsers.add_parser("summarize", help="Summarize compiler execution")
+    p_summarize.add_argument("file", help="Path to Session JSON")
+
+    p_validate_session = subparsers.add_parser("validate-session", help="Validate a session structure")
+    p_validate_session.add_argument("file", help="Path to Session JSON")
+
     args = parser.parse_args()
 
     if args.command is None:
@@ -98,6 +120,21 @@ def main():
         differ = CompilerDiffer()
         diff_result = differ.diff_dicts(data1, data2)
         print(json.dumps(diff_result, indent=2))
+
+    elif args.command == "inspect-backend":
+        print(json.dumps({"status": "inspecting backend", "file": args.file}))
+    elif args.command == "trace-session":
+        print(json.dumps({"status": "tracing session", "file": args.file}))
+    elif args.command == "replay":
+        print(json.dumps({"status": "replaying session", "file": args.file}))
+    elif args.command == "export-session":
+        print(json.dumps({"status": "exporting session", "file": args.file}))
+    elif args.command == "show-pipeline":
+        print(json.dumps({"status": "showing pipeline", "file": args.file}))
+    elif args.command == "summarize":
+        print(json.dumps({"status": "summarizing", "file": args.file}))
+    elif args.command == "validate-session":
+        print(json.dumps({"status": "validating session", "file": args.file}))
 
 if __name__ == "__main__":
     main()
