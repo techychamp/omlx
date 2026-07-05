@@ -9,6 +9,7 @@ from omlx.compiler_perf.policies import LRUPolicy, LFUPolicy, FIFOPolicy, TTLPol
 from omlx.compiler_perf.cache import CompilerCache, CapabilityCache
 from omlx.compiler_perf.manager import CacheManager
 from omlx.compiler_perf.diagnostics import CacheDiagnostics
+from omlx.compiler_perf.diagnostics import CacheDiagnostics
 from omlx.compiler_perf.benchmark import CompilerBenchmarkSuite
 from omlx.compiler_perf.profiler import Profiler
 

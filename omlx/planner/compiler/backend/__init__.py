@@ -43,3 +43,33 @@ __all__ = [
     "MLXAdapter",
     "AdapterRegistry",
 ]
+
+from .selection import (
+    BackendLifecycleState,
+    BackendSelectionPolicy,
+    ExecutionPolicy,
+    BackendEvaluationReport,
+    CompatibilityChecker,
+    CompatibilityReport,
+    BackendNegotiator,
+    NegotiationDiagnostics,
+    FallbackPlan,
+    FallbackNode,
+    BackendSelectionDiagnostics,
+    BackendSelectionFramework,
+)
+
+__all__.extend([
+    "BackendLifecycleState",
+    "BackendSelectionPolicy",
+    "ExecutionPolicy",
+    "BackendEvaluationReport",
+    "CompatibilityChecker",
+    "CompatibilityReport",
+    "BackendNegotiator",
+    "NegotiationDiagnostics",
+    "FallbackPlan",
+    "FallbackNode",
+    "BackendSelectionDiagnostics",
+    "BackendSelectionFramework",
+])
