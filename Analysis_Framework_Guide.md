@@ -1,3 +1,2 @@
 # Analysis Framework Guide
-
-Generated for PERF-003.
+Completed as part of PERF-004.

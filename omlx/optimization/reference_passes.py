@@ -3,8 +3,13 @@
 Compiler Optimization Framework - Reference Passes
 """
 from typing import Tuple, Any
-from .passes import AnalysisPass, OptimizationPass, PassCategory, CompilerStage, OptimizationContext
+from .passes import AnalysisPass, OptimizationPass, PassCategory, CompilerStage, OptimizationContext, AnalysisResult
+from dataclasses import dataclass
 from .diagnostics import DiagnosticLevel
+
+@dataclass(frozen=True)
+class DependencyAnalysisResult(AnalysisResult):
+    pass
 
 class DependencyAnalysisPass(AnalysisPass):
     @property
@@ -19,14 +24,19 @@ class DependencyAnalysisPass(AnalysisPass):
     def supported_stages(self) -> Tuple[CompilerStage, ...]:
         return (CompilerStage.LOGICAL_IR, CompilerStage.PHYSICAL_IR)
 
-    def analyze(self, artifact: Any, context: OptimizationContext) -> None:
+    def analyze(self, artifact: Any, context: OptimizationContext) -> AnalysisResult:
         if context.tracker:
             context.tracker.add_diagnostic(
                 DiagnosticLevel.INFO,
                 "Dependency analysis complete (reference implementation).",
                 pass_name=self.name
             )
+        return DependencyAnalysisResult()
 
+
+@dataclass(frozen=True)
+class MemoryAnalysisResult(AnalysisResult):
+    pass
 
 class MemoryAnalysisPass(AnalysisPass):
     @property
@@ -45,13 +55,14 @@ class MemoryAnalysisPass(AnalysisPass):
     def required_passes(self) -> Tuple[str, ...]:
          return ("dependency_analysis",)
 
-    def analyze(self, artifact: Any, context: OptimizationContext) -> None:
+    def analyze(self, artifact: Any, context: OptimizationContext) -> AnalysisResult:
         if context.tracker:
             context.tracker.add_diagnostic(
                 DiagnosticLevel.INFO,
                 "Memory analysis complete (reference implementation).",
                 pass_name=self.name
             )
+        return MemoryAnalysisResult()
 
 
 class CanonicalizationPass(OptimizationPass):

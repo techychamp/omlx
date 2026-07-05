@@ -28,11 +28,18 @@ T = TypeVar("T")
 
 class OptimizationContext:
     """Holds state, statistics, and diagnostics for a pass execution."""
-    def __init__(self, tracker: Any = None, stats: Any = None):
+    def __init__(self, tracker: Any = None, stats: Any = None, analysis_cache: Any = None):
         self.tracker = tracker
         self.stats = stats
+        self.analysis_cache = analysis_cache if analysis_cache is not None else {}
+
+
+class AnalysisResult(ABC):
+    """Base class for reusable, immutable analysis results."""
+    pass
 
 class BasePass(ABC):
+
     """Abstract base class for all compiler passes."""
 
     @property
@@ -81,11 +88,31 @@ class AnalysisPass(BasePass):
     """A pass that analyzes the artifact without mutating it."""
 
     def apply(self, artifact: T, context: OptimizationContext) -> T:
-        """Applies analysis. Returns the artifact unmodified."""
-        self.analyze(artifact, context)
+        """Applies analysis and caches the result. Returns the artifact unmodified."""
+        # Generate cache key based on artifact identity/version if possible. For simplicity, just use pass name.
+        cache_key = self.name
+        if context.analysis_cache is not None and cache_key in context.analysis_cache:
+            if context.tracker:
+                 from .diagnostics import DiagnosticLevel
+                 context.tracker.add_diagnostic(
+                     DiagnosticLevel.INFO,
+                     f"Analysis reused for pass '{self.name}'.",
+                     pass_name=self.name
+                 )
+            if context.stats:
+                 context.stats.record_cache_hit()
+            return artifact
+
+        result = self.analyze(artifact, context)
+
+        if result is not None and context.analysis_cache is not None:
+            context.analysis_cache[cache_key] = result
+        if context.stats:
+            context.stats.record_cache_miss()
+
         return artifact
 
     @abstractmethod
-    def analyze(self, artifact: T, context: OptimizationContext) -> None:
+    def analyze(self, artifact: T, context: OptimizationContext) -> AnalysisResult:
         """Performs analysis on the given artifact."""
         pass

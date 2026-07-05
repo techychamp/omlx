@@ -1,49 +1,9 @@
-# SPDX-License-Identifier: Apache-2.0
-"""
-Compiler Optimization Framework - Pipeline
-"""
-import time
-from typing import TypeVar, Any
-from .passes import CompilerStage, OptimizationContext, PassCategory, AnalysisPass
-import concurrent.futures
-from .validation import PassValidationError, validate_artifact_immutability
-from .manager import PassManager
-from .diagnostics import DiagnosticLevel
+with open("omlx/optimization/pipeline.py", "r") as f:
+    content = f.read()
 
-T = TypeVar("T")
+content = content.replace("from .passes import CompilerStage, OptimizationContext, PassCategory", "from .passes import CompilerStage, OptimizationContext, PassCategory, AnalysisPass\nimport concurrent.futures")
 
-class OptimizationPipeline:
-    def __init__(self, stage: CompilerStage, manager: PassManager):
-        self.stage = stage
-        self.manager = manager
-
-    def execute(self, artifact: T, context: OptimizationContext) -> T:
-        """
-        Executes the registered passes for the pipeline's stage on the artifact.
-        Passes are executed in topological order.
-        """
-        current_artifact = artifact
-        ordered_passes = self.manager.get_execution_order(stage=self.stage)
-
-        # Validate Phase Ordering
-        phase_order = {
-            PassCategory.CANONICALIZATION: 1,
-            PassCategory.ANALYSIS: 2,
-            PassCategory.SIMPLIFICATION: 3,
-            PassCategory.OPTIMIZATION: 4,
-            PassCategory.VALIDATION: 5,
-            PassCategory.BACKEND_PREPARATION: 6
-        }
-
-        current_phase_idx = 0
-        for p in ordered_passes:
-            if p.category in phase_order:
-                pass_phase_idx = phase_order[p.category]
-                if pass_phase_idx < current_phase_idx:
-                    raise PassValidationError(f"Phase ordering violation: Pass '{p.name}' (Category: {p.category.name}) executed after a later phase.")
-                current_phase_idx = pass_phase_idx
-
-
+execution_loop = """
         def execute_pass(p, art, ctx):
             start_time = time.perf_counter()
             success = False
@@ -110,19 +70,45 @@ class OptimizationPipeline:
                         for future in concurrent.futures.as_completed(futures):
                             # Artifact shouldn't change for analysis passes
                             future.result()
-                    if context.stats:
-                        context.stats.record_parallel_execution()
                     idx = next_idx
                     continue
 
-
             # Execute single pass
-            old_artifact = current_artifact
             current_artifact = execute_pass(p, current_artifact, context)
+            idx += 1"""
 
-            # Validate immutability
-            validate_artifact_immutability(old_artifact, current_artifact, p)
+content = content.replace("""        for p in ordered_passes:
 
-            idx += 1
+            start_time = time.perf_counter()
+            success = False
 
-        return current_artifact
+            if context.tracker:
+                 context.tracker.add_diagnostic(
+                     DiagnosticLevel.INFO,
+                     f"Executing pass '{p.name}'.",
+                     pass_name=p.name
+                 )
+
+            try:
+                # Apply the pass, creating a new artifact if it mutates
+                current_artifact = p.apply(current_artifact, context)
+                success = True
+            except Exception as e:
+                if context.tracker:
+                    context.tracker.add_diagnostic(
+                        DiagnosticLevel.ERROR,
+                        f"Pass '{p.name}' failed with exception: {e}",
+                        pass_name=p.name
+                    )
+                raise e # Fail-fast for now
+            finally:
+                duration_ms = (time.perf_counter() - start_time) * 1000
+                if context.stats:
+                    context.stats.record_pass_execution(
+                        name=p.name,
+                        duration_ms=duration_ms,
+                        success=success
+                    )""", execution_loop)
+
+with open("omlx/optimization/pipeline.py", "w") as f:
+    f.write(content)

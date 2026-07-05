@@ -2,9 +2,9 @@
 """
 Compiler Optimization Framework - Pass Manager
 """
-from typing import List, Dict, Set
+from typing import List, Dict, Set, Optional
 from collections import deque
-from .passes import BasePass
+from .passes import BasePass, CompilerStage
 from .validation import validate_pass_dependencies, validate_pass_compatibility, PassValidationError
 
 class PassManager:
@@ -19,8 +19,11 @@ class PassManager:
     def get_registered_passes(self) -> List[BasePass]:
         return list(self._passes.values())
 
-    def get_execution_order(self) -> List[BasePass]:
+    def get_execution_order(self, stage: Optional[CompilerStage] = None) -> List[BasePass]:
         passes = self.get_registered_passes()
+
+        if stage is not None:
+            passes = [p for p in passes if stage in p.supported_stages]
 
         # Validation
         validate_pass_dependencies(passes)

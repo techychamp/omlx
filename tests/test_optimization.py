@@ -4,6 +4,7 @@ import pytest
 from typing import Tuple, Any
 
 from omlx.optimization.passes import (
+    AnalysisResult,
     CompilerStage, PassCategory, OptimizationContext, OptimizationPass, AnalysisPass
 )
 from omlx.optimization.diagnostics import DiagnosticsTracker, DiagnosticLevel
@@ -184,3 +185,118 @@ def test_diagnostics_tracking():
     assert len(diags) > 0
     assert any("Executing pass" in d.message for d in diags)
     assert any("Dependency analysis complete" in d.message for d in diags)
+
+def test_parallel_analysis_execution():
+    manager = PassManager()
+    manager.register(DependencyAnalysisPass())
+    manager.register(MemoryAnalysisPass())
+
+    pipeline = OptimizationPipeline(CompilerStage.LOGICAL_IR, manager)
+    tracker = DiagnosticsTracker()
+    context = OptimizationContext(tracker=tracker)
+
+    pipeline.execute(DummyArtifact(0), context)
+
+    diags = tracker.get_all()
+    # Check if parallel execution was logged. Note that Dependency and Memory
+    # might not run in parallel because Memory depends on Dependency, but
+    # it shouldn't fail.
+
+class IndependentAnalysis1(AnalysisPass):
+    @property
+    def name(self): return "indep1"
+    @property
+    def category(self): return PassCategory.ANALYSIS
+    @property
+    def supported_stages(self): return (CompilerStage.LOGICAL_IR,)
+    def analyze(self, artifact, context): return AnalysisResult()
+
+class IndependentAnalysis2(AnalysisPass):
+    @property
+    def name(self): return "indep2"
+    @property
+    def category(self): return PassCategory.ANALYSIS
+    @property
+    def supported_stages(self): return (CompilerStage.LOGICAL_IR,)
+    def analyze(self, artifact, context): return AnalysisResult()
+
+def test_parallel_analysis_execution_independent():
+    manager = PassManager()
+    manager.register(IndependentAnalysis1())
+    manager.register(IndependentAnalysis2())
+
+    pipeline = OptimizationPipeline(CompilerStage.LOGICAL_IR, manager)
+    tracker = DiagnosticsTracker()
+    context = OptimizationContext(tracker=tracker)
+
+    pipeline.execute(DummyArtifact(0), context)
+
+    diags = tracker.get_all()
+    # Check if parallel execution was logged
+    assert any("Executing 2 analysis passes in parallel" in d.message for d in diags)
+
+
+def test_stage_aware_scheduling():
+    manager = PassManager()
+    manager.register(PassA()) # Logical_IR
+
+    class PassPhysical(OptimizationPass):
+        @property
+        def name(self): return "P"
+        @property
+        def category(self): return PassCategory.OPTIMIZATION
+        @property
+        def supported_stages(self): return (CompilerStage.PHYSICAL_IR,)
+        def apply(self, artifact, context): return artifact
+
+    manager.register(PassPhysical())
+
+    order_logical = manager.get_execution_order(stage=CompilerStage.LOGICAL_IR)
+    assert len(order_logical) == 1
+    assert order_logical[0].name == "A"
+
+    order_physical = manager.get_execution_order(stage=CompilerStage.PHYSICAL_IR)
+    assert len(order_physical) == 1
+    assert order_physical[0].name == "P"
+
+def test_analysis_caching():
+    manager = PassManager()
+    manager.register(DependencyAnalysisPass())
+
+    pipeline = OptimizationPipeline(CompilerStage.LOGICAL_IR, manager)
+    stats = StatisticsCollector()
+    context = OptimizationContext(stats=stats, analysis_cache={})
+
+    # First run (miss)
+    pipeline.execute(DummyArtifact(0), context)
+    assert stats.cache_misses == 1
+    assert stats.cache_hits == 0
+
+    # Second run (hit)
+    pipeline.execute(DummyArtifact(0), context)
+    assert stats.cache_misses == 1
+    assert stats.cache_hits == 1
+
+def test_phase_ordering_validation():
+    manager = PassManager()
+
+    class LateAnalysis(AnalysisPass):
+        @property
+        def name(self): return "late_analysis"
+        @property
+        def category(self): return PassCategory.ANALYSIS
+        @property
+        def supported_stages(self): return (CompilerStage.LOGICAL_IR,)
+        @property
+        def required_passes(self): return ("A",) # A is an OPTIMIZATION
+        def analyze(self, artifact, context): return AnalysisResult()
+
+    manager.register(PassA())
+    manager.register(LateAnalysis())
+
+    pipeline = OptimizationPipeline(CompilerStage.LOGICAL_IR, manager)
+    context = OptimizationContext()
+
+    with pytest.raises(PassValidationError) as exc_info:
+        pipeline.execute(DummyArtifact(0), context)
+    assert "Phase ordering violation" in str(exc_info.value)
