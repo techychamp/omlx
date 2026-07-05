@@ -186,19 +186,23 @@ class PluginRegistry:
 
     def get_by_capability(self, capability) -> List[PluginDescriptor]:
         with self._lock:
-            return [desc for desc in self._descriptors.values() if capability in desc.capabilities]
+            val = capability.value if hasattr(capability, 'value') else capability
+            return [desc for desc in self._descriptors.values() if val in desc.capabilities]
 
     def get_by_priority(self, priority) -> List[PluginDescriptor]:
         with self._lock:
-            return [desc for desc in self._descriptors.values() if desc.priority == priority]
+            val = priority.value if hasattr(priority, 'value') else priority
+            return [desc for desc in self._descriptors.values() if desc.priority == priority or getattr(desc.priority, 'value', desc.priority) == val]
 
     def get_by_permission(self, permission) -> List[PluginDescriptor]:
         with self._lock:
-            return [desc for desc in self._descriptors.values() if permission in desc.permissions]
+            val = permission.value if hasattr(permission, 'value') else permission
+            return [desc for desc in self._descriptors.values() if val in desc.permissions]
 
     def get_by_trust_level(self, trust_level) -> List[PluginDescriptor]:
         with self._lock:
-            return [desc for desc in self._descriptors.values() if desc.trust_level == trust_level]
+            val = trust_level.value if hasattr(trust_level, 'value') else trust_level
+            return [desc for desc in self._descriptors.values() if desc.trust_level == trust_level or getattr(desc.trust_level, 'value', desc.trust_level) == val]
 
     def get_by_compiler_stage(self, stage: str) -> List[PluginDescriptor]:
         with self._lock:
@@ -229,9 +233,10 @@ class PluginRegistry:
     def get_extensions_by_capability(self, capability) -> List[ExtensionPoint]:
         with self._lock:
             extensions = []
+            val = capability.value if hasattr(capability, 'value') else capability
             for exts in self._extensions_by_plugin.values():
                 for ext in exts:
-                    if capability in ext.capabilities:
+                    if capability in ext.capabilities or val in ext.capabilities:
                         extensions.append(ext)
             return extensions
 
