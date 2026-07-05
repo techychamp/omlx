@@ -38,10 +38,6 @@ class FeatureFlags(metaclass=FeatureFlagsMeta):
     COMPILER_BACKEND_GRAPH_ENABLED: bool = False
     COMPILER_RUNTIME_ENABLED: bool = False
 
-    EXECUTION_PLAN_RUNTIME_ENABLED: bool = False
-    EXECUTION_PROFILE_COMPATIBILITY_ENABLED: bool = False
-    EXECUTION_PLAN_VALIDATION_ENABLED: bool = False
-
 
     @classmethod
     def from_env(cls) -> FeatureFlags:

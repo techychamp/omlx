@@ -24,19 +24,8 @@ class GoldenLoader:
 class ArtifactSerializer:
     @staticmethod
     def serialize(obj: Any) -> dict:
-        if hasattr(obj, "to_dict"):
-            return ArtifactSerializer.serialize(obj.to_dict())
-        if is_dataclass(obj):
-            # Convert to dict manually to avoid deepcopy issues with mappingproxy
-            d = {f: getattr(obj, f) for f in obj.__dataclass_fields__}
-            return ArtifactSerializer.serialize(d)
-        if isinstance(obj, MappingProxyType):
-            return {k: ArtifactSerializer.serialize(v) for k, v in obj.items()}
-        if isinstance(obj, dict):
-            return {k: ArtifactSerializer.serialize(v) for k, v in obj.items()}
-        if isinstance(obj, (list, tuple, set)):
-            return [ArtifactSerializer.serialize(item) for item in obj]
-        return obj
+        from omlx.utils.serialization import serialize_artifact
+        return serialize_artifact(obj)
 
 class ArtifactDiff:
     def __init__(self, added: dict, removed: dict, changed: dict):
@@ -57,25 +46,7 @@ class ArtifactDiff:
 class GoldenComparator:
     @staticmethod
     def compare(actual: Any, expected: Any, path: str = "") -> ArtifactDiff:
-        actual_dict = ArtifactSerializer.serialize(actual)
-        expected_dict = ArtifactSerializer.serialize(expected)
-
-        added, removed, changed = {}, {}, {}
-
-        def dict_diff(d1: dict, d2: dict, prefix: str):
-            for k, v1 in d1.items():
-                p = f"{prefix}.{k}" if prefix else k
-                if k not in d2:
-                    added[p] = v1
-                elif isinstance(v1, dict) and isinstance(d2[k], dict):
-                    dict_diff(v1, d2[k], p)
-                elif v1 != d2[k]:
-                    changed[p] = {"actual": v1, "expected": d2[k]}
-
-            for k, v2 in d2.items():
-                p = f"{prefix}.{k}" if prefix else k
-                if k not in d1:
-                    removed[p] = v2
-
-        dict_diff(actual_dict, expected_dict, path)
+        from omlx.utils.comparator import diff_structures_flat
+        added, removed, changed = diff_structures_flat(actual, expected, path)
         return ArtifactDiff(added, removed, changed)
+
