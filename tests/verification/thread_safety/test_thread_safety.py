@@ -1,32 +1,40 @@
 # SPDX-License-Identifier: Apache-2.0
 """
-Thread safety verification testing.
+Thread Safety verification testing.
+Verifies that multi-threaded access to RuntimeCompilerService behaves correctly without race conditions.
 """
 
-def test_runtime_thread_safety():
-    """Verify runtime thread safety."""
-    assert True
+import pytest
+import concurrent.futures
+from unittest.mock import MagicMock
 
-def test_planner_thread_safety():
-    """Verify planner thread safety."""
-    assert True
+from omlx.runtime.compiler_service import RuntimeCompilerService
 
-def test_resolver_thread_safety():
-    """Verify resolver thread safety."""
-    assert True
+def test_compiler_service_thread_safety():
+    """Verify that concurrent compilation requests do not corrupt statistics or crash."""
+    mock_runtime = MagicMock()
+    mock_runtime.feature_flags.COMPILER_RUNTIME_PIPELINE_ENABLED = True
+    mock_runtime.feature_flags.COMPILER_CONTEXT_ENABLED = False
 
-def test_lowering_thread_safety():
-    """Verify lowering thread safety."""
-    assert True
+    # Let's bypass the actual complex logic by mocking runner
+    service = RuntimeCompilerService(mock_runtime)
+    service._runner = MagicMock()
+    service._runner.run_pipeline.return_value = MagicMock() # Simulate a successful result
 
-def test_backend_adapter_thread_safety():
-    """Verify backend adapter thread safety."""
-    assert True
+    num_threads = 50
+    requests_per_thread = 10
+    total_requests = num_threads * requests_per_thread
 
-def test_registries_thread_safety():
-    """Verify registries thread safety."""
-    assert True
+    def worker():
+        for _ in range(requests_per_thread):
+            service.run_compilation("concurrent_model")
 
-def test_compiler_caches_thread_safety():
-    """Verify compiler caches thread safety."""
-    assert True
+    with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
+        futures = [executor.submit(worker) for _ in range(num_threads)]
+        concurrent.futures.wait(futures)
+
+    # Validate statistics have not race-conditioned
+    stats = service.statistics
+    assert stats["total_compilations"] == total_requests
+    assert stats["successful_compilations"] == total_requests
+    assert stats["failed_compilations"] == 0

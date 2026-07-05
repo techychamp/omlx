@@ -5,7 +5,7 @@ Backend Compatibility Framework.
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any
-from omlx.planner.plan import ExecutionPlan
+from typing import Any
 from ..descriptor import BackendDescriptor
 from omlx.capabilities.descriptor import CapabilityDescriptor
 from .policy import ExecutionPolicy
@@ -20,7 +20,7 @@ class CompatibilityReport:
 class CompatibilityChecker:
     @staticmethod
     def check_compatibility(
-        plan: ExecutionPlan,
+        plan: Any,
         backend_desc: BackendDescriptor,
         cap_desc: CapabilityDescriptor,
         policy: ExecutionPolicy

@@ -5,7 +5,7 @@ IR Builder
 
 from typing import Optional, TYPE_CHECKING, Dict, Any, List
 from types import MappingProxyType
-from omlx.planner.plan import ExecutionPlan
+from typing import Any
 from .nodes import IRNode, IRNodeType
 from .graph import ExecutionIR
 from .validation import validate_ir
@@ -21,7 +21,7 @@ class IRBuilder:
         self.cache_manager = cache_manager
         self.dependency_tracker = dependency_tracker
 
-    def build(self, plan: ExecutionPlan) -> ExecutionIR:
+    def build(self, plan: Any) -> ExecutionIR:
         """
         Lowers the ExecutionPlan into an ExecutionIR DAG.
         """

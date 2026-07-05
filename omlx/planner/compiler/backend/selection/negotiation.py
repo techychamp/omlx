@@ -5,7 +5,7 @@ Backend Capability Negotiation.
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any
-from omlx.planner.plan import ExecutionPlan
+from typing import Any
 from ..descriptor import BackendDescriptor, BackendCapability
 from omlx.capabilities.descriptor import CapabilityDescriptor
 
@@ -27,7 +27,7 @@ class NegotiationDiagnostics:
 class BackendNegotiator:
     @staticmethod
     def negotiate(
-        plan: ExecutionPlan,
+        plan: Any,
         backend_desc: BackendDescriptor,
         cap_desc: CapabilityDescriptor
     ) -> NegotiationDiagnostics:

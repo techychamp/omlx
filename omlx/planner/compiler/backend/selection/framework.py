@@ -5,7 +5,7 @@ Backend Selection Framework Orchestrator.
 import time
 from typing import List, Tuple
 from types import MappingProxyType
-from omlx.planner.plan import ExecutionPlan
+from typing import Any
 from omlx.capabilities.descriptor import CapabilityDescriptor
 from ..descriptor import BackendDescriptorRegistry
 from .policy import ExecutionPolicy, BackendSelectionPolicy
@@ -27,7 +27,7 @@ class BackendSelectionFramework:
 
     def select_backend(
         self,
-        plan: ExecutionPlan,
+        plan: Any,
         cap_desc: CapabilityDescriptor,
         policy: ExecutionPolicy,
         candidate_ids: List[str]
