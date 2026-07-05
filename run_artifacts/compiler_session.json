@@ -1,7 +1,7 @@
 {
   "model_id": "TinyLlama-1.1B",
-  "start_time": 1783260734.329659,
-  "end_time": 1783260734.3299131,
+  "start_time": 1783268006.2462175,
+  "end_time": 1783268006.2472389,
   "translation_result": {
     "backend_graph": {
       "backend_id": "mlx",
@@ -74,7 +74,7 @@
         "translation_layer": "MLXAdapter"
       }
     },
-    "translation_latency": 2.2249999346968252e-05,
+    "translation_latency": 0.00012737299948639702,
     "translation_warnings": [],
     "operation_statistics": {
       "MLXNoOpOperation": 3,
@@ -88,7 +88,7 @@
     "fallback_decisions": {},
     "translation_metadata": {
       "adapter": "MLXAdapter",
-      "version": "0.31.2"
+      "version": "unknown"
     },
     "warnings": [],
     "diagnostics": [
@@ -96,7 +96,7 @@
       "Successfully translated 5 physical operations to MLX operation graph."
     ],
     "statistics": {
-      "translation_time_ms": 0.0211669994314434,
+      "translation_time_ms": 0.12387799961288692,
       "operation_count": 5
     },
     "estimated_execution_cost": 0.0,
@@ -108,7 +108,7 @@
     "estimated_hardware_utilization": 0.0,
     "backend_descriptor": {
       "backend_id": "mlx",
-      "backend_version": "0.31.2",
+      "backend_version": "unknown",
       "backend_family": "mlx",
       "backend_generation": "mlx_gen1",
       "supported_execution_semantics": [

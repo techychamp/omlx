@@ -27,7 +27,11 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, NamedTuple, Optional
 
-import mlx.core as mx
+try:
+    import mlx.core as mx
+except ImportError:
+    mx = None
+
 from mlx_lm.generate import (
     BatchGenerator,
     GenerationBatch,

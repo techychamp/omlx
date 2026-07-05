@@ -4,17 +4,9 @@
 
 | Phase | Status | Duration |
 |---|---|---|
-| Phase A — Compiler Pipeline | PASSED | 0.26 ms pipeline + 0.085 ms engine |
-| Phase B — Real Inference    | PASSED | 95 ms load + 118 ms inference |
-| Total harness duration      | — | 2.13 s |
-
-## Generated Output
-
-**Model:** `mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit`  
-**Prompt:** `The capital of France is`  
-**Generated:** `Paris. The capital of France is Paris. The`  
-**Token count:** 11  
-**Temperature:** 0.0 (deterministic)  
+| Phase A — Compiler Pipeline | PASSED | 1.05 ms pipeline + 1.893 ms engine |
+| Phase B — Real Inference    | FAILED | 0 ms load + 0 ms inference |
+| Total harness duration      | — | 0.72 s |
 
 ## Compiler Pipeline Walkthrough
 
@@ -62,7 +54,7 @@ MLXAdapter.execute() × 5         → structural mock (BACKEND-005 pending)
 - executed_operations       : `5`
 - backend_invocations       : `5`
 - adapter_calls             : `5`
-- execution_duration_ms     : `0.056 ms`
+- execution_duration_ms     : `1.758 ms`
 - compiler_execution_count  : `1`
 - legacy_fallback_count     : `0`
 
@@ -102,3 +94,18 @@ Phase B calls `mlx_lm.generate()` directly from the harness, **not** via
 | `runtime_context.json` | Runtime context snapshot |
 | `execution_context.json` | ExecutionContext snapshot |
 | `run_report.md` | This report |
+
+## Phase B Error
+
+```
+ImportError: libmlx.so: cannot open shared object file: No such file or directory
+Traceback (most recent call last):
+  File "/app/tests/run_001_execution.py", line 260, in run_phase_b
+    from mlx_lm.utils import load as mlx_load
+  File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/mlx_lm/__init__.py", line 9, in <module>
+    from .convert import convert
+  File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/mlx_lm/convert.py", line 7, in <module>
+    import mlx.core as mx
+ImportError: libmlx.so: cannot open shared object file: No such file or directory
+
+```
