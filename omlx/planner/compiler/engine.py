@@ -16,6 +16,7 @@ from .optimization_pipeline import OptimizationPipeline
 from .dependency_tracker import DependencyTracker
 from .backend.adapter import BaseBackendAdapter
 from .backend.registry import AdapterRegistry
+from omlx.runtime.observability import get_observer
 
 logger = logging.getLogger("omlx.compiler")
 
@@ -36,33 +37,31 @@ class CompilerEngine:
 
     def compile(self, logical_ir: ExecutionIR) -> PhysicalIR:
         """Runs the full compiler pipeline: Planning -> IR -> Logical Passes -> Lowering -> Physical Passes."""
+        with get_observer().observe_phase("Compilation", "Compiler", "compile"):
+            # 1. Logical Optimization
+            logger.debug("Applying logical passes")
+            optimized_logical_ir = self.optimization_pipeline.optimize_logical(logical_ir)
+            get_observer().track_artifact("LogicalIR", optimized_logical_ir)
 
+            # 2. Lowering
+            logger.debug("Lowering Logical IR to Physical IR")
+            physical_ir = self.lowering_engine.lower(optimized_logical_ir)
 
+            # 3. Physical Optimization
+            logger.debug("Applying physical passes")
+            optimized_physical_ir = self.optimization_pipeline.optimize_physical(physical_ir)
+            get_observer().track_artifact("PhysicalIR", optimized_physical_ir)
 
-        # 1. Logical Optimization
-        logger.debug("Applying logical passes")
-        optimized_logical_ir = self.optimization_pipeline.optimize_logical(logical_ir)
-
-        # 2. Lowering
-        logger.debug("Lowering Logical IR to Physical IR")
-        physical_ir = self.lowering_engine.lower(optimized_logical_ir)
-
-
-
-        # 3. Physical Optimization
-        logger.debug("Applying physical passes")
-        optimized_physical_ir = self.optimization_pipeline.optimize_physical(physical_ir)
-
-        return optimized_physical_ir
+            return optimized_physical_ir
 
     def translate(self, physical_ir: PhysicalIR, adapter: BaseBackendAdapter) -> Any:
         """Translates the Physical IR into a Backend Operation Graph using the adapter."""
         logger.debug(f"Translating Physical IR using adapter {adapter.__class__.__name__}")
 
-        adapter.cache_manager = self.cache_manager
-        adapter.dependency_tracker = self.dependency_tracker
-        result = adapter.translate_with_cache(physical_ir)
+        with get_observer().observe_phase("Compilation", "Compiler", "translate"):
+            adapter.cache_manager = self.cache_manager
+            adapter.dependency_tracker = self.dependency_tracker
+            result = adapter.translate_with_cache(physical_ir)
+            get_observer().track_artifact("BackendOperationGraph", result)
 
-
-
-        return result
+            return result

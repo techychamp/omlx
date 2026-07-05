@@ -13,6 +13,7 @@ from .interfaces import ExecutionExecutor, GraphExecutor, ExecutionDispatcher
 from .executor import ImmutableExecutionExecutor
 from .graph_executor import DeterministicGraphExecutor
 from .dispatcher import SequentialExecutionDispatcher
+from omlx.runtime.observability import get_observer
 
 logger = logging.getLogger("omlx.execution.engine")
 
@@ -42,11 +43,16 @@ class ExecutionEngine:
                 model_output=None
             )
 
-        try:
-            return self._executor.execute(context.backend_operation_graph, context)
-        except Exception as e:
-            logger.error(f"ExecutionEngine encountered error: {e}", exc_info=True)
-            return ExecutionResult(
-                status=ExecutionStatus.FAILED,
-                model_output=None
-            )
+        with get_observer().observe_phase("Execution", "Engine", "execute"):
+            try:
+                result = self._executor.execute(context.backend_operation_graph, context)
+                get_observer().track_artifact("ExecutionResult", result)
+                return result
+            except Exception as e:
+                logger.error(f"ExecutionEngine encountered error: {e}", exc_info=True)
+                result = ExecutionResult(
+                    status=ExecutionStatus.FAILED,
+                    model_output=None
+                )
+                get_observer().track_artifact("ExecutionResult", result)
+                return result
