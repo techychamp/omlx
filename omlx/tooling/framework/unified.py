@@ -4,6 +4,7 @@ Unified Tooling Framework
 Provides a central access point for developer tooling.
 """
 from typing import Any
+import threading
 from .registry import ToolingRegistry
 from omlx.tooling.inspector.inspector import CompilerInspector
 from omlx.tooling.inspector.runtime_inspector import RuntimeInspector
@@ -50,8 +51,15 @@ class UnifiedTooling:
     def get_benchmark(self, name: str) -> Any:
         return self.registry.get_benchmark(name)
 
-# Global instance for easy access
-_unified_tooling = UnifiedTooling()
+# Thread-safe Singleton Management
+_unified_tooling_instance = None
+_unified_tooling_lock = threading.Lock()
 
 def get_tooling() -> UnifiedTooling:
-    return _unified_tooling
+    """Returns the singleton instance of the tooling framework."""
+    global _unified_tooling_instance
+    if _unified_tooling_instance is None:
+        with _unified_tooling_lock:
+            if _unified_tooling_instance is None:
+                _unified_tooling_instance = UnifiedTooling()
+    return _unified_tooling_instance

@@ -22,6 +22,30 @@ class Runtime(BaseModel):
     def state(self):
         return self.internal_runtime.state
 
+    def get_feature_flags(self) -> Dict[str, bool]:
+        """Public API to access resolved feature flags."""
+        if hasattr(self.internal_runtime, "_feature_flags"):
+             return self.internal_runtime._feature_flags.flags
+        return {}
+
+    def get_active_sessions(self) -> List[Dict[str, Any]]:
+        """Public API to query active streaming or execution sessions."""
+        sessions = []
+        if hasattr(self.internal_runtime, "streaming_controller"):
+             ctrl = self.internal_runtime.streaming_controller
+             if hasattr(ctrl, "sessions"):
+                  for s_id, s_obj in ctrl.sessions.items():
+                       sessions.append({
+                            "session_id": s_id,
+                            "status": s_obj.status.value if hasattr(s_obj.status, "value") else str(s_obj.status)
+                       })
+        return sessions
+
+    def get_tooling(self) -> Any:
+        """Returns the centralized tooling registry."""
+        from omlx.tooling.framework.unified import get_tooling
+        return get_tooling()
+
 class RuntimeBuilder:
     def __init__(self):
         self._config = RuntimeConfig()

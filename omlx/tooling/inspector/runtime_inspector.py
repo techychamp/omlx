@@ -21,23 +21,13 @@ class RuntimeInspector:
         }
 
     def inspect_active_sessions(self, runtime: Runtime) -> list[Dict[str, Any]]:
-        """Returns info about active sessions."""
-        sessions = []
-        if hasattr(runtime.internal_runtime, "streaming_controller"):
-             ctrl = runtime.internal_runtime.streaming_controller
-             if hasattr(ctrl, "sessions"):
-                  for s_id, s_obj in ctrl.sessions.items():
-                       sessions.append({
-                            "session_id": s_id,
-                            "status": s_obj.status.value if hasattr(s_obj.status, "value") else str(s_obj.status)
-                       })
-        return sessions
+        """Returns info about active sessions via public API."""
+        if hasattr(runtime, "get_active_sessions"):
+            return runtime.get_active_sessions()
+        return []
 
     def inspect_feature_flags(self, runtime: Runtime) -> Dict[str, bool]:
-        """Returns the feature flags for the runtime."""
-        # Accessing private attribute strictly for developer inspection.
-        # This does not mutate state.
-        try:
-            return runtime.internal_runtime._feature_flags.flags if hasattr(runtime.internal_runtime, "_feature_flags") else {}
-        except Exception:
-             return {}
+        """Returns the feature flags for the runtime via public API."""
+        if hasattr(runtime, "get_feature_flags"):
+            return runtime.get_feature_flags()
+        return {}
