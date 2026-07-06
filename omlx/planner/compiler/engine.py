@@ -21,6 +21,8 @@ from omlx.runtime.observability import get_observer
 from omlx.planner.domains.bundle import PlanningBundle
 from omlx.planner.compiler.transformation.pass_ import FusionRealizationPass
 from omlx.optimization.fusion import FusionEvaluator
+from omlx.planner.domains.moe.transformation.pass_ import MoERealizationPass
+
 
 logger = logging.getLogger("omlx.compiler")
 
@@ -54,6 +56,12 @@ class CompilerEngine:
                      logical_ir = fusion_pass.apply(logical_ir)
                      get_observer().track_artifact("FusionTransformationReport", fusion_pass.descriptor)
 
+            # Conditionally inject MoE realization pass if plan is provided
+            if planning_bundle and planning_bundle.moe_plan:
+                 moe_pass = MoERealizationPass(planning_bundle.moe_plan)
+                 logical_ir = moe_pass.apply(logical_ir)
+                 if moe_pass.report:
+                     get_observer().track_artifact("MoETransformationReport", moe_pass.report)
             # 1. Logical Optimization
             logger.debug("Applying logical passes")
             optimized_logical_ir = self.optimization_pipeline.optimize_logical(logical_ir)

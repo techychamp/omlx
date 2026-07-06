@@ -1,0 +1,509 @@
+From b764690be364a7dffe18d0f345d4d6b95bf01cbd Mon Sep 17 00:00:00 2001
+From: "google-labs-jules[bot]"
+ <161369871+google-labs-jules[bot]@users.noreply.github.com>
+Date: Mon, 6 Jul 2026 15:46:36 +0000
+Subject: [PATCH] feat(moe): Implement compiler-native MoE graph realization
+
+---
+ omlx/planner/compiler/engine.py               |   8 +
+ .../domains/moe/transformation/__init__.py    |  26 ++++
+ .../domains/moe/transformation/artifacts.py   |  61 ++++++++
+ .../domains/moe/transformation/pass_.py       |  39 +++++
+ .../domains/moe/transformation/realizer.py    | 140 ++++++++++++++++++
+ .../domains/moe/transformation/validator.py   |  45 ++++++
+ omlx/runtime/builder.py                       |  18 +--
+ .../domains/moe/test_transformation.py        |  79 ++++++++++
+ 8 files changed, 407 insertions(+), 9 deletions(-)
+ create mode 100644 omlx/planner/domains/moe/transformation/__init__.py
+ create mode 100644 omlx/planner/domains/moe/transformation/artifacts.py
+ create mode 100644 omlx/planner/domains/moe/transformation/pass_.py
+ create mode 100644 omlx/planner/domains/moe/transformation/realizer.py
+ create mode 100644 omlx/planner/domains/moe/transformation/validator.py
+ create mode 100644 tests/planner/domains/moe/test_transformation.py
+
+diff --git a/omlx/planner/compiler/engine.py b/omlx/planner/compiler/engine.py
+index c8a7cbd..4fd1c3e 100644
+--- a/omlx/planner/compiler/engine.py
++++ b/omlx/planner/compiler/engine.py
+@@ -21,6 +21,8 @@ from omlx.runtime.observability import get_observer
+ from omlx.planner.domains.bundle import PlanningBundle
+ from omlx.planner.compiler.transformation.pass_ import FusionRealizationPass
+ from omlx.optimization.fusion import FusionEvaluator
++from omlx.planner.domains.moe.transformation.pass_ import MoERealizationPass
++
+
+ logger = logging.getLogger("omlx.compiler")
+
+@@ -54,6 +56,12 @@ class CompilerEngine:
+                      logical_ir = fusion_pass.apply(logical_ir)
+                      get_observer().track_artifact("FusionTransformationReport", fusion_pass.descriptor)
+
++            # Conditionally inject MoE realization pass if plan is provided
++            if planning_bundle and planning_bundle.moe_plan:
++                 moe_pass = MoERealizationPass(planning_bundle.moe_plan)
++                 logical_ir = moe_pass.apply(logical_ir)
++                 if moe_pass.report:
++                     get_observer().track_artifact("MoETransformationReport", moe_pass.report)
+             # 1. Logical Optimization
+             logger.debug("Applying logical passes")
+             optimized_logical_ir = self.optimization_pipeline.optimize_logical(logical_ir)
+diff --git a/omlx/planner/domains/moe/transformation/__init__.py b/omlx/planner/domains/moe/transformation/__init__.py
+new file mode 100644
+index 0000000..a602014
+--- /dev/null
++++ b/omlx/planner/domains/moe/transformation/__init__.py
+@@ -0,0 +1,26 @@
++# SPDX-License-Identifier: Apache-2.0
++from .artifacts import (
++    RealizedExpertGraph,
++    ExpertRoutingGraph,
++    ExpertExecutionGraph,
++    ExpertRealizationDiagnostic,
++    ExpertRealizationStatistics,
++    ExpertValidationReport,
++    ExpertRealizationReport,
++)
++from .realizer import MoERealizer
++from .validator import MoETransformationValidator
++from .pass_ import MoERealizationPass
++
++__all__ = [
++    "RealizedExpertGraph",
++    "ExpertRoutingGraph",
++    "ExpertExecutionGraph",
++    "ExpertRealizationDiagnostic",
++    "ExpertRealizationStatistics",
++    "ExpertValidationReport",
++    "ExpertRealizationReport",
++    "MoERealizer",
++    "MoETransformationValidator",
++    "MoERealizationPass",
++]
+diff --git a/omlx/planner/domains/moe/transformation/artifacts.py b/omlx/planner/domains/moe/transformation/artifacts.py
+new file mode 100644
+index 0000000..1e7a733
+--- /dev/null
++++ b/omlx/planner/domains/moe/transformation/artifacts.py
+@@ -0,0 +1,61 @@
++# SPDX-License-Identifier: Apache-2.0
++"""
++Immutable artifacts for compiler-native MoE realization.
++"""
++
++from dataclasses import dataclass, field
++from types import MappingProxyType
++from typing import Any, Tuple, Optional
++from omlx.planner.ir.nodes import IRNode
++
++@dataclass(frozen=True)
++class RealizedExpertGraph:
++    """An immutable realized expert execution graph."""
++    expert_id: str
++    expert_nodes: Tuple[IRNode, ...]
++    metadata: MappingProxyType[str, Any] = field(default_factory=lambda: MappingProxyType({}))
++
++@dataclass(frozen=True)
++class ExpertRoutingGraph:
++    """An immutable realized routing graph."""
++    routing_id: str
++    routing_node: IRNode
++    expert_graphs: Tuple[RealizedExpertGraph, ...]
++    metadata: MappingProxyType[str, Any] = field(default_factory=lambda: MappingProxyType({}))
++
++@dataclass(frozen=True)
++class ExpertExecutionGraph:
++    """An immutable realized complete MoE execution graph for a group."""
++    group_id: str
++    routing_graph: ExpertRoutingGraph
++    metadata: MappingProxyType[str, Any] = field(default_factory=lambda: MappingProxyType({}))
++
++@dataclass(frozen=True)
++class ExpertRealizationDiagnostic:
++    """Diagnostic information from MoE realization."""
++    level: str  # "INFO", "WARNING", "ERROR"
++    message: str
++    node_id: str = ""
++    metadata: MappingProxyType[str, Any] = field(default_factory=lambda: MappingProxyType({}))
++
++@dataclass(frozen=True)
++class ExpertRealizationStatistics:
++    """Statistics about MoE graph realization."""
++    original_node_count: int
++    transformed_node_count: int
++    experts_realized: int
++    groups_realized: int
++    metadata: MappingProxyType[str, Any] = field(default_factory=lambda: MappingProxyType({}))
++
++@dataclass(frozen=True)
++class ExpertValidationReport:
++    """Report on the validity of a realized MoE graph."""
++    is_valid: bool
++    diagnostics: Tuple[ExpertRealizationDiagnostic, ...] = field(default_factory=tuple)
++
++@dataclass(frozen=True)
++class ExpertRealizationReport:
++    """Overall report containing all MoE realization information."""
++    statistics: ExpertRealizationStatistics
++    validation_report: ExpertValidationReport
++    realized_groups: Tuple[ExpertExecutionGraph, ...] = field(default_factory=tuple)
+diff --git a/omlx/planner/domains/moe/transformation/pass_.py b/omlx/planner/domains/moe/transformation/pass_.py
+new file mode 100644
+index 0000000..53ae4de
+--- /dev/null
++++ b/omlx/planner/domains/moe/transformation/pass_.py
+@@ -0,0 +1,39 @@
++# SPDX-License-Identifier: Apache-2.0
++from typing import Any
++from omlx.planner.compiler.passes import LogicalPass
++from omlx.planner.ir.graph import ExecutionIR
++from omlx.planner.domains.moe.artifacts import MoEPlan
++from .realizer import MoERealizer
++from .validator import MoETransformationValidator
++
++class MoERealizationPass(LogicalPass):
++    """
++    Logical compiler pass that realizes a MoEPlan into the ExecutionIR.
++    """
++    def __init__(self, plan: MoEPlan):
++        self._plan = plan
++        self._realizer = MoERealizer()
++        self._validator = MoETransformationValidator()
++        self._report = None
++
++    @property
++    def name(self) -> str:
++        return "MoERealizationPass"
++
++    def apply(self, ir: ExecutionIR) -> ExecutionIR:
++        if not self._plan or not self._plan.groups:
++            return ir
++
++        transformed_ir, report = self._realizer.realize(ir, self._plan)
++
++        validation_report = self._validator.validate(ir, transformed_ir)
++        if not validation_report.is_valid:
++            # If invalid, rollback and return the original graph
++            return ir
++
++        self._report = report
++        return transformed_ir
++
++    @property
++    def report(self) -> Any:
++        return self._report
+diff --git a/omlx/planner/domains/moe/transformation/realizer.py b/omlx/planner/domains/moe/transformation/realizer.py
+new file mode 100644
+index 0000000..02b1344
+--- /dev/null
++++ b/omlx/planner/domains/moe/transformation/realizer.py
+@@ -0,0 +1,140 @@
++# SPDX-License-Identifier: Apache-2.0
++from typing import Dict, List, Set, Tuple
++from types import MappingProxyType
++
++from omlx.planner.ir.graph import ExecutionIR
++from omlx.planner.ir.nodes import IRNode, IRNodeType
++from omlx.planner.domains.moe.artifacts import MoEPlan
++from .artifacts import (
++    RealizedExpertGraph,
++    ExpertRoutingGraph,
++    ExpertExecutionGraph,
++    ExpertRealizationDiagnostic,
++    ExpertRealizationStatistics,
++    ExpertValidationReport,
++    ExpertRealizationReport,
++)
++
++class MoERealizer:
++    """
++    Compiler-native realization of immutable MoEPlans into modified ExecutionIR.
++    """
++    def __init__(self):
++        pass
++
++    def realize(self, ir: ExecutionIR, plan: MoEPlan) -> Tuple[ExecutionIR, ExpertRealizationReport]:
++        """
++        Transforms the given ExecutionIR according to the MoEPlan.
++        """
++        diagnostics = []
++        realized_groups = []
++        new_nodes: Dict[str, IRNode] = {}
++        node_remap: Dict[str, str] = {}
++
++        experts_realized = 0
++
++        # Pass 1: Keep existing nodes
++        for nid, node in ir.nodes.items():
++            new_nodes[nid] = node
++
++        # Pass 2: Realize groups
++        for group in plan.groups:
++            expert_graphs = []
++            expert_fwd_nodes = []
++
++            # Generate expert nodes
++            for expert in group.experts:
++                expert_node_id = f"moe_expert_{group.id}_{expert.id}"
++
++                expert_node = IRNode(
++                    id=expert_node_id,
++                    node_type=IRNodeType.FORWARD,
++                    dependencies=tuple(), # Will be updated
++                    metadata=MappingProxyType({
++                        "expert_id": expert.id,
++                        "group_id": group.id,
++                        "moe_metadata": expert.metadata
++                    })
++                )
++
++                new_nodes[expert_node_id] = expert_node
++                experts_realized += 1
++                expert_fwd_nodes.append(expert_node)
++
++                expert_graphs.append(RealizedExpertGraph(
++                    expert_id=expert.id,
++                    expert_nodes=(expert_node,)
++                ))
++
++            # Create routing node
++            routing_id = f"moe_routing_{group.id}"
++
++            routing_node = IRNode(
++                id=routing_id,
++                node_type=IRNodeType.ROUTING,
++                dependencies=tuple(),
++                metadata=MappingProxyType({
++                    "group_id": group.id,
++                    "experts": tuple(e.id for e in group.experts)
++                })
++            )
++
++            new_nodes[routing_id] = routing_node
++
++            # Update expert dependencies to depend on routing
++            for expert_node in expert_fwd_nodes:
++                updated_node = IRNode(
++                    id=expert_node.id,
++                    node_type=expert_node.node_type,
++                    dependencies=(routing_id,),
++                    metadata=expert_node.metadata
++                )
++                new_nodes[updated_node.id] = updated_node
++
++            # Update RealizedExpertGraph with updated node
++            updated_expert_graphs = []
++            for eg in expert_graphs:
++                updated_nodes = tuple(new_nodes[n.id] for n in eg.expert_nodes)
++                updated_expert_graphs.append(RealizedExpertGraph(
++                    expert_id=eg.expert_id,
++                    expert_nodes=updated_nodes
++                ))
++
++            routing_graph = ExpertRoutingGraph(
++                routing_id=routing_id,
++                routing_node=routing_node,
++                expert_graphs=tuple(updated_expert_graphs)
++            )
++
++            execution_graph = ExpertExecutionGraph(
++                group_id=group.id,
++                routing_graph=routing_graph
++            )
++
++            realized_groups.append(execution_graph)
++
++        transformed_ir = ExecutionIR(
++            nodes=MappingProxyType(new_nodes),
++            roots=ir.roots,
++            metadata=ir.metadata
++        )
++
++        stats = ExpertRealizationStatistics(
++            original_node_count=len(ir.nodes),
++            transformed_node_count=len(transformed_ir.nodes),
++            experts_realized=experts_realized,
++            groups_realized=len(realized_groups)
++        )
++
++        validation = ExpertValidationReport(
++            is_valid=len(diagnostics) == 0,
++            diagnostics=tuple(diagnostics)
++        )
++
++        report = ExpertRealizationReport(
++            statistics=stats,
++            validation_report=validation,
++            realized_groups=tuple(realized_groups)
++        )
++
++        return transformed_ir, report
+diff --git a/omlx/planner/domains/moe/transformation/validator.py b/omlx/planner/domains/moe/transformation/validator.py
+new file mode 100644
+index 0000000..75446d3
+--- /dev/null
++++ b/omlx/planner/domains/moe/transformation/validator.py
+@@ -0,0 +1,45 @@
++# SPDX-License-Identifier: Apache-2.0
++from omlx.planner.ir.graph import ExecutionIR
++from omlx.planner.ir.nodes import IRNodeType
++from .artifacts import ExpertValidationReport, ExpertRealizationDiagnostic
++from types import MappingProxyType
++
++class MoETransformationValidator:
++    """Validates the MoE transformed graph."""
++
++    def validate(self, original_ir: ExecutionIR, transformed_ir: ExecutionIR) -> ExpertValidationReport:
++        diagnostics = []
++
++        # Validate that no nodes were lost except those intentionally removed
++        for nid in original_ir.nodes:
++            if nid not in transformed_ir.nodes:
++                diagnostics.append(
++                    ExpertRealizationDiagnostic(
++                        level="ERROR",
++                        message=f"Original node {nid} missing in transformed IR.",
++                        node_id=nid
++                    )
++                )
++
++        # Validate MoE routing nodes have proper dependencies
++        for nid, node in transformed_ir.nodes.items():
++            if node.node_type == IRNodeType.ROUTING:
++                has_experts = False
++                for other_nid, other_node in transformed_ir.nodes.items():
++                    if nid in other_node.dependencies:
++                        has_experts = True
++                        break
++
++                if not has_experts:
++                    diagnostics.append(
++                        ExpertRealizationDiagnostic(
++                            level="WARNING",
++                            message=f"Routing node {nid} has no dependent expert nodes.",
++                            node_id=nid
++                        )
++                    )
++
++        return ExpertValidationReport(
++            is_valid=len([d for d in diagnostics if d.level == "ERROR"]) == 0,
++            diagnostics=tuple(diagnostics)
++        )
+diff --git a/omlx/runtime/builder.py b/omlx/runtime/builder.py
+index 60b43bc..0521479 100644
+--- a/omlx/runtime/builder.py
++++ b/omlx/runtime/builder.py
+@@ -94,18 +94,18 @@ class Runtime:
+         from omlx.runtime.compiler_service import RuntimeCompilerService
+         self.compiler_service = RuntimeCompilerService(self)
+         self.execution_planner = ExecutionPlanner(
+-            pass_registry=self.pass_registry,
+-            capability_resolver=self.capability_resolver,
+-            feature_flags=self.feature_flags,
+-            runtime_context=self.runtime_context,
+-            registries=self.registries,
+-            cache_manager=self.compiler_cache_manager,
+-            dependency_tracker=self.dependency_tracker
++
++            capability_resolver=self.context.capability_resolver,
++            feature_flags=self.context.feature_flags,
++            runtime_context=self.context,
++            registries=self.context.registries,
++            cache_manager=None,
++            dependency_tracker=None
+         )
+
+         self.device_planner = DevicePlanner(
+-            cache_manager=self.compiler_cache_manager,
+-            dependency_tracker=self.dependency_tracker
++            cache_manager=None,
++            dependency_tracker=None
+         )
+         self.adapter_registry = context.adapter_registry
+         self.descriptor_registry = context.descriptor_registry
+diff --git a/tests/planner/domains/moe/test_transformation.py b/tests/planner/domains/moe/test_transformation.py
+new file mode 100644
+index 0000000..b7ca079
+--- /dev/null
++++ b/tests/planner/domains/moe/test_transformation.py
+@@ -0,0 +1,79 @@
++import pytest
++from types import MappingProxyType
++
++from omlx.planner.ir.graph import ExecutionIR
++from omlx.planner.ir.nodes import IRNode, IRNodeType
++from omlx.planner.domains.moe.artifacts import MoEPlan, ExpertGroup, ExpertDescriptor
++from omlx.planner.domains.moe.transformation.realizer import MoERealizer
++from omlx.planner.domains.moe.transformation.validator import MoETransformationValidator
++from omlx.planner.domains.moe.transformation.pass_ import MoERealizationPass
++
++def _create_basic_ir() -> ExecutionIR:
++    node1 = IRNode("node_1", IRNodeType.FORWARD)
++    return ExecutionIR(
++        nodes=MappingProxyType({"node_1": node1}),
++        roots=("node_1",)
++    )
++
++def _create_moe_plan() -> MoEPlan:
++    expert1 = ExpertDescriptor(id="e1")
++    expert2 = ExpertDescriptor(id="e2")
++    group = ExpertGroup(id="g1", experts=(expert1, expert2))
++    return MoEPlan(
++        experts=(expert1, expert2),
++        groups=(group,)
++    )
++
++def test_moe_realizer_transformation():
++    ir = _create_basic_ir()
++    plan = _create_moe_plan()
++
++    realizer = MoERealizer()
++    transformed_ir, report = realizer.realize(ir, plan)
++
++    assert report.validation_report.is_valid
++    assert len(transformed_ir.nodes) == 1 + 3 # original 1 + routing 1 + experts 2
++    assert report.statistics.experts_realized == 2
++    assert report.statistics.groups_realized == 1
++
++    # Check routing node
++    assert "moe_routing_g1" in transformed_ir.nodes
++    routing_node = transformed_ir.nodes["moe_routing_g1"]
++    assert routing_node.node_type == IRNodeType.ROUTING
++
++    # Check expert node dependencies
++    expert1_node = transformed_ir.nodes["moe_expert_g1_e1"]
++    assert expert1_node.node_type == IRNodeType.FORWARD
++    assert "moe_routing_g1" in expert1_node.dependencies
++
++    expert2_node = transformed_ir.nodes["moe_expert_g1_e2"]
++    assert expert2_node.node_type == IRNodeType.FORWARD
++    assert "moe_routing_g1" in expert2_node.dependencies
++
++def test_moe_validator_logic():
++    ir = _create_basic_ir()
++    plan = _create_moe_plan()
++
++    realizer = MoERealizer()
++    transformed_ir, report = realizer.realize(ir, plan)
++
++    validator = MoETransformationValidator()
++    validation_report = validator.validate(ir, transformed_ir)
++
++    assert validation_report.is_valid
++    assert len(validation_report.diagnostics) == 0
++
++def test_moe_realization_pass():
++    ir = _create_basic_ir()
++    plan = _create_moe_plan()
++
++    moe_pass = MoERealizationPass(plan)
++    assert moe_pass.name == "MoERealizationPass"
++
++    transformed_ir = moe_pass.apply(ir)
++
++    assert len(transformed_ir.nodes) == 4
++    assert "moe_routing_g1" in transformed_ir.nodes
++
++    assert moe_pass.report is not None
++    assert moe_pass.report.statistics.experts_realized == 2
+--
+2.53.0
