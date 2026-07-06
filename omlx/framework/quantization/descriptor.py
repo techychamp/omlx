@@ -6,7 +6,7 @@ Immutable Quantization Descriptor.
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, Tuple, Optional
-from .types import QuantizationFamily, ValidationStatus
+from .types import QuantizationFamily, ValidationStatus, PerformanceClass
 
 @dataclass(frozen=True)
 class QuantizationDescriptor:
@@ -32,9 +32,18 @@ class QuantizationDescriptor:
     supported_backends: Tuple[str, ...]
     supported_model_families: Tuple[str, ...]
     packing_information: Optional[str]
+    layout_information: Optional[str]
+    alignment_information: Optional[str]
     compression_metadata: MappingProxyType[str, Any]
+    compression_ratio: Optional[float]
+    estimated_memory_usage: Optional[int]
+    estimated_bandwidth_usage: Optional[int]
     required_kernels: Tuple[str, ...]
     hardware_requirements: Tuple[str, ...]
+    recommended_backend: Optional[str]
+    recommended_hardware: Tuple[str, ...]
+    conversion_compatibility: Tuple[str, ...]
+    performance_class: PerformanceClass
     validation_status: ValidationStatus
     metadata: MappingProxyType[str, Any]
     planner_metadata: MappingProxyType[str, Any]
@@ -51,6 +60,12 @@ class QuantizationDescriptor:
 
         if not isinstance(self.hardware_requirements, tuple):
             object.__setattr__(self, 'hardware_requirements', tuple(self.hardware_requirements))
+
+        if not isinstance(self.recommended_hardware, tuple):
+            object.__setattr__(self, 'recommended_hardware', tuple(self.recommended_hardware))
+
+        if not isinstance(self.conversion_compatibility, tuple):
+            object.__setattr__(self, 'conversion_compatibility', tuple(self.conversion_compatibility))
 
         if not isinstance(self.compression_metadata, MappingProxyType):
             object.__setattr__(self, 'compression_metadata', MappingProxyType(self.compression_metadata))

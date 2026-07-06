@@ -31,10 +31,22 @@ class CompilerInspector:
         res = {}
         for field_name in descriptor.__dataclass_fields__:
             if field_name == "_diagnostics":
-                # include diagnostics in inspection
                 res[field_name] = getattr(descriptor, field_name)
             else:
                 res[field_name] = getattr(descriptor, field_name)
+        return self._freeze_dict(res)
+
+    def inspect_quantization_descriptor(self, descriptor: Any) -> dict[str, Any]:
+        """Inspects a QuantizationDescriptor and returns a dict representation."""
+        res = {}
+        if hasattr(descriptor, "__dataclass_fields__"):
+            for field_name in descriptor.__dataclass_fields__:
+                val = getattr(descriptor, field_name)
+                # Convert enums to value for inspection
+                if hasattr(val, "value"):
+                    res[field_name] = val.value
+                else:
+                    res[field_name] = val
         return self._freeze_dict(res)
 
     def inspect_execution_plan(self, plan: ExecutionPlan) -> dict[str, Any]:
@@ -46,25 +58,20 @@ class CompilerInspector:
 
     def inspect_logical_ir(self, ir: ExecutionIR) -> dict[str, Any]:
         """Inspects a Logical IR and returns its dictionary representation."""
-        # ExecutionIR already has to_dict
         return ir.to_dict()
 
     def inspect_physical_ir(self, ir: PhysicalIR) -> dict[str, Any]:
         """Inspects a Physical IR and returns its dictionary representation."""
-        # PhysicalIR already has to_dict
         return ir.to_dict()
 
     def inspect_backend_graph(self, graph: Any) -> dict[str, Any]:
         """Inspects a Backend Operation Graph."""
-        # Placeholder for backend graph representation
         if hasattr(graph, "to_dict"):
             return graph.to_dict()
         return {"type": str(type(graph)), "repr": repr(graph)}
 
     def inspect_semantic_plan(self, plan: ExecutionPlan) -> dict[str, Any]:
         """Provides a semantic, human-readable summary of the ExecutionPlan."""
-        # Note: the fields are extracted based on the attributes available on ExecutionPlan
-
         is_streaming = plan.execution_mode == "streaming"
 
         summary = {

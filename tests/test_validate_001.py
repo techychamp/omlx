@@ -38,9 +38,9 @@ def test_end_to_end_validation_pipeline():
     )
 
     runtime = runtime_builder.build()
-    runtime.internal_runtime.feature_flags = flags
+    runtime._internal.feature_flags = flags
 
-    svc = RuntimeCompilerService(runtime.internal_runtime)
+    svc = RuntimeCompilerService(runtime._internal)
     model_id = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 
     result = svc.run_compilation(model_id)
