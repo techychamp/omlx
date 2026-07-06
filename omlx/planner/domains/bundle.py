@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import Optional, Dict, Any
 
 from .memory.artifacts import MemoryPlan
+from .fusion.artifacts import FusionPlan
 
 @dataclass(frozen=True)
 class PlanningBundle:
@@ -13,4 +14,5 @@ class PlanningBundle:
     memory_plan: Optional[MemoryPlan] = None
     cache_plan: Optional[Any] = None # Placeholder for future CachePlan
     verification_plan: Optional[Any] = None # Placeholder for future VerificationPlan
+    fusion_plan: Optional[FusionPlan] = None
     metadata: Dict[str, Any] = field(default_factory=dict)

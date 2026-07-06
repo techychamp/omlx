@@ -127,3 +127,32 @@ def test_immutable_plan():
 
     with pytest.raises(Exception): # FrozenInstanceError
         plan.execution_backend = "something_else"
+
+def test_fusion_plan_integration():
+    from omlx.framework.graph.artifacts import GraphAnalysisReport, GraphDescriptor
+    from omlx.runtime.scheduling.artifacts import DependencyGraph
+    from types import MappingProxyType
+
+    class StrategyIntentMock:
+        def __init__(self):
+            self.graph_descriptor = GraphDescriptor(id="mock")
+            self.dependency_graph = DependencyGraph(operations={"node_1": {}, "node_2": {}})
+            self.analysis_report = GraphAnalysisReport(node_properties=MappingProxyType({
+                "node_1": {"fusion_candidate": True, "fusion_target": "node_2", "fusion_type": "QKV"}
+            }))
+
+    descriptor = CapabilityDescriptor(
+        execution_family=ExecutionFamily.AUTOREGRESSIVE,
+        supported_modalities=("text",),
+        attention_types=(AttentionType.CAUSAL,),
+        cache_layout=CacheLayoutType.PAGED,
+        supports_streaming=True,
+        supports_speculative=False
+    )
+
+    planner = ExecutionPlanner()
+    bundle = planner.plan(descriptor, strategy_intent=StrategyIntentMock())
+
+    assert bundle.fusion_plan is not None
+    assert len(bundle.fusion_plan.groups) == 1
+    assert bundle.fusion_plan.statistics.nodes_fused == 2
