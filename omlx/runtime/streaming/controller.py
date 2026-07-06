@@ -46,6 +46,8 @@ class StreamingController:
                     self._subscribers[session_id].remove(callback)
 
     def publish_event(self, session_id: str, event: StreamingEvent):
+        from omlx.runtime.observability import get_observer
+
         with self._lock:
             session = self._sessions.get(session_id)
             subscribers = list(self._subscribers.get(session_id, []))
@@ -53,11 +55,29 @@ class StreamingController:
         if session:
             session.add_event(event)
 
+        # Record to observer
+        get_observer().trace_builder.record(
+            phase="Streaming",
+            component="Controller",
+            operation=event.event_type.value,
+            duration_sec=0,
+            metadata=event.payload
+        )
+        get_observer().timeline_builder.record(
+            event_id=str(uuid.uuid4()),
+            timestamp=event.timestamp,
+            phase="Streaming",
+            duration_sec=0,
+            session_id=session_id,
+            metadata={"event_type": event.event_type.value}
+        )
+
         for sub in subscribers:
             try:
                 sub(event)
             except Exception:
                 pass # Ignore subscriber errors
+
 
     def cancel_session(self, session_id: str):
         session = self.get_session(session_id)
