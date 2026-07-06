@@ -4,12 +4,12 @@ import asyncio
 from omlx.planner.compiler.backend.registry import AdapterRegistry
 from omlx.api.v1.exceptions import BackendError
 
-class HardwareConstraint(BaseModel, frozen=True):
+class HardwareConstraint(BaseModel):
     constraint_type: str
     value: Any
     is_hard_requirement: bool = True
 
-class BackendSelectionResult(BaseModel, frozen=True):
+class BackendSelectionResult(BaseModel):
     selected_backend: str
     score: float
     reason: str
@@ -17,7 +17,7 @@ class BackendSelectionResult(BaseModel, frozen=True):
     capabilities_supported: List[str] = Field(default_factory=list)
     diagnostics: Dict[str, str] = Field(default_factory=dict)
 
-class BackendRequest(BaseModel, frozen=True):
+class BackendRequest(BaseModel):
     model_family: str
     hardware_constraints: List[HardwareConstraint] = Field(default_factory=list)
     required_capabilities: List[str] = Field(default_factory=list)

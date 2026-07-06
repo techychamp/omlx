@@ -37,6 +37,7 @@ from mlx_lm.generate import (
     GenerationBatch,
     PromptProcessingBatch,
     SequenceStateMachine,
+    generate_step,
     generation_stream,
 )
 from mlx_lm.models.cache import (
@@ -7429,7 +7430,6 @@ class Scheduler:
         Move requests from waiting queue to running.
 
         Each request is prefilled externally before being inserted into
-        BatchGenerator, so prefill_batch_size=1 is always used. Cache
         status homogeneity tracking is kept for safety since it affects
         how we handle the existing_cache argument.
 

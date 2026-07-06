@@ -8,7 +8,7 @@ from omlx.api.v1.generation import GenerationService
 from omlx.api.v1.model import ModelService
 from omlx.api.v1.compiler import CompilerService
 
-class RuntimeConfig(BaseModel, frozen=True):
+class RuntimeConfig(BaseModel):
     settings: Dict[str, Any] = Field(default_factory=dict)
     feature_flags: Dict[str, bool] = Field(default_factory=dict)
 

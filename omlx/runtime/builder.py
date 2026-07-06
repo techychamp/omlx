@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from omlx.capabilities import CapabilityResolver
 from omlx.capabilities.descriptor import CapabilityDescriptor
 from omlx.planner.planner import ExecutionPlanner, ExecutionPlan
+from omlx.planner.device.planner import DevicePlanner
+from omlx.planner.bundle import PlanningBundle
 from omlx.planner.ir.builder import IRBuilder
 from omlx.planner.compiler import LoweringEngine
 from omlx.planner.compiler.backend import AdapterRegistry, BackendDescriptorRegistry, MLXAdapter
@@ -92,10 +94,18 @@ class Runtime:
         from omlx.runtime.compiler_service import RuntimeCompilerService
         self.compiler_service = RuntimeCompilerService(self)
         self.execution_planner = ExecutionPlanner(
-            capability_resolver=context.capability_resolver,
-            feature_flags=context.feature_flags,
-            runtime_context=context,
-            registries=context.registries
+            pass_registry=self.pass_registry,
+            capability_resolver=self.capability_resolver,
+            feature_flags=self.feature_flags,
+            runtime_context=self.runtime_context,
+            registries=self.registries,
+            cache_manager=self.compiler_cache_manager,
+            dependency_tracker=self.dependency_tracker
+        )
+
+        self.device_planner = DevicePlanner(
+            cache_manager=self.compiler_cache_manager,
+            dependency_tracker=self.dependency_tracker
         )
         self.adapter_registry = context.adapter_registry
         self.descriptor_registry = context.descriptor_registry

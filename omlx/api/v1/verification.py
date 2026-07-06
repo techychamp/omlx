@@ -3,21 +3,21 @@ from pydantic import BaseModel, Field
 import asyncio
 from omlx.api.v1.exceptions import VerificationError
 
-class VerificationMetric(BaseModel, frozen=True):
+class VerificationMetric(BaseModel):
     metric_name: str
     value: float
     unit: str
     threshold: Optional[float] = None
     passed: bool = True
 
-class VerificationResult(BaseModel, frozen=True):
+class VerificationResult(BaseModel):
     passed: bool = True
     errors: List[str] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
     metrics: List[VerificationMetric] = Field(default_factory=list)
     diagnostics: Dict[str, str] = Field(default_factory=dict)
 
-class VerificationRequest(BaseModel, frozen=True):
+class VerificationRequest(BaseModel):
     target_id: str
     ruleset: str = "default"
     strict_mode: bool = False

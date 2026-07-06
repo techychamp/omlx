@@ -33,7 +33,10 @@ from typing import (
     Union,
 )
 
-import mlx.core as mx
+try:
+    import mlx.core as mx
+except ImportError:
+    mx = None
 
 from .exceptions import PrefillMemoryExceededError
 from .model_registry import get_registry
@@ -303,6 +306,8 @@ class EngineCore:
             # MIG-002: Check if execution plan routing is enabled
             if flags.EXECUTION_PLAN_RUNTIME_ENABLED or flags.EXECUTION_PLAN_VALIDATION_ENABLED:
                 from omlx.planner.planner import ExecutionPlanner
+                from omlx.planner.device.planner import DevicePlanner
+                from omlx.planner.bundle import PlanningBundle
                 from omlx.planner.compatibility import ExecutionProfileAdapter
                 from omlx.capabilities.descriptor import CapabilityDescriptor, ExecutionFamily
 
@@ -323,10 +328,22 @@ class EngineCore:
                 descriptor = CapabilityDescriptor(
                     execution_family=family,
                     supports_streaming=True, # default
-                    supports_speculative=getattr(actual_caps, "supports_linear_spec", False)
+                    supports_speculative=getattr(actual_caps, "supports_linear_spec", False),
+                    hardware_requirements=("apple_silicon",) if getattr(actual_caps, "is_mlx_compatible", False) else tuple()
                 )
 
                 plan = planner.plan(descriptor)
+
+                device_planner = DevicePlanner()
+                device_plan = device_planner.plan(descriptor)
+
+                planning_bundle = PlanningBundle(
+                    execution_plan=plan,
+                    device_plan=device_plan
+                )
+
+                # Store bundle on engine for Observability/API if needed
+                self._planning_bundle = planning_bundle
 
                 # Compatibility layer
                 if flags.EXECUTION_PROFILE_COMPATIBILITY_ENABLED or flags.EXECUTION_PLAN_RUNTIME_ENABLED:

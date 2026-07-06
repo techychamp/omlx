@@ -12,7 +12,7 @@ from omlx.api.v1.verification import VerificationRequest, VerificationResult
 from omlx.api.v1.observation import ObservationSummary, ObservationService
 from omlx.api.v1.exceptions import ConfigurationError, OMLXRuntimeError, OmlxError
 
-class SessionDescriptor(BaseModel, frozen=True):
+class SessionDescriptor(BaseModel):
     session_id: str
     metadata: Dict[str, Any] = Field(default_factory=dict)
     active: bool = True
