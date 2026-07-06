@@ -152,3 +152,9 @@ class OMLXClient:
          if hasattr(self._runtime, 'plugins'):
               return self._runtime.plugins
          raise OMLXRuntimeError("Plugin framework is not available.")
+
+    def analyze_graph(self, ir) -> Any:
+         """Analyzes an ExecutionIR graph using the Graph Analysis Framework."""
+         from omlx.planner.ir.analysis import GraphAnalyzer
+         analyzer = GraphAnalyzer()
+         return analyzer.analyze(ir)

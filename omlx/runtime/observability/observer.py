@@ -68,6 +68,15 @@ class Observer:
     def track_artifact(self, name: str, artifact: Any):
         self.artifact_tracker.track(name, artifact)
 
+    def record_graph_metrics(self, stats):
+        """Records graph statistics from the Graph Analysis Framework into telemetry."""
+        self.telemetry.measure("graph.node_count", stats.node_count)
+        self.telemetry.measure("graph.edge_count", stats.edge_count)
+        self.telemetry.measure("graph.root_count", stats.root_count)
+        self.telemetry.measure("graph.leaf_count", stats.leaf_count)
+        self.telemetry.measure("graph.max_depth", stats.max_depth)
+        self.telemetry.measure("graph.average_branching_factor", stats.average_branching_factor)
+
     def add_diagnostic(self, message: str):
         with self._lock:
             self.diagnostics.append(message)
