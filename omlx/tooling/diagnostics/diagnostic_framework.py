@@ -4,7 +4,7 @@ Diagnostic Framework
 Provides structured diagnostics for developers.
 """
 from typing import Any, Dict, List
-from omlx.api.v1.runtime import Runtime
+from omlx.api.v1.runtime import RuntimeService
 from omlx.tooling.session.compiler_session import CompilerSession
 
 class DiagnosticReport:
@@ -22,7 +22,7 @@ class DiagnosticReport:
 class DiagnosticFramework:
     """Collects structured diagnostics from various subsystems."""
 
-    def get_runtime_diagnostics(self, runtime: Runtime = None) -> DiagnosticReport:
+    def get_runtime_diagnostics(self, runtime: RuntimeService = None) -> DiagnosticReport:
         messages = []
         if runtime:
              state = getattr(runtime, "state", "UNKNOWN")
