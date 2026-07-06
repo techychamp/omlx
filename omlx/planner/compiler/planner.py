@@ -10,7 +10,8 @@ from omlx.planner.domains.bundle import PlanningBundle
 from omlx.planner.domains.memory.planner import MemoryPlanner
 from omlx.planner.domains.fusion.planner import FusionPlanner
 from omlx.planner.domains.fusion.analyzer import FusionAnalyzer
-from omlx.framework.graph.artifacts import GraphAnalysisReport, GraphDescriptor
+from omlx.framework.graph.artifacts import GraphAnalysisReport
+from omlx.framework.graph.descriptor import GraphDescriptor
 from omlx.runtime.scheduling.artifacts import DependencyGraph
 if TYPE_CHECKING:
     from omlx.planner.compiler.dependency_tracker import DependencyTracker
