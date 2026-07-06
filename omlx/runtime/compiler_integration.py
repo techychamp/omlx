@@ -89,12 +89,14 @@ class CompilerPipelineRunner:
             if flags.ADAPTER_RUNTIME_ENABLED:
                 with get_observer().observe_phase("Compilation", "AdapterRegistry", "translate"):
                     try:
-                        hardware = plan.hardware_requirements[0] if plan.hardware_requirements else "any"
-                        execution_family = plan.execution_family if isinstance(plan.execution_family, str) else str(plan.execution_family.value)
-                        execution_mode = plan.execution_mode
+                        hardware_reqs = getattr(plan, "hardware_requirements", getattr(getattr(plan, "execution_plan", None), "hardware_requirements", []))
+                        hardware = hardware_reqs[0] if hardware_reqs else "any"
+                        plan_family = getattr(plan, "execution_family", getattr(getattr(plan, "execution_plan", None), "execution_family", "autoregressive"))
+                        execution_family = plan_family if isinstance(plan_family, str) else str(getattr(plan_family, 'value', plan_family))
+                        execution_mode = getattr(plan, "execution_mode", getattr(getattr(plan, "execution_plan", None), "execution_mode", "standard"))
 
                         adapter = self.runtime.adapter_registry.resolve(
-                            backend="mlx",
+                            backend=getattr(plan, "execution_backend", getattr(getattr(plan, "execution_plan", None), "execution_backend", "mlx")),
                             hardware=hardware,
                             execution_family=execution_family,
                             execution_mode=execution_mode
@@ -243,12 +245,14 @@ class CompilerPipelineRunner:
         if flags.ADAPTER_RUNTIME_ENABLED:
             with get_observer().observe_phase("Compilation", "AdapterRegistry", "translate"):
                 try:
-                    hardware = plan.hardware_requirements[0] if plan.hardware_requirements else "any"
-                    execution_family = plan.execution_family if isinstance(plan.execution_family, str) else str(plan.execution_family.value)
-                    execution_mode = plan.execution_mode
+                    hardware_reqs = getattr(plan, "hardware_requirements", getattr(getattr(plan, "execution_plan", None), "hardware_requirements", []))
+                    hardware = hardware_reqs[0] if hardware_reqs else "any"
+                    plan_family = getattr(plan, "execution_family", getattr(getattr(plan, "execution_plan", None), "execution_family", "autoregressive"))
+                    execution_family = plan_family if isinstance(plan_family, str) else str(getattr(plan_family, 'value', plan_family))
+                    execution_mode = getattr(plan, "execution_mode", getattr(getattr(plan, "execution_plan", None), "execution_mode", "standard"))
 
                     adapter = self.runtime.adapter_registry.resolve(
-                        backend="mlx",
+                        backend=getattr(plan, "execution_backend", getattr(getattr(plan, "execution_plan", None), "execution_backend", "mlx")),
                         hardware=hardware,
                         execution_family=execution_family,
                         execution_mode=execution_mode
@@ -274,15 +278,17 @@ class CompilerPipelineRunner:
             backend_op_graph = getattr(translation_result, "backend_graph", getattr(translation_result, "backend_operation_graph", None)) if translation_result else None
             if backend_op_graph:
                 get_observer().track_artifact("BackendOperationGraph", backend_op_graph)
-            self.runtime.update_context(
-                capability_descriptor=descriptor,
-                execution_plan=plan,
-        planning_bundle=bundle,
-                logical_ir=logical_ir if 'logical_ir' in locals() else None,
-                physical_ir=physical_ir,
-                translation_result=translation_result,
-                cache_plan=cache_plan,
-                backend_operation_graph=backend_op_graph
-            )
+            kwargs = {
+                "capability_descriptor": descriptor,
+                "execution_plan": plan,
+                "logical_ir": logical_ir if 'logical_ir' in locals() else None,
+                "physical_ir": physical_ir,
+                "translation_result": translation_result,
+                "cache_plan": cache_plan,
+                "backend_operation_graph": backend_op_graph
+            }
+            valid_keys = self.runtime.context.__annotations__.keys() if hasattr(self.runtime.context, "__annotations__") else self.runtime.context.__dict__.keys()
+            filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_keys}
+            self.runtime.update_context(**filtered_kwargs)
 
         return translation_result

@@ -3,6 +3,7 @@ from typing import Optional, Dict, Any
 
 from .memory.artifacts import MemoryPlan
 from .fusion.artifacts import FusionPlan
+from .diffusion.artifacts import DiffusionPlan
 
 @dataclass(frozen=True)
 class PlanningBundle:
@@ -15,4 +16,5 @@ class PlanningBundle:
     cache_plan: Optional[Any] = None # Placeholder for future CachePlan
     verification_plan: Optional[Any] = None # Placeholder for future VerificationPlan
     fusion_plan: Optional[FusionPlan] = None
+    diffusion_plan: Optional[DiffusionPlan] = None
     metadata: Dict[str, Any] = field(default_factory=dict)

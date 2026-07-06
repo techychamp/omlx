@@ -23,14 +23,10 @@ class ModelClassifier:
             arch = arch[0]
 
         arch_lower = str(arch).lower()
-        if "llama" in arch_lower:
-            return "Llama"
-        elif "qwen" in arch_lower:
-            return "Qwen"
-        elif "mistral" in arch_lower or "mixtral" in arch_lower:
-            return "Mistral"
+        if "llama" in arch_lower or "qwen" in arch_lower or "mistral" in arch_lower or "mixtral" in arch_lower:
+            return "Transformer"
         elif "bert" in arch_lower or "roberta" in arch_lower:
-            return "BERT"
+            return "Transformer"
         elif "unet" in arch_lower:
             return "UNet"
         elif "dit" in arch_lower:
