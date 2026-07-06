@@ -4,7 +4,7 @@ Snapshot System
 Exports read-only snapshots of runtime state.
 """
 from typing import Any, Dict
-from omlx.api.v1.runtime import Runtime
+from omlx.api.v1.runtime import RuntimeService
 from omlx.tooling.session.compiler_session import CompilerSession
 
 class RuntimeSnapshot:
@@ -19,7 +19,7 @@ class RuntimeSnapshot:
 class SnapshotManager:
     """Creates snapshots of the runtime."""
 
-    def create_snapshot(self, runtime: Runtime, compiler_session: CompilerSession = None) -> RuntimeSnapshot:
+    def create_snapshot(self, runtime: RuntimeService, compiler_session: CompilerSession = None) -> RuntimeSnapshot:
         """Captures a snapshot of the runtime."""
         # Defer import to avoid circular dependency
         from omlx.tooling.framework.unified import get_tooling

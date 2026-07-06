@@ -2,13 +2,15 @@ from typing import List, Optional, Any
 from pydantic import BaseModel, Field
 from omlx.api.v1.exceptions import ConfigurationError
 
-class ModelDescriptor(BaseModel, frozen=True):
+class ModelDescriptor(BaseModel):
+    model_config = {'frozen': True}
     model_id: str
     architecture: str
     parameters_billions: float
     quantization: str
 
-class ModelInfo(BaseModel, frozen=True):
+class ModelInfo(BaseModel):
+    model_config = {'frozen': True}
     descriptor: ModelDescriptor
     is_loaded: bool
     memory_usage_mb: float

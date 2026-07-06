@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import List, Any, Dict
 from pydantic import BaseModel, Field
 import asyncio
 from omlx.runtime.builder import RuntimeBuilder as InternalRuntimeBuilder
@@ -34,15 +34,15 @@ class RuntimeService:
 
     def get_feature_flags(self) -> Dict[str, bool]:
         """Public API to access resolved feature flags."""
-        if hasattr(self.internal_runtime, "_feature_flags"):
-             return self.internal_runtime._feature_flags.flags
+        if hasattr(self._internal, "_feature_flags"):
+             return self._internal._feature_flags.flags
         return {}
 
     def get_active_sessions(self) -> List[Dict[str, Any]]:
         """Public API to query active streaming or execution sessions."""
         sessions = []
-        if hasattr(self.internal_runtime, "streaming_controller"):
-             ctrl = self.internal_runtime.streaming_controller
+        if hasattr(self._internal, "streaming_controller"):
+             ctrl = self._internal.streaming_controller
              if hasattr(ctrl, "sessions"):
                   for s_id, s_obj in ctrl.sessions.items():
                        sessions.append({

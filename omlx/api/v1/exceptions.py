@@ -1,26 +1,63 @@
+from typing import Any, Dict, Optional
+
 class OmlxError(Exception):
-    pass
+    def __init__(
+        self,
+        message: str,
+        category: str = "general",
+        code: str = "ERROR",
+        details: Optional[Dict[str, Any]] = None,
+        diagnostics: Optional[Dict[str, Any]] = None,
+        recommendation: Optional[str] = None
+    ):
+        super().__init__(message)
+        self.message = message
+        self.category = category
+        self.code = code
+        self.details = details or {}
+        self.diagnostics = diagnostics or {}
+        self.recommendation = recommendation
 
 class CompilerError(OmlxError):
-    pass
+    def __init__(self, message: str, **kwargs):
+        super().__init__(message, category="compiler", **kwargs)
 
 class PlanningError(OmlxError):
-    pass
+    def __init__(self, message: str, **kwargs):
+        super().__init__(message, category="planning", **kwargs)
 
 class BackendError(OmlxError):
-    pass
+    def __init__(self, message: str, **kwargs):
+        super().__init__(message, category="backend", **kwargs)
 
 class VerificationError(OmlxError):
-    pass
+    def __init__(self, message: str, **kwargs):
+        super().__init__(message, category="verification", **kwargs)
 
 class PluginError(OmlxError):
-    pass
+    def __init__(self, message: str, **kwargs):
+        super().__init__(message, category="plugin", **kwargs)
 
 class ConfigurationError(OmlxError):
-    pass
+    def __init__(self, message: str, **kwargs):
+        super().__init__(message, category="configuration", **kwargs)
 
 class ValidationError(OmlxError):
-    pass
+    def __init__(self, message: str, **kwargs):
+        super().__init__(message, category="validation", **kwargs)
 
 class DiagnosticsError(OmlxError):
-    pass
+    def __init__(self, message: str, **kwargs):
+        super().__init__(message, category="diagnostics", **kwargs)
+
+class OMLXRuntimeError(OmlxError):
+    def __init__(self, message: str, **kwargs):
+        super().__init__(message, category="runtime", **kwargs)
+
+class StreamingError(OmlxError):
+    def __init__(self, message: str, **kwargs):
+        super().__init__(message, category="streaming", **kwargs)
+
+class ModelError(OmlxError):
+    def __init__(self, message: str, **kwargs):
+        super().__init__(message, category="model", **kwargs)

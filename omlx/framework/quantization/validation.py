@@ -7,11 +7,15 @@ from typing import Dict, Any, List
 from .descriptor import QuantizationDescriptor
 from .types import QuantizationFamily, ValidationStatus
 from omlx.framework.model_intelligence.descriptor import ModelDescriptor
+from .planning import QuantizationConversionPlanner
 
 class QuantizationValidator:
     """
     Validates quantization descriptors and metadata for correctness and compatibility.
     """
+
+    def __init__(self):
+        self._conversion_planner = QuantizationConversionPlanner()
 
     def validate_descriptor(self, desc: QuantizationDescriptor) -> Dict[str, Any]:
         """
@@ -41,15 +45,23 @@ class QuantizationValidator:
             is_valid = False
             errors.append("Storage precision is unknown.")
 
-        # Check for missing metadata for quantized formats
         if desc.quantization_family not in (QuantizationFamily.FP32, QuantizationFamily.FP16, QuantizationFamily.BF16, QuantizationFamily.UNKNOWN):
              if not desc.metadata:
                   warnings.append("Quantized format missing metadata.")
 
+        # New Validations for advanced packing/layout
+        if desc.packing_information is not None and not isinstance(desc.packing_information, str):
+            is_valid = False
+            errors.append("Packing information must be a string if provided.")
+
+        if desc.layout_information is not None and not isinstance(desc.layout_information, str):
+            is_valid = False
+            errors.append("Layout information must be a string if provided.")
+
         return {
             "is_valid": is_valid,
-            "errors": errors,
-            "warnings": warnings,
+            "errors": tuple(errors),
+            "warnings": tuple(warnings),
             "validation_status": ValidationStatus.VALID if is_valid else ValidationStatus.INVALID
         }
 
@@ -69,13 +81,32 @@ class QuantizationValidator:
          # Backend compatibility (if provided)
          if backend_desc is not None:
              backend_id = getattr(backend_desc, 'backend_id', getattr(backend_desc, 'name', 'unknown'))
-             if quant_desc.supported_backends and backend_id not in quant_desc.supported_backends:
+
+             # Also allow recommended_backend
+             is_backend_supported = False
+             if quant_desc.recommended_backend and quant_desc.recommended_backend.lower() == str(backend_id).lower():
+                 is_backend_supported = True
+             elif not quant_desc.supported_backends or backend_id in quant_desc.supported_backends:
+                 is_backend_supported = True
+
+             if not is_backend_supported:
                  is_valid = False
                  errors.append(f"Backend '{backend_id}' is not supported by this quantization format.")
 
          return {
              "is_valid": is_valid,
-             "errors": errors,
-             "warnings": warnings,
+             "errors": tuple(errors),
+             "warnings": tuple(warnings),
              "compatibility_status": ValidationStatus.VALID if is_valid else ValidationStatus.INVALID
          }
+
+    def validate_conversion_feasibility(self, source_desc: QuantizationDescriptor, target_family: QuantizationFamily) -> Dict[str, Any]:
+        """
+        Validates if converting from source descriptor to target family is feasible.
+        """
+        plan = self._conversion_planner.plan_conversion(source_desc, target_family)
+        return {
+            "is_feasible": plan.is_feasible,
+            "required_tools": plan.required_tools,
+            "warnings": plan.warnings
+        }
