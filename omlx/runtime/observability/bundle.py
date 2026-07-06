@@ -8,14 +8,21 @@ from typing import Any
 from dataclasses import asdict, is_dataclass
 from types import MappingProxyType
 
+def _custom_dict_factory(data):
+    # This is passed a list of (field_name, field_value) tuples
+    d = {}
+    for k, v in data:
+        if isinstance(v, MappingProxyType):
+            d[k] = {kk: _serialize(vv) for kk, vv in v.items()}
+        else:
+            d[k] = _serialize(v)
+    return d
+
 def _serialize(obj: Any) -> Any:
     # Extremely basic serialization for demonstration
     if is_dataclass(obj):
-        # We don't use asdict directly because of deepcopy mappingproxy issues
-        result = {}
-        for k, v in obj.__dict__.items():
-            result[k] = _serialize(v)
-        return result
+        # We use asdict with a custom dict_factory to avoid deepcopy mappingproxy issues
+        return asdict(obj, dict_factory=_custom_dict_factory)
     if isinstance(obj, MappingProxyType):
         return {k: _serialize(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):

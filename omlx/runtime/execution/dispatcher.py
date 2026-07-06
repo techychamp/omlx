@@ -58,6 +58,7 @@ class SequentialExecutionDispatcher(ExecutionDispatcher):
             status=ExecutionStatus.COMPLETED,
             model_output=mock_output,
         )
+
 class ParallelExecutionDispatcher(ExecutionDispatcher):
     """
     Dispatches graph operations concurrently based on ExecutionGroups provided in the schedule.
@@ -65,6 +66,8 @@ class ParallelExecutionDispatcher(ExecutionDispatcher):
     """
     def __init__(self, max_workers: int = None):
         self.max_workers = max_workers
+        import concurrent.futures
+        self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers)
 
     def dispatch(self, graph: BackendOperationGraph, context: ExecutionContext, execution_order=None, schedule=None) -> ExecutionResult:
         logger.debug("ParallelExecutionDispatcher dispatching graph operations")
@@ -92,42 +95,43 @@ class ParallelExecutionDispatcher(ExecutionDispatcher):
         import threading
         import concurrent.futures
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            for group in schedule.execution_groups:
+        has_adapter_execute = hasattr(adapter, 'execute')
+
+        for group in schedule.execution_groups:
+            if has_failure:
+                break
+
+            with get_observer().observe_phase("Execution", "Group", f"group_{group.group_id}") as group_phase:
+                futures = []
+                for op_id in group.operations:
+                    if op_id not in graph.operations:
+                        logger.error(f"Operation {op_id} from schedule not found in graph")
+                        has_failure = True
+                        break
+
+                    op = graph.operations[op_id]
+                    if has_adapter_execute:
+                        def exec_with_obs(inner_op, inner_context):
+                            thread_id = threading.get_ident()
+                            with get_observer().observe_phase("Execution", "Worker", f"op_{inner_op.id if hasattr(inner_op, 'id') else op_id}_thread_{thread_id}"):
+                                return adapter.execute(inner_op, inner_context)
+                        futures.append(self._executor.submit(exec_with_obs, op, context))
+                    else:
+                        ops_executed += 1
+
                 if has_failure:
                     break
 
-                with get_observer().observe_phase("Execution", "Group", f"group_{group.group_id}") as group_phase:
-                    futures = []
-                    for op_id in group.operations:
-                        if op_id not in graph.operations:
-                            logger.error(f"Operation {op_id} from schedule not found in graph")
-                            has_failure = True
-                            break
-
-                        op = graph.operations[op_id]
-                        if hasattr(adapter, 'execute'):
-                            def exec_with_obs(inner_op, inner_context):
-                                thread_id = threading.get_ident()
-                                with get_observer().observe_phase("Execution", "Worker", f"op_{inner_op.id if hasattr(inner_op, 'id') else op_id}_thread_{thread_id}"):
-                                    return adapter.execute(inner_op, inner_context)
-                            futures.append(executor.submit(exec_with_obs, op, context))
-                        else:
-                            ops_executed += 1
-
-                    if has_failure:
-                        break
-
-                    for future in concurrent.futures.as_completed(futures):
-                        try:
-                            result = future.result()
-                            if result is not None:
-                                last_output = result
-                            ops_executed += 1
-                        except Exception as e:
-                            logger.error(f"Execution failed during parallel dispatch: {e}", exc_info=True)
-                            has_failure = True
-                            break # Stop processing this group, wait for others to finish before raising
+                for future in concurrent.futures.as_completed(futures):
+                    try:
+                        result = future.result()
+                        if result is not None:
+                            last_output = result
+                        ops_executed += 1
+                    except Exception as e:
+                        logger.error(f"Execution failed during parallel dispatch: {e}", exc_info=True)
+                        has_failure = True
+                        break # Stop processing this group, wait for others to finish before raising
 
         if has_failure:
             return ExecutionResult(
