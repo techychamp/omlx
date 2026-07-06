@@ -1,7 +1,7 @@
 import pytest
 from omlx.api.v1 import (
-    RuntimeBuilder, Runtime,
-    CompilerRequestBuilder, Compiler, CompilerRequest,
+    RuntimeBuilder, RuntimeService,
+    CompilerRequestBuilder, CompilerService, CompilerRequest,
     PlanningRequestBuilder, Planner, PlanningRequest,
     BackendRequestBuilder, BackendManager, BackendRequest,
     VerificationRequestBuilder, Verifier, VerificationRequest,
@@ -15,8 +15,8 @@ from omlx.api.v1 import (
 def test_runtime_builder():
     builder = RuntimeBuilder()
     runtime = builder.configure({"test": "value"}).enable("SOME_FEATURE").build()
-    assert isinstance(runtime, Runtime)
-    assert runtime.state.value == "bootstrapping"
+    assert isinstance(runtime, RuntimeService)
+    assert runtime.status == "bootstrapping"
 
 def test_compiler_builder():
     builder = CompilerRequestBuilder()

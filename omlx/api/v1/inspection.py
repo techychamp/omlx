@@ -3,13 +3,13 @@ from pydantic import BaseModel, Field
 import asyncio
 from omlx.api.v1.exceptions import OmlxError
 
-class HealthMetric(BaseModel):
+class HealthMetric(BaseModel, frozen=True):
     component: str
     status: str
     uptime_seconds: float
     resource_usage: float
 
-class InspectionResult(BaseModel):
+class InspectionResult(BaseModel, frozen=True):
     components: Dict[str, str] = Field(default_factory=dict)
     health_status: str = "healthy"
     metrics: List[HealthMetric] = Field(default_factory=list)

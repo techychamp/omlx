@@ -1,5 +1,11 @@
-from .runtime import RuntimeBuilder, Runtime, RuntimeConfig
-from .compiler import CompilerRequestBuilder, Compiler, CompilerRequest, CompilerResult, CompilerArtifactSummary
+from .model import ModelDescriptor, ModelInfo, ModelLoadBuilder, ModelService
+from .generation import GenerateRequest, GenerateResponse, StreamRequest, StreamResponse, GenerateRequestBuilder, StreamRequestBuilder, GenerationService
+from .streaming import StreamingService
+from .observation import ObservationSummary, ObservationQueryBuilder, ObservationService
+from .quantization import QuantizationInfo, QuantizationService
+from .capability import CapabilityInfo, CapabilityService
+from .runtime import RuntimeBuilder, RuntimeService, RuntimeConfig
+from .compiler import CompilerRequestBuilder, CompilerService, CompilerRequest, CompilerResult, CompilerArtifactSummary
 from .planning import PlanningRequestBuilder, Planner, PlanningRequest, PlanningResult, PlanningStageSummary
 from .backend import BackendRequestBuilder, BackendManager, BackendRequest, BackendSelectionResult, HardwareConstraint
 from .inspection import Inspector, InspectionResult, HealthMetric
@@ -16,10 +22,23 @@ from .exceptions import (
 )
 
 __all__ = [
+
+    # Model
+    "ModelDescriptor", "ModelInfo", "ModelLoadBuilder", "ModelService",
+    # Generation
+    "GenerateRequest", "GenerateResponse", "StreamRequest", "StreamResponse", "GenerateRequestBuilder", "StreamRequestBuilder", "GenerationService",
+    # Streaming
+    "StreamingService",
+    # Observation
+    "ObservationSummary", "ObservationQueryBuilder", "ObservationService",
+    # Quantization
+    "QuantizationInfo", "QuantizationService",
+    # Capability
+    "CapabilityInfo", "CapabilityService",
     # Runtime
-    "RuntimeBuilder", "Runtime", "RuntimeConfig",
+    "RuntimeBuilder", "RuntimeService", "RuntimeConfig",
     # Compiler
-    "CompilerRequestBuilder", "Compiler", "CompilerRequest", "CompilerResult", "CompilerArtifactSummary",
+    "CompilerRequestBuilder", "CompilerService", "CompilerRequest", "CompilerResult", "CompilerArtifactSummary",
     # Planning
     "PlanningRequestBuilder", "Planner", "PlanningRequest", "PlanningResult", "PlanningStageSummary",
     # Backend

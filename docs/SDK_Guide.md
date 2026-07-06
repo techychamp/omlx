@@ -1,0 +1,1 @@
+# SDK Guide\n\nUse Builders to construct immutable requests. Pass requests to stateless Services.
