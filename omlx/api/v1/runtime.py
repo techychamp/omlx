@@ -51,6 +51,19 @@ class RuntimeService:
                        })
         return sessions
 
+
+    def get_speculative_statistics(self) -> Dict[str, Any]:
+        """Public API to query active speculative execution statistics."""
+        stats = {}
+        # In a real implementation this would aggregate from active or recent sessions
+        # via the internal runtime or an active metrics observer.
+        # For now, it provides a stable interface.
+        stats["active_speculative_sessions"] = 0
+        stats["total_speculative_attempts"] = 0
+        stats["total_accepted_tokens"] = 0
+        stats["average_acceptance_rate"] = 0.0
+        return stats
+
     def get_tooling(self) -> Any:
         """Returns the centralized tooling registry."""
         from omlx.tooling.framework.unified import get_tooling

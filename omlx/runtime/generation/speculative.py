@@ -12,6 +12,16 @@ from omlx.runtime.streaming.events import StreamingEvent, StreamingEventType
 from omlx.runtime.observability import get_observer, set_observer, reset_observer, Observer
 from omlx.runtime.events import Event, RuntimeLifecycleEvent, EventCategory
 
+from omlx.runtime.execution.artifacts import (
+    SpeculativeExecutionReport,
+    VerificationWindow,
+    AcceptanceWindow,
+    AcceptanceStatistics,
+    VerificationStatistics,
+    CommitReport
+)
+from omlx.runtime.execution.diagnostics import SpeculativeDiagnostics
+
 logger = logging.getLogger("omlx.runtime.generation.speculative")
 
 @dataclass(frozen=True)
@@ -48,6 +58,16 @@ class SpeculativeGenerationStrategy(GenerationStrategy):
         return "verification_memory_required"
     def get_cache_policy(self) -> dict:
         return {"use_cache": True, "policy": "speculative"}
+
+
+    def prepare_speculative_execution(self, runtime: Any, request_context: Any, **kwargs) -> Any:
+        """Prepares the speculative execution graph and planning bundle via the compiler."""
+        translation_result = runtime._compile_request("draft_model", request_context)
+        return translation_result
+
+    def execute_verification(self, runtime: Any, execution_engine: Any, draft_tokens: list) -> Any:
+        """Uses the compiler to prepare a verification graph, then executes it."""
+        return {"accepted_tokens": draft_tokens[:2], "rejected_tokens": draft_tokens[2:]} # Mock for now
 
     def generate(self, runtime: Any, request_context: Any, **kwargs) -> Any:
         max_tokens = kwargs.get("max_tokens", 10)

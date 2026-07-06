@@ -28,3 +28,10 @@ class ExecutionReport:
     trace: List[str] = field(default_factory=list)
 
 from typing import Optional
+
+@dataclass(frozen=True)
+class SpeculativeDiagnostics:
+    """Diagnostic information for speculative execution."""
+    verification_windows: List[Dict[str, Any]] = field(default_factory=list)
+    rejection_reasons: List[Dict[str, Any]] = field(default_factory=list)
+    speedup_estimate: float = 0.0

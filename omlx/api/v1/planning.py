@@ -5,6 +5,7 @@ from omlx.planner.planner import ExecutionPlanner
 from omlx.planner.plan import ExecutionPlan
 from omlx.planner.bundle import PlanningBundle, MemoryPlan, CachePlan, VerificationPlan
 from omlx.planner.device.artifacts import DevicePlan
+from omlx.planner.domains.moe.artifacts import MoEPlan, RoutingCompatibilityReport, RoutingValidationReport, RoutingStatistics
 from omlx.runtime.scheduling.artifacts import DependencyGraph, ExecutionPhase, DependencyBarrier, SynchronizationPoint
 
 @dataclass(frozen=True)
@@ -19,11 +20,7 @@ class PlanningClient:
 
     def __init__(self, endpoint: str = "local"):
         self.endpoint = endpoint
-        self._planner = ExecutionPlanner(
-            backend_resolver=None,
-            model_registry=None,
-            policy_engine=None
-        )
+        self._planner = None
 
     def generate_bundle(self, request: PlanningRequest) -> PlanningBundle:
         """Generate a complete PlanningBundle for a request."""
@@ -33,8 +30,31 @@ class PlanningClient:
             device_plan=None,
             cache_plan=None,
             memory_plan=None,
-            verification_plan=None
+            verification_plan=None,
+            moe_plan=None
         )
+
+
+    def get_moe_diagnostics(self, bundle: PlanningBundle) -> dict:
+        """Retrieve MoE diagnostics from the PlanningBundle."""
+        diagnostics = {}
+        if bundle.moe_plan:
+            diagnostics['experts'] = len(bundle.moe_plan.experts)
+            diagnostics['groups'] = len(bundle.moe_plan.groups)
+            diagnostics['has_routing'] = bundle.moe_plan.routing is not None
+        return diagnostics
+
+    def get_routing_reports(self, bundle: PlanningBundle) -> tuple[Optional[RoutingCompatibilityReport], Optional[RoutingValidationReport]]:
+        """Retrieve routing compatibility and validation reports."""
+        if bundle.moe_plan:
+            return bundle.moe_plan.compatibility, bundle.moe_plan.validation
+        return None, None
+
+    def get_planning_statistics(self, bundle: PlanningBundle) -> Optional[RoutingStatistics]:
+        """Retrieve planning statistics from the PlanningBundle."""
+        if bundle.moe_plan:
+            return bundle.moe_plan.statistics
+        return None
 
     def extract_dependency_graph(self, bundle: PlanningBundle) -> DependencyGraph:
         """Extract a deterministic DependencyGraph from a PlanningBundle."""
