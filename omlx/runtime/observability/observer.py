@@ -68,6 +68,19 @@ class Observer:
     def track_artifact(self, name: str, artifact: Any):
         self.artifact_tracker.track(name, artifact)
 
+    def observe_speculation(self, attempt_info: Dict[str, Any]) -> None:
+        """Track a speculative execution attempt."""
+        self.track_artifact("SpeculativeAttempt", attempt_info)
+        self.telemetry.increment("speculation.attempts")
+        if "accepted" in attempt_info:
+            self.telemetry.measure("speculation.accepted_tokens", attempt_info["accepted"])
+
+    def observe_verification(self, verification_info: Dict[str, Any]) -> None:
+        """Track a speculative execution verification result."""
+        self.track_artifact("SpeculativeVerification", verification_info)
+        self.telemetry.increment("speculation.verifications")
+
+
     def record_graph_metrics(self, stats):
         """Records graph statistics from the Graph Analysis Framework into telemetry."""
         self.telemetry.measure("graph.node_count", stats.node_count)

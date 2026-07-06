@@ -65,6 +65,12 @@ class RuntimeSession:
     observation_session: Optional[Any] = None
     generation_strategy: Optional[Any] = None
 
+    # Speculative Execution additions
+    speculative_context: Optional[Any] = None
+    verification_context: Optional[Any] = None
+    speculative_statistics: Optional[Any] = None
+    speculative_reports: List[Any] = field(default_factory=list)
+
     @classmethod
     def create(cls) -> "RuntimeSession":
         """Creates a default RuntimeSession without a preceding QueueSession."""
