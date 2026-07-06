@@ -43,6 +43,10 @@ class SpeculativeGenerationStrategy(GenerationStrategy):
     Speculative generation strategy using compiler-native speculative decoding.
     """
 
+        @property
+    def strategy_intent(self) -> str:
+        return "verification_memory_required"
+
     def generate(self, runtime: Any, request_context: Any, **kwargs) -> Any:
         max_tokens = kwargs.get("max_tokens", 10)
         sampler = kwargs.get("sampler", 0.0)

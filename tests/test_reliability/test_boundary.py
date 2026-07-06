@@ -27,6 +27,6 @@ def test_large_execution_hints():
     desc = resolver.resolve(additional_sources=[source])
 
     planner = ExecutionPlanner()
-    plan = planner.plan(desc)
+    plan = planner.plan(desc).execution_plan
     # Validate the plan correctly encapsulated all huge hints
     assert len(plan.execution_hints) == 10000

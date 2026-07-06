@@ -43,6 +43,7 @@ def test_planning_builder():
 
     planner = builder.build()
     result = planner.plan(request)
+    result = result.execution_plan
     assert result.success
 
 def test_backend_builder():

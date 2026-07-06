@@ -3,6 +3,9 @@ from typing import Optional, TYPE_CHECKING, Any
 from types import MappingProxyType
 from omlx.capabilities.descriptor import CapabilityDescriptor, ExecutionFamily
 from omlx.planner.plan import ExecutionPlan
+from omlx.planner.domains.bundle import PlanningBundle
+from omlx.planner.compiler.planner import CompilerPlanner
+
 from omlx.planner.passes import PassRegistry
 from omlx.planner.validation import validate_plan
 from omlx.planner.compiler.cache.utils import compute_cache_key
@@ -24,7 +27,7 @@ class ExecutionPlanner:
         self.cache_manager = cache_manager
         self.dependency_tracker = dependency_tracker
 
-    def plan(self, descriptor: CapabilityDescriptor) -> ExecutionPlan:
+    def plan(self, descriptor: CapabilityDescriptor, strategy_intent: Any = None) -> PlanningBundle:
         """Creates an ExecutionPlan from a CapabilityDescriptor."""
 
         cache_key = compute_cache_key("plan", descriptor)
@@ -79,7 +82,10 @@ class ExecutionPlanner:
                 if upstream_key:
                     self.dependency_tracker.record_dependency(upstream_key, cache_key)
 
-        return plan
+
+        compiler_planner = CompilerPlanner()
+        return compiler_planner.compose_bundle(descriptor, plan, strategy_intent=strategy_intent)
+
 
     def _select_backend(self, descriptor: CapabilityDescriptor) -> str:
         if descriptor.execution_family == ExecutionFamily.AUTOREGRESSIVE:

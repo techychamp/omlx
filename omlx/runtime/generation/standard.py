@@ -18,6 +18,10 @@ class StandardGenerationStrategy(GenerationStrategy):
     Standard generation strategy that preserves existing Runtime behavior.
     """
 
+        @property
+    def strategy_intent(self) -> str:
+        return "standard"
+
     def generate(self, runtime: Any, request_context: Any, **kwargs) -> Any:
         max_tokens = kwargs.get("max_tokens", 10)
         sampler = kwargs.get("sampler", 0.0)

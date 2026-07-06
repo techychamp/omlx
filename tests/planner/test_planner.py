@@ -16,7 +16,7 @@ def test_plan_autoregressive():
     )
 
     planner = ExecutionPlanner()
-    plan = planner.plan(descriptor)
+    plan = planner.plan(descriptor).execution_plan
 
     assert plan.execution_family == ExecutionFamily.AUTOREGRESSIVE
     assert plan.execution_backend == "autoregressive"
@@ -35,7 +35,7 @@ def test_plan_speculative():
     )
 
     planner = ExecutionPlanner()
-    plan = planner.plan(descriptor)
+    plan = planner.plan(descriptor).execution_plan
 
     assert plan.execution_family == ExecutionFamily.AUTOREGRESSIVE
     assert plan.execution_backend == "speculative"
@@ -50,7 +50,7 @@ def test_plan_diffusion():
     )
 
     planner = ExecutionPlanner()
-    plan = planner.plan(descriptor)
+    plan = planner.plan(descriptor).execution_plan
 
     assert plan.execution_family == ExecutionFamily.DIFFUSION
     assert plan.execution_backend == "diffusion"
@@ -67,7 +67,7 @@ def test_plan_embedding():
     )
 
     planner = ExecutionPlanner()
-    plan = planner.plan(descriptor)
+    plan = planner.plan(descriptor).execution_plan
 
     assert plan.execution_family == ExecutionFamily.EMBEDDING
     assert plan.execution_backend == "embedding"
@@ -90,7 +90,7 @@ def test_planning_pass():
         execution_family=ExecutionFamily.AUTOREGRESSIVE
     )
 
-    plan = planner.plan(descriptor)
+    plan = planner.plan(descriptor).execution_plan
 
     assert "test_pass" in plan.optimization_passes
     assert plan.execution_hints.get("test_pass_applied") is True
@@ -123,7 +123,7 @@ def test_immutable_plan():
     )
 
     planner = ExecutionPlanner()
-    plan = planner.plan(descriptor)
+    plan = planner.plan(descriptor).execution_plan
 
     with pytest.raises(Exception): # FrozenInstanceError
         plan.execution_backend = "something_else"

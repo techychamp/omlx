@@ -11,6 +11,7 @@ class ExecutionContext:
     """Immutable snapshot of the execution context."""
     request_context: Any = None
     execution_plan: Optional[Any] = None
+    planning_bundle: Optional[Any] = None
     logical_ir: Optional[Any] = None
     physical_ir: Optional[Any] = None
     backend_operation_graph: Optional[Any] = None

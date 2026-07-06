@@ -39,7 +39,7 @@ def test_planner_stress():
 
     start_time = time.time()
     for _ in range(5000):
-        plan = planner.plan(desc)
+        plan = planner.plan(desc).execution_plan
         assert plan.execution_family == ExecutionFamily.AUTOREGRESSIVE
     elapsed = time.time() - start_time
     assert elapsed < 10.0, f"ExecutionPlanner stress test failed, took {elapsed}s"

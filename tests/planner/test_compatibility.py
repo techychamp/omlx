@@ -21,7 +21,7 @@ def test_execution_profile_adapter_direct_mapping():
     )
 
     planner = ExecutionPlanner()
-    plan = planner.plan(descriptor)
+    plan = planner.plan(descriptor).execution_plan
 
     profile = ExecutionProfileAdapter.adapt(plan)
 
@@ -42,7 +42,7 @@ def test_execution_profile_adapter_defaults():
     )
 
     planner = ExecutionPlanner()
-    plan = planner.plan(descriptor)
+    plan = planner.plan(descriptor).execution_plan
 
     profile = ExecutionProfileAdapter.adapt(plan)
 

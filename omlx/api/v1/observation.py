@@ -1,7 +1,8 @@
 from typing import List, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
-class ObservationSummary(BaseModel, frozen=True):
+class ObservationSummary(BaseModel):
+    model_config = ConfigDict(frozen=True)
     session_id: str
     metrics: Dict[str, Any] = Field(default_factory=dict)
     status: str

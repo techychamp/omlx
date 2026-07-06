@@ -29,8 +29,8 @@ def test_planner_determinism():
     })
     desc = resolver.resolve(additional_sources=[source])
 
-    plan_1 = planner.plan(desc)
-    plan_2 = planner.plan(desc)
+    plan_1 = planner.plan(desc).execution_plan
+    plan_2 = planner.plan(desc).execution_plan
 
     # They shouldn't be identically the same object (though if we cache they might be)
     assert id(plan_1) != id(plan_2)

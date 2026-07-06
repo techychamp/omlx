@@ -19,6 +19,7 @@ class MockAdapter(BaseBackendAdapter):
     def validate(self, physical_ir): return None
     def translate(self, physical_ir): return None
     def supports_capability(self, capability): return True
+    def execute(self, graph, context): pass
 
 def create_mock_backend_descriptor(backend_id, latency, memory, family="mlx"):
     return BackendDescriptor(

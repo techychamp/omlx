@@ -3,24 +3,28 @@ from pydantic import BaseModel, Field, ConfigDict
 import asyncio
 from omlx.api.v1.exceptions import ConfigurationError
 
-class GenerateRequest(BaseModel, frozen=True):
+class GenerateRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
     model_id: str
     prompt: str
     max_tokens: int = 100
     temperature: float = 0.7
 
-class GenerateResponse(BaseModel, frozen=True):
+class GenerateResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
     text: str
     finish_reason: str
     tokens_generated: int
 
-class StreamRequest(BaseModel, frozen=True):
+class StreamRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
     model_id: str
     prompt: str
     max_tokens: int = 100
     temperature: float = 0.7
 
-class StreamResponse(BaseModel, frozen=True):
+class StreamResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
     text_chunk: str
     is_finished: bool
 

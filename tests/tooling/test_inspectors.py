@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 import pytest
+from omlx.api.v1 import RuntimeBuilder
 from omlx.tooling.framework.unified import get_tooling
 from omlx.tooling.inspector.execution_inspector import ExecutionInspector
 from omlx.tooling.inspector.backend_inspector import BackendInspector
