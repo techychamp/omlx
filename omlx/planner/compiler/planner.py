@@ -35,7 +35,7 @@ class CompilerPlanner:
         # In the integrated pipeline, GraphDescriptor, DependencyGraph, and GraphAnalysisReport
         # should be provided via the strategy_intent or a broader PlanningContext.
         # This fallback ensures backwards compatibility with tests that don't pass them.
-        graph_descriptor = getattr(strategy_intent, 'graph_descriptor', GraphDescriptor(id="planning_graph"))
+        graph_descriptor = getattr(strategy_intent, 'graph_descriptor', GraphDescriptor(id="planning_graph", nodes=(), edges=()))
         dependency_graph = getattr(strategy_intent, 'dependency_graph', DependencyGraph(operations={}))
         analysis_report = getattr(strategy_intent, 'analysis_report', GraphAnalysisReport())
 

@@ -4,6 +4,7 @@ from typing import Optional
 from omlx.planner.plan import ExecutionPlan
 from omlx.planner.device.artifacts import DevicePlan
 from omlx.planner.domains.batch.artifacts import BatchPlan
+from omlx.planner.domains.moe.artifacts import MoEPlan
 
 @dataclass(frozen=True)
 class CachePlan:
@@ -25,3 +26,4 @@ class PlanningBundle:
     memory_plan: Optional[MemoryPlan] = None
     verification_plan: Optional[VerificationPlan] = None
     batch_plan: Optional[BatchPlan] = None
+    moe_plan: Optional[MoEPlan] = None
