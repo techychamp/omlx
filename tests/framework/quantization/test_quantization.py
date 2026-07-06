@@ -1,5 +1,7 @@
 import pytest
+import concurrent.futures
 from types import MappingProxyType
+from omlx.framework.quantization.types import ValidationStatus
 from omlx.framework.quantization import (
     QuantizationFamily,
     QuantizationDescriptor,
@@ -11,7 +13,8 @@ from omlx.framework.quantization import (
     QuantizationCompatibilityFramework,
     QuantizationCostModel,
     QuantizationDiagnostics,
-    QuantizationStatistics
+    QuantizationStatistics,
+    QuantizationValidator
 )
 from omlx.framework.model_intelligence.descriptor import ModelDescriptor
 
@@ -35,6 +38,11 @@ def test_descriptor_immutability():
         supports_speculative_decoding=False,
         supported_backends=("mlx", "cuda"),
         supported_model_families=("llama",),
+        packing_information=None,
+        compression_metadata=MappingProxyType({}),
+        required_kernels=(),
+        hardware_requirements=(),
+        validation_status=ValidationStatus.UNKNOWN,
         metadata=MappingProxyType({"dummy": True}),
         planner_metadata=MappingProxyType({}),
         compiler_metadata=MappingProxyType({}),
@@ -92,6 +100,11 @@ def test_registry():
         supports_speculative_decoding=False,
         supported_backends=("mlx",),
         supported_model_families=("llama",),
+        packing_information=None,
+        compression_metadata=MappingProxyType({}),
+        required_kernels=(),
+        hardware_requirements=(),
+        validation_status=ValidationStatus.UNKNOWN,
         metadata=MappingProxyType({}),
         planner_metadata=MappingProxyType({}),
         compiler_metadata=MappingProxyType({}),
@@ -116,6 +129,11 @@ def test_registry():
         supports_speculative_decoding=False,
         supported_backends=("cuda",),
         supported_model_families=("mistral",),
+        packing_information=None,
+        compression_metadata=MappingProxyType({}),
+        required_kernels=(),
+        hardware_requirements=(),
+        validation_status=ValidationStatus.UNKNOWN,
         metadata=MappingProxyType({}),
         planner_metadata=MappingProxyType({}),
         compiler_metadata=MappingProxyType({}),
@@ -152,6 +170,11 @@ def test_compatibility():
         supports_speculative_decoding=False,
         supported_backends=("mlx",),
         supported_model_families=("llama",),
+        packing_information=None,
+        compression_metadata=MappingProxyType({}),
+        required_kernels=(),
+        hardware_requirements=(),
+        validation_status=ValidationStatus.UNKNOWN,
         metadata=MappingProxyType({}),
         planner_metadata=MappingProxyType({}),
         compiler_metadata=MappingProxyType({}),
@@ -214,6 +237,11 @@ def test_cost_model():
         supports_speculative_decoding=False,
         supported_backends=("mlx",),
         supported_model_families=("llama",),
+        packing_information=None,
+        compression_metadata=MappingProxyType({}),
+        required_kernels=(),
+        hardware_requirements=(),
+        validation_status=ValidationStatus.UNKNOWN,
         metadata=MappingProxyType({}),
         planner_metadata=MappingProxyType({}),
         compiler_metadata=MappingProxyType({}),
@@ -269,6 +297,11 @@ def test_diagnostics_and_statistics():
         supports_speculative_decoding=False,
         supported_backends=("mlx",),
         supported_model_families=("llama",),
+        packing_information=None,
+        compression_metadata=MappingProxyType({}),
+        required_kernels=(),
+        hardware_requirements=(),
+        validation_status=ValidationStatus.UNKNOWN,
         metadata=MappingProxyType({}),
         planner_metadata=MappingProxyType({}),
         compiler_metadata=MappingProxyType({}),
@@ -283,3 +316,96 @@ def test_diagnostics_and_statistics():
     res = stats.aggregate([desc, desc])
     assert res["total_count"] == 2
     assert res["family_distribution"][QuantizationFamily.INT4.value] == 2
+
+
+def test_new_formats_classification():
+    classifier = QuantizationClassifier()
+    assert classifier.classify_gguf({"general.file_type": 7}) == QuantizationFamily.Q8
+    assert classifier.classify_gguf({"general.file_type": 12}) == QuantizationFamily.Q6
+    assert classifier.classify_gguf({"general.file_type": 18}) == QuantizationFamily.Q4
+    assert classifier.classify_hf({"quantization_config": {"quant_method": "exl2"}}) == QuantizationFamily.EXL2
+    assert classifier.classify_hf({"quantization_config": {"quant_method": "oq"}}) == QuantizationFamily.OQ
+
+def test_validation():
+    validator = QuantizationValidator()
+
+    valid_desc = QuantizationDescriptor(
+        quantization_family=QuantizationFamily.INT4,
+        storage_precision="int4",
+        compute_precision="fp16",
+        weight_precision="int4",
+        activation_precision="fp16",
+        kv_cache_precision="fp16",
+        group_size=128,
+        block_size=None,
+        mixed_precision=False,
+        dynamic_quantization=False,
+        static_quantization=True,
+        per_channel=False,
+        per_group=True,
+        supports_streaming=True,
+        supports_batching=True,
+        supports_speculative_decoding=False,
+        supported_backends=("mlx",),
+        supported_model_families=("llama",),
+        packing_information=None,
+        compression_metadata=MappingProxyType({}),
+        required_kernels=(),
+        hardware_requirements=(),
+        validation_status=ValidationStatus.UNKNOWN,
+        metadata=MappingProxyType({"dummy": True}),
+        planner_metadata=MappingProxyType({}),
+        compiler_metadata=MappingProxyType({}),
+        backend_metadata=MappingProxyType({})
+    )
+
+    res = validator.validate_descriptor(valid_desc)
+    assert res["is_valid"]
+
+    invalid_desc = QuantizationDescriptor(
+        quantization_family=QuantizationFamily.UNKNOWN,
+        storage_precision="unknown",
+        compute_precision="fp16",
+        weight_precision="unknown",
+        activation_precision="fp16",
+        kv_cache_precision="fp16",
+        group_size=-5,
+        block_size=None,
+        mixed_precision=False,
+        dynamic_quantization=False,
+        static_quantization=True,
+        per_channel=False,
+        per_group=True,
+        supports_streaming=True,
+        supports_batching=True,
+        supports_speculative_decoding=False,
+        supported_backends=("mlx",),
+        supported_model_families=("llama",),
+        packing_information=None,
+        compression_metadata=MappingProxyType({}),
+        required_kernels=(),
+        hardware_requirements=(),
+        validation_status=ValidationStatus.UNKNOWN,
+        metadata=MappingProxyType({}),
+        planner_metadata=MappingProxyType({}),
+        compiler_metadata=MappingProxyType({}),
+        backend_metadata=MappingProxyType({})
+    )
+
+    res = validator.validate_descriptor(invalid_desc)
+    assert not res["is_valid"]
+    assert len(res["errors"]) > 0
+
+def test_thread_safety():
+    normalizer = QuantizationNormalizer()
+
+    def process_metadata(i):
+        metadata = {"quantization_config": {"quant_method": "awq", "group_size": i}}
+        return normalizer.normalize_hf(metadata)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(process_metadata, i) for i in range(1, 101)]
+        results = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+    assert len(results) == 100
+    assert all(r.quantization_family == QuantizationFamily.AWQ for r in results)

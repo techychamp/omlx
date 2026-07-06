@@ -16,6 +16,7 @@ from .compatibility import QuantizationCompatibilityFramework
 from .cost_model import QuantizationCostModel
 from .diagnostics import QuantizationDiagnostics
 from .statistics import QuantizationStatistics
+from .validation import QuantizationValidator
 
 __all__ = [
     "QuantizationFamily",
@@ -28,5 +29,6 @@ __all__ = [
     "QuantizationCompatibilityFramework",
     "QuantizationCostModel",
     "QuantizationDiagnostics",
-    "QuantizationStatistics"
+    "QuantizationStatistics",
+    "QuantizationValidator"
 ]

@@ -4,7 +4,7 @@ Quantization Capability Extractor.
 """
 
 from typing import Dict, Any, Tuple
-from .types import QuantizationFamily
+from .types import QuantizationFamily, ValidationStatus
 
 class QuantizationCapabilityExtractor:
     """
@@ -29,18 +29,45 @@ class QuantizationCapabilityExtractor:
             "batching_support": True,
             "speculative_support": False,
             "backend_compatibility": tuple(),
-            "model_compatibility": tuple()
+            "model_compatibility": tuple(),
+            "packing_information": None,
+            "compression_metadata": {},
+            "required_kernels": tuple(),
+            "hardware_requirements": tuple(),
+            "validation_status": ValidationStatus.UNKNOWN
         }
 
         # Simple extraction logic
-        if family in (QuantizationFamily.INT4, QuantizationFamily.AWQ, QuantizationFamily.GPTQ):
+        if family in (QuantizationFamily.INT4, QuantizationFamily.AWQ, QuantizationFamily.GPTQ, QuantizationFamily.EXL2, QuantizationFamily.Q4):
+            if family == QuantizationFamily.EXL2:
+                capabilities["mixed_precision"] = True
+            if family in (QuantizationFamily.AWQ, QuantizationFamily.GPTQ, QuantizationFamily.EXL2):
+                capabilities["required_kernels"] = (f"{family.value.lower()}_gemm",)
+
             capabilities["weight_precision"] = "int4"
             capabilities["storage_precision"] = "int4"
             capabilities["compute_precision"] = "fp16"
-        elif family == QuantizationFamily.INT8:
+        elif family in (QuantizationFamily.INT8, QuantizationFamily.Q8):
             capabilities["weight_precision"] = "int8"
             capabilities["storage_precision"] = "int8"
             capabilities["compute_precision"] = "fp16"
+        elif family in (QuantizationFamily.Q6, QuantizationFamily.Q5, QuantizationFamily.Q3, QuantizationFamily.Q2):
+            capabilities["weight_precision"] = f"int{family.value[-1]}"
+            capabilities["storage_precision"] = "int8" # often stored in 8-bit containers or packed
+            capabilities["compute_precision"] = "fp16"
+            capabilities["packing_information"] = "packed"
+        elif family == QuantizationFamily.OQ:
+            capabilities["weight_precision"] = "oq"
+            capabilities["storage_precision"] = "oq"
+            capabilities["compute_precision"] = "fp16"
+        elif family in (QuantizationFamily.FP16, QuantizationFamily.BF16):
+            capabilities["weight_precision"] = family.value.lower()
+            capabilities["storage_precision"] = family.value.lower()
+            capabilities["compute_precision"] = family.value.lower()
+        elif family == QuantizationFamily.FP32:
+            capabilities["weight_precision"] = "fp32"
+            capabilities["storage_precision"] = "fp32"
+            capabilities["compute_precision"] = "fp32"
 
         if "quantization" in metadata and isinstance(metadata["quantization"], dict):
             q = metadata["quantization"]

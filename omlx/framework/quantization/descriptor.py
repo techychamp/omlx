@@ -6,7 +6,7 @@ Immutable Quantization Descriptor.
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, Tuple, Optional
-from .types import QuantizationFamily
+from .types import QuantizationFamily, ValidationStatus
 
 @dataclass(frozen=True)
 class QuantizationDescriptor:
@@ -31,6 +31,11 @@ class QuantizationDescriptor:
     supports_speculative_decoding: bool
     supported_backends: Tuple[str, ...]
     supported_model_families: Tuple[str, ...]
+    packing_information: Optional[str]
+    compression_metadata: MappingProxyType[str, Any]
+    required_kernels: Tuple[str, ...]
+    hardware_requirements: Tuple[str, ...]
+    validation_status: ValidationStatus
     metadata: MappingProxyType[str, Any]
     planner_metadata: MappingProxyType[str, Any]
     compiler_metadata: MappingProxyType[str, Any]
@@ -40,6 +45,15 @@ class QuantizationDescriptor:
         # Enforce strict immutability types for collections
         if not isinstance(self.supported_backends, tuple):
             object.__setattr__(self, 'supported_backends', tuple(self.supported_backends))
+
+        if not isinstance(self.required_kernels, tuple):
+            object.__setattr__(self, 'required_kernels', tuple(self.required_kernels))
+
+        if not isinstance(self.hardware_requirements, tuple):
+            object.__setattr__(self, 'hardware_requirements', tuple(self.hardware_requirements))
+
+        if not isinstance(self.compression_metadata, MappingProxyType):
+            object.__setattr__(self, 'compression_metadata', MappingProxyType(self.compression_metadata))
 
         if not isinstance(self.supported_model_families, tuple):
             object.__setattr__(self, 'supported_model_families', tuple(self.supported_model_families))

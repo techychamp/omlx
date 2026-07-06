@@ -6,7 +6,7 @@ Quantization Metadata Normalizer.
 from typing import Dict, Any, Optional, Tuple
 from types import MappingProxyType
 from .descriptor import QuantizationDescriptor
-from .types import QuantizationFamily
+from .types import QuantizationFamily, ValidationStatus
 from .classifier import QuantizationClassifier
 from .extractor import QuantizationCapabilityExtractor
 
@@ -39,6 +39,11 @@ class QuantizationNormalizer:
             supports_speculative_decoding=capabilities.get("speculative_support", False),
             supported_backends=capabilities.get("backend_compatibility", tuple()),
             supported_model_families=capabilities.get("model_compatibility", tuple()),
+            packing_information=capabilities.get("packing_information"),
+            compression_metadata=MappingProxyType(capabilities.get("compression_metadata", {})),
+            required_kernels=capabilities.get("required_kernels", tuple()),
+            hardware_requirements=capabilities.get("hardware_requirements", tuple()),
+            validation_status=capabilities.get("validation_status", ValidationStatus.UNKNOWN),
             metadata=MappingProxyType(metadata),
             planner_metadata=MappingProxyType({}),
             compiler_metadata=MappingProxyType({}),
