@@ -16,6 +16,7 @@ from .diagnostics import DiagnosticsRunner, DiagnosticsResult, DiagnosticIssue
 from .tooling import ToolingManager, ToolingResult, ReplayResult, ReplayEvent, ToolOutput
 from .compatibility import CompatibilityReport, check_api_compatibility
 from .exceptions import (
+    OMLXRuntimeError,
     OmlxError, CompilerError, PlanningError, BackendError,
     VerificationError, PluginError, ConfigurationError,
     ValidationError, DiagnosticsError
@@ -60,5 +61,6 @@ __all__ = [
     # Exceptions
     "OmlxError", "CompilerError", "PlanningError", "BackendError",
     "VerificationError", "PluginError", "ConfigurationError",
-    "ValidationError", "DiagnosticsError"
+    "ValidationError", "DiagnosticsError", "OMLXRuntimeError", "OMLXClient", "SessionDescriptor"
 ]
+from .client import OMLXClient, SessionDescriptor
