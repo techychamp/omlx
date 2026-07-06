@@ -11,7 +11,16 @@ class CapabilityExtractor:
     """
     Extracts capabilities strictly from metadata without loading weights.
     """
+    def __init__(self):
+        self._cache: Dict[str, Dict[str, Any]] = {}
+
     def extract(self, normalized_config: Dict[str, Any], arch: str, family: str) -> Dict[str, Any]:
+        # Simple caching mechanism based on a hash of the normalized config
+        # In a real implementation, we'd use a deterministic hash of the metadata
+        cache_key = f"{arch}_{family}_{hash(frozenset(normalized_config.keys()))}"
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
         caps = {
             "kv_cache_support": False,
             "speculative_support": False,
@@ -30,7 +39,7 @@ class CapabilityExtractor:
         model_type = normalized_config.get("model_type", "").lower()
 
         # KV Cache & Streaming are common for autoregressive text generation
-        if family == "Autoregressive" or family == "Vision-Language" or family == "Audio":
+        if family in ["Autoregressive", "Vision-Language", "Audio", "Mixture of Experts"]:
             caps["kv_cache_support"] = True
             caps["streaming_support"] = True
 
@@ -55,13 +64,14 @@ class CapabilityExtractor:
             caps["audio_support"] = True
 
         # Tool Calling (heuristics based on chat templates or specific models)
-        if "chat_template" in normalized_config.get("tokenizer", {}):
-            template = str(normalized_config["tokenizer"]["chat_template"]).lower()
+        tokenizer = normalized_config.get("tokenizer", {})
+        if "chat_template" in tokenizer:
+            template = str(tokenizer["chat_template"]).lower()
             if "tool" in template or "function" in template:
                 caps["tool_support"] = True
 
         # Embeddings & Reranking
-        if "embedding" in model_type:
+        if "embedding" in model_type or family == "Encoder":
             caps["embedding_support"] = True
         if "rerank" in model_type:
             caps["reranking_support"] = True
@@ -70,4 +80,5 @@ class CapabilityExtractor:
         if "quantization_config" in normalized_config:
             caps["quantization_support"] = True
 
+        self._cache[cache_key] = caps
         return caps

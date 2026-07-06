@@ -22,23 +22,62 @@ class ModelClassifier:
         if isinstance(arch, list) and arch:
             arch = arch[0]
 
-        arch = str(arch).lower()
-        if "llama" in arch:
-            return "Transformer"
-        elif "qwen" in arch:
-            return "Transformer"
-        elif "mistral" in arch or "mixtral" in arch:
-            return "Transformer"
-        elif "bert" in arch or "roberta" in arch:
-            return "Transformer"
-        elif "unet" in arch:
+        arch_lower = str(arch).lower()
+        if "llama" in arch_lower:
+            return "Llama"
+        elif "qwen" in arch_lower:
+            return "Qwen"
+        elif "mistral" in arch_lower or "mixtral" in arch_lower:
+            return "Mistral"
+        elif "bert" in arch_lower or "roberta" in arch_lower:
+            return "BERT"
+        elif "unet" in arch_lower:
             return "UNet"
-        elif "dit" in arch:
+        elif "dit" in arch_lower:
             return "DiT"
-        elif "whisper" in arch:
+        elif "whisper" in arch_lower:
+            return "Whisper"
+        elif "mamba" in arch_lower or "ssm" in arch_lower:
+             return "SSM"
+        return str(arch)
+
+    def classify_architecture_family(self, arch: str) -> str:
+        arch_lower = str(arch).lower()
+        if arch_lower in ["llama", "qwen", "mistral", "gemma", "phi"]:
             return "Transformer"
-        elif "moe" in arch:
-             return "MoE"
+        if arch_lower in ["bert", "roberta"]:
+            return "Encoder-only Transformer"
+        if arch_lower in ["t5", "bart"]:
+            return "Encoder-Decoder Transformer"
+        if arch_lower in ["mamba", "jamba"]:
+            return "State Space Model"
+        if "unet" in arch_lower or "dit" in arch_lower:
+            return "Diffusion"
+        return "Unknown"
+
+    def classify_architecture_generation(self, arch: str, config: Dict[str, Any]) -> str:
+        # A simple heuristic to detect generations like "Llama 3" or "Qwen 2.5"
+        # Since this usually isn't strongly typed in metadata, we might fall back to Unknown
+        model_type = str(config.get("model_type", "")).lower()
+        if "llama" in model_type:
+            if "3.1" in model_type: return "Llama 3.1"
+            if "3" in model_type: return "Llama 3"
+            if "2" in model_type: return "Llama 2"
+        if "qwen2.5" in model_type: return "Qwen 2.5"
+        if "qwen2" in model_type: return "Qwen 2"
+        return "Unknown"
+
+    def classify_tokenizer_family(self, tokenizer_config: Dict[str, Any], tokenizer_json: Dict[str, Any]) -> str:
+        if "LlamaTokenizer" in str(tokenizer_config.get("tokenizer_class", "")):
+            return "BPE (Llama)"
+        if "tiktoken" in str(tokenizer_config.get("tokenizer_class", "")).lower():
+            return "Tiktoken"
+        if "Qwen2Tokenizer" in str(tokenizer_config.get("tokenizer_class", "")):
+            return "BPE (Qwen)"
+        # Fallback to model type inspecting tokenizer
+        if "model" in tokenizer_json:
+             model_type = tokenizer_json["model"].get("type", "Unknown")
+             return model_type
         return "Unknown"
 
     def classify_family(self, config: Dict[str, Any], arch: str) -> str:
@@ -46,26 +85,30 @@ class ModelClassifier:
         Detects the model family.
         """
         model_type = str(config.get("model_type", "")).lower()
+        arch_family = self.classify_architecture_family(arch)
 
         # Audio
-        if "whisper" in model_type or "qwen2_audio" in model_type:
+        if "whisper" in model_type or "qwen2_audio" in model_type or "audio" in model_type:
              return "Audio"
 
         # Vision
-        if "llava" in model_type or "qwen2_vl" in model_type or "vision" in model_type:
+        if "llava" in model_type or "qwen2_vl" in model_type or "vision" in model_type or "pixtral" in model_type:
             return "Vision-Language"
 
         # MoE
-        if "mixtral" in model_type or "dbrx" in model_type or "moe" in model_type or config.get("num_experts", 0) > 0:
+        if "mixtral" in model_type or "dbrx" in model_type or "moe" in model_type or config.get("num_experts", 0) > 0 or config.get("num_local_experts", 0) > 0:
             return "Mixture of Experts"
 
         # Diffusion (simple heuristic for now)
-        if "unet" in arch.lower() or "dit" in arch.lower():
+        if arch_family == "Diffusion":
             return "Diffusion"
 
         # Encoder/Embedding
-        if "bert" in model_type or "embedding" in model_type:
+        if "bert" in model_type or "embedding" in model_type or arch_family == "Encoder-only Transformer":
             return "Encoder"
+
+        if "mamba" in model_type or arch_family == "State Space Model":
+            return "SSM"
 
         # Default LLM
         return "Autoregressive"
@@ -74,10 +117,14 @@ class ModelClassifier:
         model_type = str(config.get("model_type", "")).lower()
         if "embedding" in model_type or family == "Encoder":
             return "Embedding"
+        if "rerank" in model_type:
+            return "Reranking"
         if family == "Audio":
             return "Speech-to-Text"
         if family == "Vision-Language":
              return "Multimodal"
+        if family == "Diffusion":
+             return "Image-Generation"
         return "Text-Generation"
 
     def classify_modality(self, family: str, task: str) -> str:
@@ -85,6 +132,8 @@ class ModelClassifier:
             return "Audio"
         if family == "Vision-Language":
              return "Text+Image"
+        if family == "Diffusion":
+             return "Text-to-Image"
         return "Text"
 
     def classify(self, normalized_config: Dict[str, Any]) -> Tuple[str, str, str, str]:

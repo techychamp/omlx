@@ -67,6 +67,30 @@ class ModelRegistry:
                 if d.architecture == architecture
             ]
 
+    def query_by_backend_suitability(self, backend: str) -> List[ModelDescriptor]:
+        """Queries for models suitable for a specific backend."""
+        with self._lock:
+            return [
+                d for d in self._descriptors.values()
+                if backend in d.backend_requirements
+            ]
+
+    def query_by_quantization(self, quantization_supported: bool) -> List[ModelDescriptor]:
+        """Queries for models by quantization support."""
+        with self._lock:
+            return [
+                d for d in self._descriptors.values()
+                if d.quantization_support == quantization_supported
+            ]
+
+    def query_by_license(self, license_name: str) -> List[ModelDescriptor]:
+        """Queries for models by license."""
+        with self._lock:
+            return [
+                d for d in self._descriptors.values()
+                if d.license == license_name
+            ]
+
     def get_all(self) -> List[ModelDescriptor]:
         """Gets all descriptors."""
         with self._lock:

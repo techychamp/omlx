@@ -4,8 +4,19 @@ Diagnostics generation.
 """
 
 from typing import Dict, Any, List
+from dataclasses import dataclass
 from omlx.framework.model_intelligence.descriptor import ModelDescriptor
 from omlx.framework.model_intelligence.registry import ModelRegistry
+
+@dataclass(frozen=True)
+class ModelDiagnostic:
+    """Structured, passive diagnostic for a model."""
+    severity: str # "INFO", "WARNING", "ERROR"
+    category: str # e.g., "Architecture", "Capability", "Compatibility"
+    component: str # e.g., "ModelClassifier", "CompatibilityAnalyzer"
+    message: str
+    recommendation: str
+    metadata: Dict[str, Any]
 
 class DiagnosticsGenerator:
     """
@@ -13,6 +24,46 @@ class DiagnosticsGenerator:
     """
     def __init__(self, registry: ModelRegistry):
         self.registry = registry
+
+    def generate_diagnostics(self, model_id: str) -> List[ModelDiagnostic]:
+        """Generates a list of structured diagnostics for a specific model."""
+        descriptor = self.registry.get(model_id)
+        if not descriptor:
+            return [ModelDiagnostic(
+                severity="ERROR",
+                category="Discovery",
+                component="Registry",
+                message=f"Model {model_id} not found in registry.",
+                recommendation="Ensure model is discovered and registered.",
+                metadata={"model_id": model_id}
+            )]
+
+        diagnostics = []
+
+        # Check architecture
+        if descriptor.architecture == "Unknown":
+            diagnostics.append(ModelDiagnostic(
+                severity="WARNING",
+                category="Architecture",
+                component="ModelClassifier",
+                message="Unknown architecture detected.",
+                recommendation="Add support for this architecture in ModelClassifier.",
+                metadata={"model_id": model_id}
+            ))
+
+        # Check compatibility
+        report = descriptor.compatibility_report
+        if not report.get("runtime_compatible", True):
+             diagnostics.append(ModelDiagnostic(
+                severity="ERROR",
+                category="Compatibility",
+                component="CompatibilityAnalyzer",
+                message="Model is not compatible with the Runtime.",
+                recommendation=report.get("details", {}).get("reason", "Check compatibility details."),
+                metadata={"model_id": model_id}
+            ))
+
+        return diagnostics
 
     def generate_model_summary(self, model_id: str) -> Dict[str, Any]:
         """Generates a summary for a specific model."""

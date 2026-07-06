@@ -53,7 +53,12 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional, Union
 
-from fastapi import Depends, FastAPI, HTTPException
+import logging
+try:
+    from fastapi import Depends, FastAPI, HTTPException
+except ImportError:
+    Depends = FastAPI = HTTPException = None
+    logging.warning("FastAPI not available, server modules will not function.")
 from fastapi import Request as FastAPIRequest
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
