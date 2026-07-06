@@ -76,6 +76,7 @@ class Observer:
         self.telemetry.measure("graph.leaf_count", stats.leaf_count)
         self.telemetry.measure("graph.max_depth", stats.max_depth)
         self.telemetry.measure("graph.average_branching_factor", stats.average_branching_factor)
+        self.track_artifact("GraphStatistics", stats)
 
     def add_diagnostic(self, message: str):
         with self._lock:
