@@ -19,6 +19,8 @@ from omlx.framework.model_intelligence.normalizer import MetadataNormalizer
 logger = logging.getLogger(__name__)
 
 class ModelDiscoveryFramework:
+    _cache: Dict[str, ModelDescriptor] = {}
+
     def __init__(self):
         self.classifier = ModelClassifier()
         self.extractor = CapabilityExtractor()
@@ -40,6 +42,10 @@ class ModelDiscoveryFramework:
         Does not load model weights.
         """
         model_dir = Path(model_dir)
+        cache_key = f"{model_id}:{model_dir}"
+
+        if cache_key in self._cache:
+            return self._cache[cache_key]
 
         # 1. Read Raw Metadata
         raw_config = self._read_json(model_dir / "config.json")
@@ -95,4 +101,5 @@ class ModelDiscoveryFramework:
             compiler_metadata=normalized.get("compiler_metadata", {})
         )
 
+        self._cache[cache_key] = descriptor
         return descriptor
