@@ -2,6 +2,7 @@ from typing import Any, Dict, Optional
 from pydantic import BaseModel, Field
 import asyncio
 from omlx.api.v1.exceptions import CompilerError
+from omlx.api.v1.generation import RuntimeRequest
 import logging
 
 logger = logging.getLogger("omlx.api.v1.compiler")
@@ -21,10 +22,6 @@ class CompilerRequest(BaseModel, frozen=True):
     model_id: str
     target_backend: str = "mlx"
     optimizations: Dict[str, bool] = Field(default_factory=dict)
-
-class RequestContextShim:
-    def __init__(self, model_id: str):
-        self.model = model_id
 
 class CompilerService:
     def __init__(self, internal_runtime: Any = None):
@@ -47,8 +44,8 @@ class CompilerService:
 
             # Delegate to runtime compiler service if available
             if self._internal_compiler:
-                ctx = RequestContextShim(request.model_id)
-                res = self._internal_compiler.run_compilation(request.model_id, ctx)
+                req = RuntimeRequest(model=request.model_id, prompt="")
+                res = self._internal_compiler.run_compilation(request.model_id, req)
 
                 node_count = 0
                 has_translation = False

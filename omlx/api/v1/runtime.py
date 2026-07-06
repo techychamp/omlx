@@ -35,7 +35,8 @@ class RuntimeService:
 class RuntimeBuilder:
     def __init__(self):
         self._settings = {}
-        self._feature_flags = {}
+        # Changed to construct FeatureFlags explicitly
+        self._feature_flags = FeatureFlags()
         self._internal_builder = InternalRuntimeBuilder()
 
     def configure(self, settings: Dict[str, Any]) -> 'RuntimeBuilder':
@@ -44,15 +45,16 @@ class RuntimeBuilder:
         return self
 
     def enable(self, feature: str) -> 'RuntimeBuilder':
-        self._feature_flags[feature] = True
+        if hasattr(self._feature_flags, feature):
+            setattr(self._feature_flags, feature, True)
         return self
 
     def disable(self, feature: str) -> 'RuntimeBuilder':
-        self._feature_flags[feature] = False
+        if hasattr(self._feature_flags, feature):
+            setattr(self._feature_flags, feature, False)
         return self
 
     def build(self) -> RuntimeService:
-        ff = FeatureFlags.from_env()
-        self._internal_builder.with_feature_flags(ff)
+        self._internal_builder.with_feature_flags(self._feature_flags)
         internal_runtime = self._internal_builder.build()
         return RuntimeService(internal_runtime)

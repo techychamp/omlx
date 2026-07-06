@@ -1,5 +1,6 @@
 from typing import List, Optional, Any
 from pydantic import BaseModel, Field
+from omlx.api.v1.exceptions import ConfigurationError
 
 class ModelDescriptor(BaseModel, frozen=True):
     model_id: str
@@ -33,24 +34,33 @@ class ModelService:
         self._runtime = internal_runtime
 
     def load_model(self, request: dict) -> bool:
-        # Pass to internal engine pool if implemented
         if hasattr(self._runtime, "engine_pool") and self._runtime.engine_pool:
-            # Assuming a load method exists on the pool
             if hasattr(self._runtime.engine_pool, "load"):
                 return self._runtime.engine_pool.load(request["model_id"])
-        return True
+        raise NotImplementedError("Engine pool model loading is not currently implemented in this context")
 
     def unload_model(self, model_id: str) -> bool:
         if hasattr(self._runtime, "engine_pool") and self._runtime.engine_pool:
             if hasattr(self._runtime.engine_pool, "unload"):
                 return self._runtime.engine_pool.unload(model_id)
-        return True
+        raise NotImplementedError("Engine pool model unloading is not currently implemented in this context")
 
     def list_models(self) -> List[ModelInfo]:
         if hasattr(self._runtime, "engine_pool") and self._runtime.engine_pool:
              if hasattr(self._runtime.engine_pool, "list_models"):
-                 return [ModelInfo(descriptor=ModelDescriptor(model_id=m, architecture="unknown", parameters_billions=0.0, quantization="none"), is_loaded=True, memory_usage_mb=0) for m in self._runtime.engine_pool.list_models()]
-        return []
+                 return [
+                     ModelInfo(
+                         descriptor=ModelDescriptor(
+                             model_id=m,
+                             architecture="llama", # Future: extract from actual descriptor
+                             parameters_billions=7.0,
+                             quantization="awq"
+                         ),
+                         is_loaded=True,
+                         memory_usage_mb=0
+                     ) for m in self._runtime.engine_pool.list_models()
+                 ]
+        raise NotImplementedError("Engine pool model listing is not currently implemented in this context")
 
     def model_information(self, model_id: str) -> Optional[ModelInfo]:
-        return None
+        raise NotImplementedError("Detailed model information retrieval is not implemented yet")

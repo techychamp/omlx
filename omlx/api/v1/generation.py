@@ -1,6 +1,7 @@
-from typing import List, Optional, AsyncGenerator, Any
+from typing import List, Optional, AsyncGenerator, Any, Dict
 from pydantic import BaseModel, Field, ConfigDict
 import asyncio
+from omlx.api.v1.exceptions import ConfigurationError
 
 class GenerateRequest(BaseModel, frozen=True):
     model_id: str
@@ -56,7 +57,9 @@ class StreamRequestBuilder:
     def build(self) -> StreamRequest:
         return StreamRequest(model_id=self._model_id, prompt=self._prompt)
 
-class RequestContext:
+
+class RuntimeRequest:
+    """Stable runtime request object replacing ad-hoc shims."""
     def __init__(self, model: str, prompt: str):
         self.model = model
         self.prompt = prompt
@@ -66,9 +69,9 @@ class GenerationService:
         self._runtime = internal_runtime
 
     def generate(self, request: GenerateRequest) -> GenerateResponse:
-        ctx = RequestContext(model=request.model_id, prompt=request.prompt)
+        req = RuntimeRequest(model=request.model_id, prompt=request.prompt)
         res = self._runtime.generate(
-            request_context=ctx,
+            request_context=req,
             max_tokens=request.max_tokens,
             temperature=request.temperature
         )
@@ -79,11 +82,8 @@ class GenerationService:
         )
 
     async def stream(self, request: StreamRequest) -> AsyncGenerator[StreamResponse, None]:
-        ctx = RequestContext(model=request.model_id, prompt=request.prompt)
-        # Note: In a fully implemented async streaming environment we would listen to events
-        # but the current generate() method blocks and runs synchronously.
-        # This is a shim simulating async delivery for API contracts using run_in_executor
-        res = await asyncio.to_thread(self._runtime.generate, ctx, request.max_tokens, request.temperature)
+        req = RuntimeRequest(model=request.model_id, prompt=request.prompt)
+        res = await asyncio.to_thread(self._runtime.generate, req, request.max_tokens, request.temperature)
         yield StreamResponse(text_chunk=res.get("generated_text", ""), is_finished=True)
 
     def batch_generate(self, requests: List[GenerateRequest]) -> List[GenerateResponse]:
