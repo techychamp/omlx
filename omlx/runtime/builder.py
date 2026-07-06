@@ -182,6 +182,7 @@ class Runtime:
         temperature: float = 0.0,
     ) -> Any:
         import time
+        import uuid
         try:
             import mlx.core as mx
         except ImportError:
@@ -189,66 +190,94 @@ class Runtime:
 
         from omlx.runtime.streaming.types import StreamingToken, StreamCompletion
         from omlx.runtime.streaming.events import StreamingEvent, StreamingEventType
-        from omlx.runtime.observability import get_observer
+        from omlx.runtime.observability import get_observer, set_observer, reset_observer, Observer
+        from omlx.runtime.events import Event, RuntimeLifecycleEvent, EventCategory
 
-        model_id, prompt, model, tokenizer = self._prepare_generation_context(request_context)
-        translation_result = self._compile_request(model_id, request_context)
-        backend_op_graph = getattr(translation_result, "backend_graph", getattr(translation_result, "backend_operation_graph", None))
-        adapter = self._resolve_adapter(translation_result)
+        run_id = str(uuid.uuid4())
+        session_observer = Observer(run_id=run_id)
+        set_observer(session_observer)
 
-        session = self.streaming_controller.create_session()
-        input_ids = tokenizer.encode(prompt)
+        try:
+            model_id, prompt, model, tokenizer = self._prepare_generation_context(request_context)
+            translation_result = self._compile_request(model_id, request_context)
+            backend_op_graph = getattr(translation_result, "backend_graph", getattr(translation_result, "backend_operation_graph", None))
+            adapter = self._resolve_adapter(translation_result)
 
-        generated_tokens = []
-        generated_text = ""
+            session = self.streaming_controller.create_session()
+            input_ids = tokenizer.encode(prompt)
 
-        with get_observer().observe_phase("Execution", "Runtime", "generate"):
-            try:
-                for step in range(max_tokens):
-                    execution_result = self._execute_forward_pass(
-                        backend_op_graph, input_ids, translation_result, adapter, model, tokenizer
-                    )
+            generated_tokens = []
+            generated_text = ""
+            status = "success"
 
-                    if execution_result.status.value == "failed":
-                        raise RuntimeError("Execution failed")
+            with get_observer().observe_phase("Execution", "Runtime", "generate"):
+                try:
+                    for step in range(max_tokens):
+                        execution_result = self._execute_forward_pass(
+                            backend_op_graph, input_ids, translation_result, adapter, model, tokenizer
+                        )
 
-                    next_token, token_text = self._sample_token(execution_result, temperature, mx)
+                        if execution_result.status.value == "failed":
+                            raise RuntimeError("Execution failed")
 
-                    if token_text is None:
-                        token_text = tokenizer.decode([next_token])
+                        next_token, token_text = self._sample_token(execution_result, temperature, mx)
 
-                    generated_tokens.append(next_token)
-                    generated_text += token_text
+                        if token_text is None:
+                            token_text = tokenizer.decode([next_token])
 
-                    stream_token = StreamingToken(
-                        token_id=next_token,
-                        decoded_text=token_text,
-                        timestamp=time.time(),
-                        sequence_index=step
-                    )
+                        generated_tokens.append(next_token)
+                        generated_text += token_text
 
-                    self.streaming_controller.publish_event(session.session_id, StreamingEvent(
-                        event_type=StreamingEventType.TOKEN_GENERATED,
-                        timestamp=time.time(),
-                        payload={"token": stream_token}
-                    ))
+                        stream_token = StreamingToken(
+                            token_id=next_token,
+                            decoded_text=token_text,
+                            timestamp=time.time(),
+                            sequence_index=step
+                        )
 
-                    input_ids.append(next_token)
+                        self.streaming_controller.publish_event(session.session_id, StreamingEvent(
+                            event_type=StreamingEventType.TOKEN_GENERATED,
+                            timestamp=time.time(),
+                            payload={"token": stream_token}
+                        ))
 
-                    if hasattr(tokenizer, "eos_token_id") and next_token == tokenizer.eos_token_id:
-                        break
+                        input_ids.append(next_token)
 
-                self.streaming_controller.complete_session(session.session_id, StreamCompletion.SUCCESS)
+                        if hasattr(tokenizer, "eos_token_id") and next_token == tokenizer.eos_token_id:
+                            break
 
-            except Exception as e:
-                self.streaming_controller.complete_session(session.session_id, StreamCompletion.ERROR, e)
-                get_observer().track_event("ExecutionError", {"error": str(e)})
+                    self.streaming_controller.complete_session(session.session_id, StreamCompletion.SUCCESS)
 
-        return {
-            "generated_text": generated_text,
-            "tokens": generated_tokens,
-            "session": session
-        }
+                except Exception as e:
+                    status = "failed"
+                    self.streaming_controller.complete_session(session.session_id, StreamCompletion.ERROR, e)
+                    get_observer().add_diagnostic(f"Execution Error: {str(e)}")
+                    # don't re-raise as we need to return the session
+
+            end_time = time.time()
+            observation_session = session_observer.build_session(
+                end_time=end_time,
+                status=status,
+                generated_tokens=generated_tokens,
+                statistics={"total_tokens": len(generated_tokens), "max_tokens": max_tokens}
+            )
+
+            # Publish the ObservationSession to the event bus
+            if hasattr(self, 'event_bus'):
+                self.event_bus.publish(Event(
+                    type="observation_session_completed",
+                    category=EventCategory.RUNTIME,
+                    payload={"session": observation_session}
+                ))
+
+            return {
+                "generated_text": generated_text,
+                "tokens": generated_tokens,
+                "session": session,
+                "observation_session": observation_session
+            }
+        finally:
+            reset_observer()
 
     def execute_request(self, request_context: Any) -> Any:
         """

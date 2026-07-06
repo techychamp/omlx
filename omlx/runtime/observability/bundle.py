@@ -36,18 +36,31 @@ def _serialize(obj: Any) -> Any:
 
 class BundleExporter:
     @staticmethod
-    def export(observer: Any, output_dir: str):
+    def export(observer_or_session: Any, output_dir: str):
         os.makedirs(output_dir, exist_ok=True)
 
+        if hasattr(observer_or_session, 'get_trace'):
+            trace = observer_or_session.get_trace()
+            telemetry = observer_or_session.get_telemetry()
+            bundle = observer_or_session.get_artifacts()
+            timeline = observer_or_session.get_timeline() if hasattr(observer_or_session, 'get_timeline') else None
+        else:
+            trace = observer_or_session.trace
+            telemetry = observer_or_session.telemetry
+            bundle = observer_or_session.artifacts
+            timeline = observer_or_session.timeline
+
         # Export Trace
-        trace = observer.get_trace()
         with open(os.path.join(output_dir, "trace.json"), "w") as f:
             json.dump(_serialize(trace), f, indent=2)
 
+        # Export Timeline
+        if timeline:
+            with open(os.path.join(output_dir, "timeline.json"), "w") as f:
+                json.dump(_serialize(timeline), f, indent=2)
+
         # Export Telemetry
-        telemetry = observer.get_telemetry()
         with open(os.path.join(output_dir, "statistics.json"), "w") as f:
-            # Need to convert MappingProxyType to dict
             out = {
                 "measurements": dict(telemetry.measurements),
                 "counters": dict(telemetry.counters)
@@ -57,7 +70,6 @@ class BundleExporter:
         # Export Artifacts
         artifacts_dir = os.path.join(output_dir, "artifacts")
         os.makedirs(artifacts_dir, exist_ok=True)
-        bundle = observer.get_artifacts()
 
         for name, artifact in bundle.artifacts.items():
             path = os.path.join(artifacts_dir, f"{name}.json")
