@@ -68,6 +68,11 @@ class Observer:
     def track_artifact(self, name: str, artifact: Any):
         self.artifact_tracker.track(name, artifact)
 
+    def track_graph_statistics(self, stats: Any):
+        self.telemetry.measure("graph.node_count", stats.node_count)
+        self.telemetry.measure("graph.edge_count", stats.edge_count)
+        self.track_artifact("GraphStatistics", stats)
+
     def add_diagnostic(self, message: str):
         with self._lock:
             self.diagnostics.append(message)
