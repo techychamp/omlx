@@ -4,6 +4,7 @@ from typing import Optional, Dict, Any
 from .memory.artifacts import MemoryPlan
 from .fusion.artifacts import FusionPlan
 from .moe.artifacts import MoEPlan
+from omlx.planner.device.artifacts import DevicePlan
 
 @dataclass(frozen=True)
 class PlanningBundle:
@@ -17,4 +18,9 @@ class PlanningBundle:
     verification_plan: Optional[Any] = None # Placeholder for future VerificationPlan
     fusion_plan: Optional[FusionPlan] = None
     moe_plan: Optional[MoEPlan] = None
+    device_plan: Optional[DevicePlan] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def get_plan(self, domain: str) -> Optional[Any]:
+        """Dynamically fetch a plan domain."""
+        return getattr(self, f"{domain}_plan", None)
