@@ -73,6 +73,12 @@ class StreamSession:
         with self._lock:
             return not (self._is_completed or self._is_cancelled)
 
+
+    def get_events_history(self) -> List[StreamingEvent]:
+        """Return a copy of all events emitted so far for replay purposes."""
+        with self._lock:
+            return list(self._events)
+
     def get_statistics(self) -> StreamingStatistics:
         with self._lock:
             duration = (self._end_time if self._end_time > 0 else time.time()) - self._start_time

@@ -3,7 +3,10 @@
 import threading
 import uuid
 import time
-from typing import Dict, List, Optional, Callable
+
+from .transports import StreamingTransport, BackpressureException
+from typing import Dict, List, Optional, Callable, Union
+
 
 from .session import StreamSession
 from .events import StreamingEvent, StreamingEventType
@@ -13,7 +16,7 @@ class StreamingController:
     def __init__(self):
         self._sessions: Dict[str, StreamSession] = {}
         self._lock = threading.Lock()
-        self._subscribers: Dict[str, List[Callable[[StreamingEvent], None]]] = {}
+        self._subscribers: Dict[str, List[Union[Callable[[StreamingEvent], None], StreamingTransport]]] = {}
 
     def create_session(self) -> StreamSession:
         session_id = str(uuid.uuid4())
@@ -34,20 +37,38 @@ class StreamingController:
         with self._lock:
             return self._sessions.get(session_id)
 
-    def subscribe(self, session_id: str, callback: Callable[[StreamingEvent], None]):
+    def subscribe(self, session_id: str, subscriber: Union[Callable[[StreamingEvent], None], StreamingTransport], replay: bool = False):
         with self._lock:
             if session_id in self._subscribers:
-                self._subscribers[session_id].append(callback)
+                self._subscribers[session_id].append(subscriber)
 
-    def unsubscribe(self, session_id: str, callback: Callable[[StreamingEvent], None]):
+        session = self.get_session(session_id)
+        if session and replay:
+            history = session.get_events_history()
+            for event in history:
+                try:
+                    if hasattr(subscriber, 'on_event'):
+                        subscriber.on_event(event)
+                    else:
+                        subscriber(event)
+                except BackpressureException:
+                    self.unsubscribe(session_id, subscriber)
+                    self.publish_event(session_id, StreamingEvent(
+                        event_type=StreamingEventType.WARNING,
+                        timestamp=time.time(),
+                        payload={"message": "Subscriber dropped during replay due to backpressure"}
+                    ))
+                    break
+                except Exception:
+                    pass
+
+    def unsubscribe(self, session_id: str, subscriber: Union[Callable[[StreamingEvent], None], StreamingTransport]):
         with self._lock:
             if session_id in self._subscribers:
-                if callback in self._subscribers[session_id]:
-                    self._subscribers[session_id].remove(callback)
+                if subscriber in self._subscribers[session_id]:
+                    self._subscribers[session_id].remove(subscriber)
 
     def publish_event(self, session_id: str, event: StreamingEvent):
-        from omlx.runtime.observability import get_observer
-
         with self._lock:
             session = self._sessions.get(session_id)
             subscribers = list(self._subscribers.get(session_id, []))
@@ -55,28 +76,30 @@ class StreamingController:
         if session:
             session.add_event(event)
 
-        # Record to observer
-        get_observer().trace_builder.record(
-            phase="Streaming",
-            component="Controller",
-            operation=event.event_type.value,
-            duration_sec=0,
-            metadata=event.payload
-        )
-        get_observer().timeline_builder.record(
-            event_id=str(uuid.uuid4()),
-            timestamp=event.timestamp,
-            phase="Streaming",
-            duration_sec=0,
-            session_id=session_id,
-            metadata={"event_type": event.event_type.value}
-        )
-
+        failed_subscribers = []
         for sub in subscribers:
             try:
-                sub(event)
+                if hasattr(sub, 'on_event'):
+                    sub.on_event(event)
+                else:
+                    sub(event)
+            except BackpressureException:
+                failed_subscribers.append(sub)
             except Exception:
-                pass # Ignore subscriber errors
+                pass # Ignore other subscriber errors
+
+        if failed_subscribers:
+            for sub in failed_subscribers:
+                self.unsubscribe(session_id, sub)
+
+            # Use another thread to publish a warning so we don't recurse here directly
+            def _publish_warning():
+                self.publish_event(session_id, StreamingEvent(
+                    event_type=StreamingEventType.WARNING,
+                    timestamp=time.time(),
+                    payload={"message": f"Dropped {len(failed_subscribers)} subscriber(s) due to backpressure"}
+                ))
+            threading.Thread(target=_publish_warning, daemon=True).start()
 
 
     def cancel_session(self, session_id: str):

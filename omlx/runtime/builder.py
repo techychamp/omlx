@@ -225,6 +225,8 @@ class Runtime:
             with get_observer().observe_phase("Execution", "Runtime", "generate"):
                 try:
                     for step in range(max_tokens):
+                        if not session.is_active:
+                            break
                         execution_result = self._execute_forward_pass(
                             backend_op_graph, input_ids, translation_result, adapter, model, tokenizer
                         )

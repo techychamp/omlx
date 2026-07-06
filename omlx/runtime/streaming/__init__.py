@@ -9,7 +9,7 @@ from .types import (
 from .events import StreamingEvent, StreamingEventType
 from .session import StreamSession
 from .controller import StreamingController
-from .emitter import TokenEmitter
+from .transports import GeneratorTransport as TokenEmitter
 from .api import get_controller, stream_events, get_emitter, stream
 
 __all__ = [
