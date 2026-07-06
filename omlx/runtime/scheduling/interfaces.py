@@ -4,12 +4,14 @@ Interfaces for OMLX Scheduling subsystem.
 """
 
 import abc
+from typing import Union
 from .types import BackendOperationGraph
+from .artifacts import DependencyGraph
 
 class GraphScheduler(abc.ABC):
     """
-    Analyzes BackendOperationGraph and produces an ExecutionSchedule.
+    Analyzes BackendOperationGraph or DependencyGraph and produces an ExecutionSchedule.
     """
     @abc.abstractmethod
-    def build_schedule(self, graph: BackendOperationGraph) -> 'ExecutionSchedule':
+    def build_schedule(self, graph: Union[BackendOperationGraph, DependencyGraph]) -> 'ExecutionSchedule':
         pass

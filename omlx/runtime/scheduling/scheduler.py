@@ -1,15 +1,16 @@
 # SPDX-License-Identifier: Apache-2.0
 """
 GraphScheduler for OMLX Scheduling subsystem.
-Produces immutable execution schedules from BackendOperationGraph.
+Produces immutable execution schedules from BackendOperationGraph or DependencyGraph.
 """
 
 import time
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 
 from .interfaces import GraphScheduler as IGraphScheduler
 from .types import BackendOperationGraph
+from .artifacts import DependencyGraph
 from .schedule import ExecutionSchedule
 from .group import ExecutionGroup
 from .policies import SchedulingPolicy
@@ -21,13 +22,13 @@ logger = logging.getLogger("omlx.scheduling.scheduler")
 
 class GraphScheduler(IGraphScheduler):
     """
-    Analyzes BackendOperationGraph and builds an ExecutionSchedule.
+    Analyzes dependency graphs and builds an ExecutionSchedule.
     """
     def __init__(self, policy: SchedulingPolicy = SchedulingPolicy.DEPENDENCY_DRIVEN):
         self.policy = policy
         self.analyzer = GraphAnalyzer()
 
-    def build_schedule(self, graph: BackendOperationGraph) -> ExecutionSchedule:
+    def build_schedule(self, graph: Union[BackendOperationGraph, DependencyGraph]) -> ExecutionSchedule:
         start_time = time.time()
         logger.debug(f"Building schedule with policy {self.policy}")
 
@@ -36,6 +37,88 @@ class GraphScheduler(IGraphScheduler):
                 statistics=SchedulingStatistics(schedule_generation_time_ms=(time.time() - start_time) * 1000)
             )
 
+        if isinstance(graph, DependencyGraph):
+             return self._build_from_dependency_graph(graph, start_time)
+        else:
+             return self._build_from_backend_graph(graph, start_time)
+
+    def _build_from_dependency_graph(self, graph: DependencyGraph, start_time: float) -> ExecutionSchedule:
+        # Multi-plan dependency execution support
+        ordered_operations: List[str] = []
+        execution_groups: List[ExecutionGroup] = []
+        ready_queues: Dict[int, List[str]] = {}
+
+        # Build a unified operations dict mapped to phases
+        op_phase_map = {}
+        for phase_idx, phase in enumerate(graph.phases):
+            for op in phase.operations:
+                op_phase_map[op] = phase_idx
+
+        # Simple policy: sequence phases
+        for phase_idx, phase in enumerate(graph.phases):
+             ops = list(phase.operations)
+             ops.sort() # Ensure deterministic ordering
+             ordered_operations.extend(ops)
+             ready_queues[phase_idx] = ops
+             execution_groups.append(ExecutionGroup(
+                 group_id=f"phase_{phase_idx}_{phase.name}",
+                 operations=ops,
+                 dependency_level=phase_idx,
+                 parallelizable=len(ops) > 1
+             ))
+
+        # Support fallback if phases are not explicitly defined
+        if not graph.phases and graph.operations:
+             ops = list(graph.operations.keys())
+             ops.sort()
+             ordered_operations.extend(ops)
+             ready_queues[0] = ops
+             execution_groups.append(ExecutionGroup(
+                 group_id="group_0",
+                 operations=ops,
+                 dependency_level=0,
+                 parallelizable=True
+             ))
+
+        num_levels = len(ready_queues) if ready_queues else 1
+        max_width = max([len(ops) for ops in ready_queues.values()]) if ready_queues else 1
+        parallel_groups = sum(1 for g in execution_groups if g.parallelizable)
+        estimated_parallelism = len(ordered_operations) / num_levels if num_levels > 0 else 0
+
+        stats = SchedulingStatistics(
+            graph_depth=len(graph.phases) if graph.phases else 1,
+            graph_width=max_width,
+            critical_path_length=len(graph.phases) if graph.phases else 1,
+            dependency_fan_in=1.0,
+            dependency_fan_out=1.0,
+            parallel_groups=parallel_groups,
+            execution_levels=num_levels,
+            estimated_parallelism=estimated_parallelism,
+            schedule_generation_time_ms=(time.time() - start_time) * 1000
+        )
+
+        diagnostics = SchedulingDiagnostics(
+             scheduling_report={"status": "success", "policy": self.policy.value, "type": "DependencyGraph"},
+             dependency_report={"roots": [], "leaves": [], "is_cyclic": False},
+             critical_path_report={"path": [], "length": len(graph.phases)},
+             execution_group_report={"groups_count": len(execution_groups)},
+             parallelism_report={"estimated": estimated_parallelism},
+             policy_report={"active_policy": self.policy.value},
+             execution_ordering_report={"operations_count": len(ordered_operations)}
+        )
+
+        return ExecutionSchedule(
+            ordered_operations=ordered_operations,
+            dependency_levels={op: phase_idx for op, phase_idx in op_phase_map.items()},
+            execution_groups=execution_groups,
+            critical_path=[],
+            ready_queues=ready_queues,
+            metadata={"policy": self.policy.value},
+            diagnostics=diagnostics,
+            statistics=stats
+        )
+
+    def _build_from_backend_graph(self, graph: BackendOperationGraph, start_time: float) -> ExecutionSchedule:
         # 1. Analyze
         dep_result, cp_result = self.analyzer.analyze(graph)
 
@@ -114,7 +197,7 @@ class GraphScheduler(IGraphScheduler):
 
         # 4. Diagnostics
         diagnostics = SchedulingDiagnostics(
-             scheduling_report={"status": "success", "policy": self.policy.value},
+             scheduling_report={"status": "success", "policy": self.policy.value, "type": "BackendOperationGraph"},
              dependency_report={"roots": dep_result.roots, "leaves": dep_result.leaves, "is_cyclic": dep_result.is_cyclic},
              critical_path_report={"path": cp_result.path, "length": cp_result.length},
              execution_group_report={"groups_count": len(execution_groups)},

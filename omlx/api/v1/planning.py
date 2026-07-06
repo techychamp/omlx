@@ -1,93 +1,79 @@
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
-import asyncio
+from dataclasses import dataclass, field
+from typing import Optional, Dict, Any, List
+
 from omlx.planner.planner import ExecutionPlanner
-from omlx.capabilities.resolver import CapabilityResolver
-from omlx.capabilities.descriptor import CapabilityDescriptor, ExecutionFamily
-from omlx.runtime.feature_flags import FeatureFlags
-from omlx.api.v1.exceptions import PlanningError
-import logging
+from omlx.planner.plan import ExecutionPlan
+from omlx.planner.bundle import PlanningBundle, MemoryPlan, CachePlan, VerificationPlan
+from omlx.planner.device.artifacts import DevicePlan
+from omlx.runtime.scheduling.artifacts import DependencyGraph, ExecutionPhase, DependencyBarrier, SynchronizationPoint
 
-logger = logging.getLogger("omlx.api.v1.planning")
+@dataclass(frozen=True)
+class PlanningRequest:
+    """Immutable request for planning."""
+    model_id: str
+    target_backend: Optional[str] = None
+    constraints: Dict[str, Any] = field(default_factory=dict)
 
-class PlanningStageSummary(BaseModel):
-    stage_name: str
-    description: str
-    operations_count: int = 0
+class PlanningClient:
+    """API Client for Planning Domain."""
 
-class PlanningResult(BaseModel):
-    success: bool = True
-    plan_id: str = "plan-123"
-    stages: List[PlanningStageSummary] = Field(default_factory=list)
-    diagnostics: Dict[str, str] = Field(default_factory=dict)
-
-class PlanningRequest(BaseModel):
-    capabilities: List[str] = Field(default_factory=list)
-    constraints: Dict[str, Any] = Field(default_factory=dict)
-    model_id: Optional[str] = None
-
-class Planner:
-    def __init__(self):
+    def __init__(self, endpoint: str = "local"):
+        self.endpoint = endpoint
         self._planner = ExecutionPlanner(
-            capability_resolver=CapabilityResolver(),
-            feature_flags=FeatureFlags.from_env()
+            backend_resolver=None,
+            model_registry=None,
+            policy_engine=None
         )
 
-    async def plan_async(self, request: PlanningRequest) -> PlanningResult:
-        return await asyncio.to_thread(self.plan, request)
-
-    def plan(self, request: PlanningRequest) -> PlanningResult:
-        try:
-            logger.info(f"Formulating execution plan. Requested capabilities: {request.capabilities}")
-
-            # Map required string capabilities to execution features/hints
-            hints = request.constraints.copy()
-            hints["requested_capabilities"] = tuple(request.capabilities)
-
-            descriptor = CapabilityDescriptor(
-                execution_family=ExecutionFamily.AUTOREGRESSIVE,
-                supports_streaming=True,
-                supports_speculative=False,
-                supports_verification=False,
-                cache_layout="kv_cache",
-                execution_hints=hints,
-                hardware_requirements=("apple_silicon",)
-            )
-
-            plan_obj = self._planner.plan(descriptor)
-
-            stages = [
-                PlanningStageSummary(stage_name="capability_resolution", description="Resolved requested capabilities", operations_count=len(request.capabilities)),
-                PlanningStageSummary(stage_name="execution_planning", description="Generated execution plan", operations_count=len(plan_obj.optimization_passes))
-            ]
-            return PlanningResult(success=True, stages=stages)
-        except Exception as e:
-            raise PlanningError(f"Planning failed: {str(e)}") from e
-
-class PlanningRequestBuilder:
-    def __init__(self):
-        self._capabilities: List[str] = []
-        self._constraints: Dict[str, Any] = {}
-        self._model_id: Optional[str] = None
-
-    def require_capability(self, capability: str) -> 'PlanningRequestBuilder':
-        self._capabilities.append(capability)
-        return self
-
-    def with_constraint(self, key: str, value: Any) -> 'PlanningRequestBuilder':
-        self._constraints[key] = value
-        return self
-
-    def with_model(self, model_id: str) -> 'PlanningRequestBuilder':
-        self._model_id = model_id
-        return self
-
-    def build_request(self) -> PlanningRequest:
-        return PlanningRequest(
-            capabilities=self._capabilities,
-            constraints=self._constraints,
-            model_id=self._model_id
+    def generate_bundle(self, request: PlanningRequest) -> PlanningBundle:
+        """Generate a complete PlanningBundle for a request."""
+        # This is a stub implementation for the API layer
+        return PlanningBundle(
+            execution_plan=ExecutionPlan(),
+            device_plan=None,
+            cache_plan=None,
+            memory_plan=None,
+            verification_plan=None
         )
 
-    def build(self) -> Planner:
-        return Planner()
+    def extract_dependency_graph(self, bundle: PlanningBundle) -> DependencyGraph:
+        """Extract a deterministic DependencyGraph from a PlanningBundle."""
+        # Build phases based on plans
+        phases = []
+
+        # 1. Device phase (optional)
+        if bundle.device_plan:
+             phases.append(ExecutionPhase(
+                 name="device_placement",
+                 operations=["allocate_devices", "map_topology"],
+                 barriers=[DependencyBarrier(name="device_ready")]
+             ))
+
+        # 2. Memory phase (optional)
+        if bundle.memory_plan:
+             phases.append(ExecutionPhase(
+                 name="memory_allocation",
+                 operations=["allocate_tensors", "setup_kv_cache"],
+                 barriers=[DependencyBarrier(name="memory_ready")]
+             ))
+
+        # 3. Execution phase
+        if bundle.execution_plan:
+             # Basic mapping from ExecutionPlan steps if they exist
+             ops = []
+             if hasattr(bundle.execution_plan, 'steps'):
+                 ops = getattr(bundle.execution_plan, 'steps')
+             else:
+                 ops = ["execute_model"]
+
+             phases.append(ExecutionPhase(
+                 name="compute",
+                 operations=ops,
+                 sync_points=[SynchronizationPoint(name="compute_done")]
+             ))
+
+        return DependencyGraph(
+            operations={op: {"type": "abstract"} for p in phases for op in p.operations},
+            phases=phases,
+            metadata={"source": "PlanningBundle"}
+        )

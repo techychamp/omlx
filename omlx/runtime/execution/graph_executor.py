@@ -3,7 +3,7 @@
 Graph Executor for OMLX Execution Engine.
 """
 
-from typing import Any
+from typing import Any, Union
 import logging
 import time
 
@@ -14,24 +14,25 @@ from .artifacts import BackendOperationGraph
 from .statistics import ExecutionStatistics
 
 from omlx.runtime.scheduling.scheduler import GraphScheduler
+from omlx.runtime.scheduling.artifacts import DependencyGraph
 
 logger = logging.getLogger("omlx.execution.graph_executor")
 
 class DeterministicGraphExecutor(GraphExecutor):
     """
-    Validates and traverses BackendOperationGraph, invoking ExecutionDispatcher.
+    Validates and traverses dependency graphs, invoking ExecutionDispatcher.
     """
     def __init__(self, dispatcher: ExecutionDispatcher, scheduler: GraphScheduler = None):
         self.dispatcher = dispatcher
         self.scheduler = scheduler or GraphScheduler()
 
-    def traverse_and_execute(self, graph: BackendOperationGraph, context: ExecutionContext) -> ExecutionResult:
+    def traverse_and_execute(self, graph: Union[BackendOperationGraph, DependencyGraph], context: ExecutionContext) -> ExecutionResult:
         logger.debug("GraphExecutor building schedule and traversing graph")
 
         start_time = time.time()
 
         if not graph:
-            logger.error("No BackendOperationGraph provided to GraphExecutor")
+            logger.error("No graph provided to GraphExecutor")
             return ExecutionResult(
                 status=ExecutionStatus.FAILED,
                 model_output=None
@@ -39,7 +40,7 @@ class DeterministicGraphExecutor(GraphExecutor):
 
         # Basic validation
         if not hasattr(graph, 'operations'):
-            logger.error("Invalid BackendOperationGraph: missing operations")
+            logger.error("Invalid graph: missing operations")
             return ExecutionResult(
                 status=ExecutionStatus.FAILED,
                 model_output=None
