@@ -169,3 +169,26 @@ class PluginDescriptor:
         object.__setattr__(self, 'metadata', deep_freeze(self.metadata))
         object.__setattr__(self, 'diagnostics', deep_freeze(self.diagnostics))
         object.__setattr__(self, 'configuration', deep_freeze(self.configuration))
+
+@dataclass(frozen=True)
+class ExtensionDescriptor:
+    extension_id: str
+    plugin_id: str
+    extension_point_type: str
+    capabilities: Tuple[str, ...] = field(default_factory=tuple)
+    metadata: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+
+    def __post_init__(self):
+        object.__setattr__(self, 'capabilities', deep_freeze(self.capabilities))
+        object.__setattr__(self, 'metadata', deep_freeze(self.metadata))
+
+@dataclass(frozen=True)
+class PluginFailure:
+    plugin_id: str
+    phase: str
+    exception: str
+    stack_trace: str
+    diagnostics: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+
+    def __post_init__(self):
+        object.__setattr__(self, 'diagnostics', deep_freeze(self.diagnostics))

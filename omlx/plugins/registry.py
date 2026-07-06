@@ -1,6 +1,6 @@
 import threading
 from typing import Dict, List, Optional, Type, Any, Set
-from .descriptor import PluginDescriptor, PluginLifecycleState
+from .descriptor import PluginDescriptor, PluginLifecycleState, ExtensionDescriptor, PluginFailure
 from .contracts import ExtensionPoint
 from .versioning import SemanticVersion
 
@@ -61,6 +61,8 @@ class PluginRegistry:
             self._descriptors[descriptor.plugin_id] = descriptor
             self._plugin_states[descriptor.plugin_id] = PluginLifecycleState.REGISTERED
             self._extensions_by_plugin[descriptor.plugin_id] = []
+            if not hasattr(self, '_extensions_by_type'):
+                self._extensions_by_type = {}
             self._diagnostics["registration"][descriptor.plugin_id] = "Success"
             self._diagnostics["lifecycle"][descriptor.plugin_id] = PluginLifecycleState.REGISTERED.value
 
@@ -72,6 +74,12 @@ class PluginRegistry:
                 raise ValueError(f"Plugin ID {plugin_id} not found.")
 
             self._extensions_by_plugin[plugin_id].extend(extensions)
+            for ext in extensions:
+                for base in type(ext).__bases__:
+                    if base.__name__ != 'object':
+                        if base not in self._extensions_by_type:
+                            self._extensions_by_type[base] = []
+                        self._extensions_by_type[base].append(ext)
             # We will gather these by type in get_extensions dynamically
 
     def transition_state(self, plugin_id: str, new_state: PluginLifecycleState) -> None:

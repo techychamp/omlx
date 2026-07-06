@@ -4,7 +4,7 @@ import logging
 from typing import Dict, List, Optional, Any
 from .registry import PluginRegistry
 from .context import PluginInitializationContext
-from .descriptor import PluginDescriptor, PluginLifecycleState
+from .descriptor import PluginDescriptor, PluginLifecycleState, PluginFailure
 from .compatibility import CompatibilityNegotiator
 from .validation import PluginValidationFramework
 
@@ -87,6 +87,17 @@ class PluginManager:
 
                     self._registry.transition_state(plugin_id, PluginLifecycleState.INITIALIZED)
                 except Exception as e:
+                    import traceback
+                    failure = PluginFailure(
+                        plugin_id=plugin_id,
+                        phase='initialization',
+                        exception=str(e),
+                        stack_trace=traceback.format_exc(),
+                        diagnostics={}
+                    )
+                    if 'initialization_failures' not in self._registry._diagnostics:
+                        self._registry._diagnostics['initialization_failures'] = {}
+                    self._registry._diagnostics['initialization_failures'][plugin_id] = failure
                     logger.error(f"Failed to initialize plugin {plugin_id}: {e}")
                     self._registry.transition_state(plugin_id, PluginLifecycleState.FAILED)
 
