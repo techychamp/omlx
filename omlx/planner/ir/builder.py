@@ -35,7 +35,8 @@ class IRBuilder:
         roots: List[str] = []
 
         # Simple mapping for now based on execution mode
-        if plan.execution_mode in ("autoregressive", "streaming"):
+        execution_mode = getattr(plan, "execution_mode", getattr(getattr(plan, "execution_plan", None), "execution_mode", "autoregressive"))
+        if execution_mode in ("autoregressive", "streaming"):
             # Autoregressive Graph: Prefill -> Sample -> Forward -> Emit -> Verify
 
             prefill_node = IRNode(
@@ -159,8 +160,8 @@ class IRBuilder:
             nodes=MappingProxyType(nodes),
             roots=tuple(roots),
             metadata=MappingProxyType({
-                "execution_mode": plan.execution_mode,
-                "execution_backend": plan.execution_backend,
+                "execution_mode": execution_mode,
+                "execution_backend": getattr(plan, "execution_backend", getattr(getattr(plan, "execution_plan", None), "execution_backend", "mlx")),
             })
         )
 

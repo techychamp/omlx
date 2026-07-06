@@ -3,6 +3,7 @@ from typing import Optional, Dict, Any
 
 from .memory.artifacts import MemoryPlan
 from .fusion.artifacts import FusionPlan
+from .diffusion.artifacts import DiffusionPlan
 from .moe.artifacts import MoEPlan
 from omlx.planner.device.artifacts import DevicePlan
 
@@ -17,6 +18,7 @@ class PlanningBundle:
     cache_plan: Optional[Any] = None # Placeholder for future CachePlan
     verification_plan: Optional[Any] = None # Placeholder for future VerificationPlan
     fusion_plan: Optional[FusionPlan] = None
+    diffusion_plan: Optional[DiffusionPlan] = None
     moe_plan: Optional[MoEPlan] = None
     device_plan: Optional[DevicePlan] = None
     metadata: Dict[str, Any] = field(default_factory=dict)

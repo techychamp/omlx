@@ -48,3 +48,19 @@ class BackendPolicyStrategyRegistry:
         """Lock the registry, making it immutable."""
         with self._lock:
             self._is_locked = True
+
+from omlx.runtime.generation.strategy import GenerationStrategy
+from omlx.runtime.generation.diffusion import DiffusionGenerationStrategy
+from omlx.runtime.generation import StandardGenerationStrategy, SpeculativeGenerationStrategy, BatchGenerationStrategy
+
+class GenerationStrategyRegistry:
+    def __init__(self):
+        self._strategies = {
+            "standard": StandardGenerationStrategy(),
+            "speculative": SpeculativeGenerationStrategy(),
+            "batch": BatchGenerationStrategy(),
+            "diffusion": DiffusionGenerationStrategy()
+        }
+
+    def get(self, strategy_intent: str) -> GenerationStrategy:
+        return self._strategies.get(strategy_intent, self._strategies["standard"])

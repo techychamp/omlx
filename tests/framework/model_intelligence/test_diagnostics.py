@@ -27,7 +27,23 @@ def test_diagnostics():
         quantization_support=False,
         backend_requirements=("mlx",),
         planner_metadata={},
-        compiler_metadata={}
+        compiler_metadata={},
+        architecture_family="Transformer",
+        architecture_generation="Unknown",
+        context_length=0,
+        tokenizer_family="Unknown",
+        special_token_information={},
+        moe_information={},
+        expert_count=0,
+        expert_size=0,
+        license="Unknown",
+        repository_metadata={},
+        recommended_backend="Unknown",
+        recommended_quantization="Unknown",
+        recommended_execution_mode="Unknown",
+        recommended_scheduler="Unknown",
+        compatibility_report={},
+        validation_report={}
     )
     registry.register(descriptor)
     generator = DiagnosticsGenerator(registry)

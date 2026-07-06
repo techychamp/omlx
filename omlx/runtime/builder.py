@@ -94,18 +94,18 @@ class Runtime:
         from omlx.runtime.compiler_service import RuntimeCompilerService
         self.compiler_service = RuntimeCompilerService(self)
         self.execution_planner = ExecutionPlanner(
-
-            capability_resolver=self.context.capability_resolver,
-            feature_flags=self.context.feature_flags,
-            runtime_context=self.context,
-            registries=self.context.registries,
-            cache_manager=None,
-            dependency_tracker=None
+            pass_registry=getattr(self, "pass_registry", getattr(context, "pass_registry", None)),
+            capability_resolver=getattr(self, "capability_resolver", getattr(context, "capability_resolver", None)),
+            feature_flags=self.feature_flags,
+            runtime_context=getattr(self, "runtime_context", context),
+            registries=self.registries,
+            cache_manager=getattr(self, "compiler_cache_manager", getattr(self, "cache_manager", None)),
+            dependency_tracker=getattr(self, "dependency_tracker", None)
         )
 
         self.device_planner = DevicePlanner(
-            cache_manager=None,
-            dependency_tracker=None
+            cache_manager=getattr(self, "compiler_cache_manager", getattr(self, "cache_manager", None)),
+            dependency_tracker=getattr(self, "dependency_tracker", None)
         )
         self.adapter_registry = context.adapter_registry
         self.descriptor_registry = context.descriptor_registry
