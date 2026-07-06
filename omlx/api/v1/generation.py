@@ -73,7 +73,7 @@ class GenerationService:
         res = self._runtime.generate(
             request_context=req,
             max_tokens=request.max_tokens,
-            temperature=request.temperature
+            sampler=request.temperature
         )
         return GenerateResponse(
             text=res.get("generated_text", ""),
@@ -83,7 +83,7 @@ class GenerationService:
 
     async def stream(self, request: StreamRequest) -> AsyncGenerator[StreamResponse, None]:
         req = RuntimeRequest(model=request.model_id, prompt=request.prompt)
-        res = await asyncio.to_thread(self._runtime.generate, req, request.max_tokens, request.temperature)
+        res = await asyncio.to_thread(self._runtime.generate, request_context=req, max_tokens=request.max_tokens, sampler=request.temperature)
         yield StreamResponse(text_chunk=res.get("generated_text", ""), is_finished=True)
 
     def batch_generate(self, requests: List[GenerateRequest]) -> List[GenerateResponse]:

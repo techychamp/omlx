@@ -49,7 +49,11 @@ class SequentialExecutionDispatcher(ExecutionDispatcher):
             op = graph.operations[op_id]
             if hasattr(adapter, 'execute'):
                  # Formal BackendAdapter.execute boundary
-                 last_output = adapter.execute(op, context)
+                 out = adapter.execute(op, context)
+                 if out and isinstance(out, dict) and out.get("result") is not None:
+                     res = out.get("result")
+                     if isinstance(res, dict) and ("logits" in res or "logits_shape" in res):
+                         last_output = out
             ops_executed += 1
 
         mock_output = {"status": "dispatched", "operations": ops_executed, "last_output": last_output}
@@ -125,8 +129,10 @@ class ParallelExecutionDispatcher(ExecutionDispatcher):
                 for future in concurrent.futures.as_completed(futures):
                     try:
                         result = future.result()
-                        if result is not None:
-                            last_output = result
+                        if result is not None and isinstance(result, dict) and result.get("result") is not None:
+                            res = result.get("result")
+                            if isinstance(res, dict) and ("logits" in res or "logits_shape" in res):
+                                last_output = result
                         ops_executed += 1
                     except Exception as e:
                         logger.error(f"Execution failed during parallel dispatch: {e}", exc_info=True)

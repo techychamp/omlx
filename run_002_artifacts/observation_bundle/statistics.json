@@ -1,0 +1,8 @@
+{
+  "measurements": {
+    "Test.validate.duration": 0.0012760162353515625
+  },
+  "counters": {
+    "Test.validate.count": 1
+  }
+}

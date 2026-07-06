@@ -6,7 +6,7 @@ Quantization Metadata Normalizer.
 from typing import Dict, Any, Optional, Tuple
 from types import MappingProxyType
 from .descriptor import QuantizationDescriptor
-from .types import QuantizationFamily, ValidationStatus
+from .types import QuantizationFamily, ValidationStatus, PerformanceClass
 from .classifier import QuantizationClassifier
 from .extractor import QuantizationCapabilityExtractor
 
@@ -40,9 +40,18 @@ class QuantizationNormalizer:
             supported_backends=capabilities.get("backend_compatibility", tuple()),
             supported_model_families=capabilities.get("model_compatibility", tuple()),
             packing_information=capabilities.get("packing_information"),
+            layout_information=capabilities.get("layout_information"),
+            alignment_information=capabilities.get("alignment_information"),
             compression_metadata=MappingProxyType(capabilities.get("compression_metadata", {})),
+            compression_ratio=capabilities.get("compression_ratio"),
+            estimated_memory_usage=capabilities.get("estimated_memory_usage"),
+            estimated_bandwidth_usage=capabilities.get("estimated_bandwidth_usage"),
             required_kernels=capabilities.get("required_kernels", tuple()),
             hardware_requirements=capabilities.get("hardware_requirements", tuple()),
+            recommended_backend=capabilities.get("recommended_backend"),
+            recommended_hardware=capabilities.get("recommended_hardware", tuple()),
+            conversion_compatibility=capabilities.get("conversion_compatibility", tuple()),
+            performance_class=capabilities.get("performance_class", PerformanceClass.UNKNOWN),
             validation_status=capabilities.get("validation_status", ValidationStatus.UNKNOWN),
             metadata=MappingProxyType(metadata),
             planner_metadata=MappingProxyType({}),

@@ -1,0 +1,16 @@
+{
+  "compiler_statistics": {
+    "total_compilations": 3,
+    "successful_compilations": 3,
+    "failed_compilations": 0,
+    "total_compilation_time_ms": 0.6954669952392578
+  },
+  "runtime_state": "bootstrapping",
+  "partial_notes": [
+    "inspector: cannot import name 'inspect_runtime' from 'omlx.tooling.inspector' (unknown location)",
+    "snapshot: cannot import name 'SnapshotManager' from 'omlx.tooling.snapshot' (unknown location)",
+    "profiling: cannot import name 'RuntimeProfiler' from 'omlx.tooling.profiling' (unknown location)",
+    "benchmark: cannot import name 'BenchmarkRunner' from 'omlx.tooling.benchmark' (unknown location)",
+    "validation: cannot import name 'ValidationRunner' from 'omlx.tooling.validation' (unknown location)"
+  ]
+}

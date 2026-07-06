@@ -1,0 +1,11 @@
+{
+  "success": false,
+  "pipeline_duration_ms": 0.0,
+  "inference_duration_ms": 0.0,
+  "generated_text": "",
+  "token_count": 0,
+  "error": "TypeError: Runtime.generate() got an unexpected keyword argument 'temperature'\nTraceback (most recent call last):\n  File \"/Users/yugeshk/dev/repo/omlx/tests/run_001_execution.py\", line 142, in run_end_to_end\n    gen_result = runtime.generate(req_ctx, max_tokens=MAX_TOKENS, temperature=TEMPERATURE)\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: Runtime.generate() got an unexpected keyword argument 'temperature'\n",
+  "compiler_diagnostics": null,
+  "execution_statistics": null,
+  "stream_statistics": null
+}

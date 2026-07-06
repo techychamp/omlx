@@ -1,0 +1,9 @@
+{
+  "tokens_emitted": 5,
+  "subscribers": 2,
+  "events_per_sub": 6,
+  "replay_events": 7,
+  "ordering_verified": true,
+  "completion_verified": true,
+  "backpressure_drops": 1
+}

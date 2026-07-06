@@ -99,7 +99,17 @@ class Runtime:
         )
         self.adapter_registry = context.adapter_registry
         self.descriptor_registry = context.descriptor_registry
-        self.execution_engine = ExecutionEngine()
+
+        from omlx.runtime.execution.engine import ExecutionEngine
+        from omlx.runtime.execution.dispatcher import SequentialExecutionDispatcher
+        from omlx.runtime.execution.graph_executor import DeterministicGraphExecutor
+        from omlx.runtime.execution.executor import ImmutableExecutionExecutor
+
+        dispatcher = SequentialExecutionDispatcher()
+        graph_executor = DeterministicGraphExecutor(dispatcher)
+        executor = ImmutableExecutionExecutor(graph_executor)
+        self.execution_engine = ExecutionEngine(executor)
+
         from omlx.runtime.streaming.controller import StreamingController
         self.streaming_controller = StreamingController()
 
@@ -159,7 +169,7 @@ class Runtime:
 
         last_output = model_output["last_output"]
 
-        if not last_output.get("result", {}).get("logits") and not last_output.get("result", {}).get("logits_shape") and last_output.get("result", {}).get("logits") != "simulated_logits":
+        if last_output.get("result", {}).get("logits") is None and last_output.get("result", {}).get("logits_shape") is None and last_output.get("result", {}).get("logits") != "simulated_logits":
             last_output = {"result": {"logits": "simulated_logits"}}
 
         logits = last_output.get("result", {}).get("logits")
@@ -168,6 +178,12 @@ class Runtime:
             if last_output.get("result", {}).get("logits") == "simulated_logits" or last_output.get("result", {}).get("logits_shape") is not None:
                 return 0, " simulated"
             raise ValueError("Forward pass returned invalid logits")
+
+        # Guard: sentinel string logits must never reach MLX array operations.
+        # This occurs when the BackendAdapter returns a simulated result
+        # (e.g. no model in context, or MLX not available at adapter level).
+        if isinstance(logits, str):
+            return 0, " simulated"
 
         if mx is None:
             return 0, " simulated"

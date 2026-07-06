@@ -1,0 +1,50 @@
+{
+  "nodes": {
+    "node_prefill": {
+      "id": "node_prefill",
+      "node_type": "prefill",
+      "dependencies": [],
+      "metadata": {}
+    },
+    "node_sample": {
+      "id": "node_sample",
+      "node_type": "sample",
+      "dependencies": [
+        "node_prefill"
+      ],
+      "metadata": {}
+    },
+    "node_forward": {
+      "id": "node_forward",
+      "node_type": "forward",
+      "dependencies": [
+        "node_sample"
+      ],
+      "metadata": {}
+    },
+    "node_verify": {
+      "id": "node_verify",
+      "node_type": "verify",
+      "dependencies": [
+        "node_forward"
+      ],
+      "metadata": {}
+    },
+    "node_emit": {
+      "id": "node_emit",
+      "node_type": "emit",
+      "dependencies": [
+        "node_verify"
+      ],
+      "metadata": {}
+    }
+  },
+  "roots": [
+    "node_emit"
+  ],
+  "metadata": {
+    "execution_mode": "streaming",
+    "execution_backend": "autoregressive",
+    "cache_key": "ir_0ebfaa10d67ed690055fcda0bcf56f6ca378814ec7292a7888b30620807ba33c"
+  }
+}

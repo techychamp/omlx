@@ -5,24 +5,25 @@ Bundle Export functionality.
 import os
 import json
 from typing import Any
-from dataclasses import asdict, is_dataclass
+from dataclasses import is_dataclass
 from types import MappingProxyType
 
-def _custom_dict_factory(data):
-    # This is passed a list of (field_name, field_value) tuples
-    d = {}
-    for k, v in data:
-        if isinstance(v, MappingProxyType):
-            d[k] = {kk: _serialize(vv) for kk, vv in v.items()}
-        else:
-            d[k] = _serialize(v)
-    return d
+def _serialize_dataclass(obj: Any) -> Any:
+    """
+    Manually serialize a dataclass by iterating its fields.
+    Unlike dataclasses.asdict(), this never calls copy.deepcopy(),
+    which avoids TypeError on MappingProxyType fields.
+    """
+    import dataclasses
+    result = {}
+    for f in dataclasses.fields(obj):
+        result[f.name] = _serialize(getattr(obj, f.name))
+    return result
 
 def _serialize(obj: Any) -> Any:
     # Extremely basic serialization for demonstration
     if is_dataclass(obj):
-        # We use asdict with a custom dict_factory to avoid deepcopy mappingproxy issues
-        return asdict(obj, dict_factory=_custom_dict_factory)
+        return _serialize_dataclass(obj)
     if isinstance(obj, MappingProxyType):
         return {k: _serialize(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):

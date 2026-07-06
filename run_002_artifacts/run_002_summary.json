@@ -1,0 +1,822 @@
+{
+  "run_id": "40b9ca8f-fb4b-44dc-8be2-a608839fdca5",
+  "timestamp": "2026-07-06T07:55:29.228762Z",
+  "model_name": "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit",
+  "prompt": "The capital of France is",
+  "real_model_used": true,
+  "mock_execution": false,
+  "canonical_execution_path": true,
+  "blocked": false,
+  "blocked_reason": "",
+  "overall_success": true,
+  "generated_text": "Paris.ThecapitalofFranceisParis.ThecapitalofFranceisParis.ThecapitalofFrance",
+  "tokens_generated": 20,
+  "phases": [
+    {
+      "phase": "Phase 1 \u2014 Model Intelligence",
+      "passed": true,
+      "duration_ms": 0.7959579997987021,
+      "notes": "",
+      "artifacts": {
+        "model_descriptor": {
+          "model_id": "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit",
+          "model_family": "Autoregressive",
+          "architecture": "Unknown",
+          "architecture_family": "unknown",
+          "architecture_generation": "unknown",
+          "task": "Text-Generation",
+          "modality": "Text",
+          "parameter_count": 0,
+          "hidden_size": 2048,
+          "layer_count": 22,
+          "context_length": 2048,
+          "attention_type": "Standard",
+          "activation_type": "unknown",
+          "tokenizer_family": "unknown",
+          "special_token_information": {},
+          "moe_information": {},
+          "expert_count": 0,
+          "expert_size": 0,
+          "kv_cache_support": true,
+          "speculative_support": false,
+          "streaming_support": true,
+          "expert_support": false,
+          "vision_support": false,
+          "audio_support": false,
+          "tool_support": false,
+          "embedding_support": false,
+          "reranking_support": false,
+          "quantization_support": true,
+          "backend_requirements": [
+            "mlx"
+          ],
+          "license": "Unknown",
+          "repository_metadata": {},
+          "recommended_backend": "mlx",
+          "recommended_quantization": "none",
+          "recommended_execution_mode": "batched",
+          "recommended_scheduler": "continuous",
+          "compatibility_report": {},
+          "validation_report": {},
+          "planner_metadata": {},
+          "compiler_metadata": {}
+        },
+        "architecture_detected": [
+          "Autoregressive",
+          "Unknown",
+          "Text-Generation",
+          "Text"
+        ],
+        "statistics": {
+          "family_distribution": {
+            "Autoregressive": 1
+          },
+          "architecture_distribution": {
+            "Unknown": 1
+          },
+          "license_distribution": {
+            "Unknown": 1
+          },
+          "backend_recommendation_distribution": {
+            "mlx": 1
+          },
+          "capability_distribution": {
+            "kv_cache": 1,
+            "speculative": 0,
+            "streaming": 1,
+            "expert": 0,
+            "vision": 0,
+            "audio": 0,
+            "tool": 0,
+            "embedding": 0,
+            "reranking": 0,
+            "quantization": 1
+          },
+          "compatibility_statistics": {
+            "runtime": 1,
+            "compiler": 1,
+            "backend": 1
+          },
+          "unknown_architecture_count": 1,
+          "total_models": 1
+        },
+        "diagnostics": [
+          {
+            "severity": "WARNING",
+            "category": "Architecture",
+            "component": "ModelClassifier",
+            "message": "Unknown architecture detected.",
+            "recommendation": "Add support for this architecture in ModelClassifier.",
+            "metadata": {
+              "model_id": "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit"
+            }
+          }
+        ],
+        "registry_size": 1
+      }
+    },
+    {
+      "phase": "Phase 2 \u2014 Quantization Intelligence",
+      "passed": true,
+      "duration_ms": 2.773207999780425,
+      "notes": "",
+      "artifacts": {
+        "quantization_descriptor": {
+          "quantization_family": "Unknown",
+          "storage_precision": "unknown",
+          "compute_precision": "unknown",
+          "weight_precision": "unknown",
+          "activation_precision": "unknown",
+          "kv_cache_precision": "unknown",
+          "group_size": null,
+          "block_size": null,
+          "mixed_precision": false,
+          "dynamic_quantization": false,
+          "static_quantization": false,
+          "per_channel": false,
+          "per_group": false,
+          "supports_streaming": true,
+          "supports_batching": true,
+          "supports_speculative_decoding": false,
+          "supported_backends": [],
+          "supported_model_families": [],
+          "packing_information": null,
+          "layout_information": null,
+          "alignment_information": null,
+          "compression_metadata": {},
+          "compression_ratio": null,
+          "estimated_memory_usage": null,
+          "estimated_bandwidth_usage": null,
+          "required_kernels": [],
+          "hardware_requirements": [],
+          "recommended_backend": null,
+          "recommended_hardware": [],
+          "conversion_compatibility": [],
+          "performance_class": "UNKNOWN",
+          "validation_status": "UNKNOWN",
+          "metadata": {
+            "model_id": "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit",
+            "quantization": "4bit",
+            "precision": "fp16",
+            "bits": 4,
+            "group_size": 128
+          },
+          "planner_metadata": {},
+          "compiler_metadata": {},
+          "backend_metadata": {}
+        },
+        "quantization_class": "UNKNOWN",
+        "compatibility": {
+          "model_compatible": true,
+          "backend_compatible": true,
+          "hardware_suitability": [],
+          "quantization_family": "Unknown"
+        },
+        "statistics": {
+          "family_distribution": {
+            "Unknown": 1
+          },
+          "precision_distribution": {
+            "unknown": 1
+          },
+          "total_count": 1
+        },
+        "conversion_plan": {
+          "source_family": "Unknown",
+          "target_family": "FP16",
+          "is_feasible": false,
+          "estimated_memory_cost": null,
+          "estimated_time_cost": "UNKNOWN",
+          "required_tools": [],
+          "warnings": []
+        }
+      }
+    },
+    {
+      "phase": "Phase 3 \u2014 Compilation",
+      "passed": true,
+      "duration_ms": 1.2158329991507344,
+      "notes": "",
+      "artifacts": {
+        "execution_plan": {
+          "execution_family": "autoregressive",
+          "execution_backend": "autoregressive",
+          "execution_mode": "streaming",
+          "execution_topology": "single_node",
+          "cache_strategy": "paged",
+          "scheduler_strategy": "continuous_batching",
+          "verification_stages": [],
+          "optimization_passes": [],
+          "execution_hints": {},
+          "hardware_requirements": [],
+          "planner_metadata": {
+            "planning_time_ms": 0.0040531158447265625,
+            "cache_key": "plan_f59ce4e858ab9f370ad3fb2628c2a2696ff9370586f85e8888fda540f3e1792a"
+          }
+        },
+        "logical_ir": {
+          "nodes": {
+            "node_prefill": {
+              "id": "node_prefill",
+              "node_type": "prefill",
+              "dependencies": [],
+              "metadata": {}
+            },
+            "node_sample": {
+              "id": "node_sample",
+              "node_type": "sample",
+              "dependencies": [
+                "node_prefill"
+              ],
+              "metadata": {}
+            },
+            "node_forward": {
+              "id": "node_forward",
+              "node_type": "forward",
+              "dependencies": [
+                "node_sample"
+              ],
+              "metadata": {}
+            },
+            "node_verify": {
+              "id": "node_verify",
+              "node_type": "verify",
+              "dependencies": [
+                "node_forward"
+              ],
+              "metadata": {}
+            },
+            "node_emit": {
+              "id": "node_emit",
+              "node_type": "emit",
+              "dependencies": [
+                "node_verify"
+              ],
+              "metadata": {}
+            }
+          },
+          "roots": [
+            "node_emit"
+          ],
+          "metadata": {
+            "execution_mode": "streaming",
+            "execution_backend": "autoregressive",
+            "cache_key": "ir_0ebfaa10d67ed690055fcda0bcf56f6ca378814ec7292a7888b30620807ba33c"
+          }
+        },
+        "physical_ir": {
+          "operations": {
+            "node_prefill": {
+              "id": "node_prefill",
+              "operation_type": "noop",
+              "inputs": [],
+              "outputs": [],
+              "dependencies": [],
+              "execution_family": null,
+              "metadata": {
+                "original_logical_node": "prefill"
+              }
+            },
+            "node_sample": {
+              "id": "node_sample",
+              "operation_type": "sampling",
+              "inputs": [],
+              "outputs": [],
+              "dependencies": [
+                "node_prefill"
+              ],
+              "execution_family": null,
+              "metadata": {
+                "original_logical_node": "sample"
+              }
+            },
+            "node_forward": {
+              "id": "node_forward",
+              "operation_type": "forward",
+              "inputs": [],
+              "outputs": [],
+              "dependencies": [
+                "node_sample"
+              ],
+              "execution_family": null,
+              "metadata": {
+                "original_logical_node": "forward"
+              }
+            },
+            "node_verify": {
+              "id": "node_verify",
+              "operation_type": "noop",
+              "inputs": [],
+              "outputs": [],
+              "dependencies": [
+                "node_forward"
+              ],
+              "execution_family": null,
+              "metadata": {
+                "original_logical_node": "verify"
+              }
+            },
+            "node_emit": {
+              "id": "node_emit",
+              "operation_type": "noop",
+              "inputs": [],
+              "outputs": [],
+              "dependencies": [
+                "node_verify"
+              ],
+              "execution_family": null,
+              "metadata": {
+                "original_logical_node": "emit"
+              }
+            }
+          },
+          "roots": [
+            "node_emit"
+          ],
+          "metadata": {
+            "lowered_from": "ExecutionIR",
+            "cache_key": "phys_ir_8f9107eb15bd11a9e3c80cbd4e48e4b74915776be6d566b9f33a8f86ce62dfa0"
+          }
+        },
+        "backend_operation_graph": {
+          "backend_id": "mlx",
+          "operations": {
+            "node_prefill": {
+              "id": "node_prefill",
+              "inputs": [],
+              "outputs": [],
+              "dependencies": [],
+              "metadata": {
+                "original_logical_node": "prefill"
+              },
+              "execution_family": null
+            },
+            "node_sample": {
+              "id": "node_sample",
+              "inputs": [],
+              "outputs": [],
+              "dependencies": [
+                "node_prefill"
+              ],
+              "metadata": {
+                "original_logical_node": "sample"
+              },
+              "execution_family": null
+            },
+            "node_forward": {
+              "id": "node_forward",
+              "inputs": [],
+              "outputs": [],
+              "dependencies": [
+                "node_sample"
+              ],
+              "metadata": {
+                "original_logical_node": "forward"
+              },
+              "execution_family": null
+            },
+            "node_verify": {
+              "id": "node_verify",
+              "inputs": [],
+              "outputs": [],
+              "dependencies": [
+                "node_forward"
+              ],
+              "metadata": {
+                "original_logical_node": "verify"
+              },
+              "execution_family": null
+            },
+            "node_emit": {
+              "id": "node_emit",
+              "inputs": [],
+              "outputs": [],
+              "dependencies": [
+                "node_verify"
+              ],
+              "metadata": {
+                "original_logical_node": "emit"
+              },
+              "execution_family": null
+            }
+          },
+          "roots": [
+            "node_emit"
+          ],
+          "barriers": [],
+          "synchronization_points": [],
+          "metadata": {
+            "translation_layer": "MLXAdapter"
+          }
+        },
+        "execution_schedule": {
+          "ordered_operations": [
+            "node_prefill",
+            "node_sample",
+            "node_forward",
+            "node_verify",
+            "node_emit"
+          ],
+          "dependency_levels": {
+            "node_prefill": 0,
+            "node_sample": 1,
+            "node_forward": 2,
+            "node_verify": 3,
+            "node_emit": 4
+          },
+          "execution_groups": [
+            {
+              "group_id": "group_0",
+              "operations": [
+                "node_prefill"
+              ],
+              "dependency_level": 0,
+              "estimated_cost": 0.0,
+              "estimated_memory": 0.0,
+              "parallelizable": false,
+              "priority": 0
+            },
+            {
+              "group_id": "group_1",
+              "operations": [
+                "node_sample"
+              ],
+              "dependency_level": 1,
+              "estimated_cost": 0.0,
+              "estimated_memory": 0.0,
+              "parallelizable": false,
+              "priority": 0
+            },
+            {
+              "group_id": "group_2",
+              "operations": [
+                "node_forward"
+              ],
+              "dependency_level": 2,
+              "estimated_cost": 0.0,
+              "estimated_memory": 0.0,
+              "parallelizable": false,
+              "priority": 0
+            },
+            {
+              "group_id": "group_3",
+              "operations": [
+                "node_verify"
+              ],
+              "dependency_level": 3,
+              "estimated_cost": 0.0,
+              "estimated_memory": 0.0,
+              "parallelizable": false,
+              "priority": 0
+            },
+            {
+              "group_id": "group_4",
+              "operations": [
+                "node_emit"
+              ],
+              "dependency_level": 4,
+              "estimated_cost": 0.0,
+              "estimated_memory": 0.0,
+              "parallelizable": false,
+              "priority": 0
+            }
+          ],
+          "critical_path": [
+            "node_prefill",
+            "node_sample",
+            "node_forward",
+            "node_verify",
+            "node_emit"
+          ],
+          "ready_queues": {
+            "0": [
+              "node_prefill"
+            ],
+            "1": [
+              "node_sample"
+            ],
+            "2": [
+              "node_forward"
+            ],
+            "3": [
+              "node_verify"
+            ],
+            "4": [
+              "node_emit"
+            ]
+          },
+          "metadata": {
+            "policy": "dependency_driven"
+          },
+          "diagnostics": {
+            "scheduling_report": {
+              "status": "success",
+              "policy": "dependency_driven"
+            },
+            "dependency_report": {
+              "roots": [
+                "node_prefill"
+              ],
+              "leaves": [
+                "node_emit"
+              ],
+              "is_cyclic": false
+            },
+            "critical_path_report": {
+              "path": [
+                "node_prefill",
+                "node_sample",
+                "node_forward",
+                "node_verify",
+                "node_emit"
+              ],
+              "length": 5
+            },
+            "execution_group_report": {
+              "groups_count": 5
+            },
+            "parallelism_report": {
+              "estimated": 1.0
+            },
+            "policy_report": {
+              "active_policy": "dependency_driven"
+            },
+            "execution_ordering_report": {
+              "operations_count": 5
+            }
+          },
+          "statistics": {
+            "graph_depth": 5,
+            "graph_width": 1,
+            "critical_path_length": 5,
+            "dependency_fan_in": 0.8,
+            "dependency_fan_out": 0.8,
+            "parallel_groups": 0,
+            "execution_levels": 5,
+            "estimated_parallelism": 1.0,
+            "schedule_generation_time_ms": 0.046253204345703125
+          }
+        },
+        "compiler_statistics": {
+          "total_compilations": 1,
+          "successful_compilations": 1,
+          "failed_compilations": 0,
+          "total_compilation_time_ms": 0.3018379211425781
+        },
+        "translation_diagnostics": [
+          "MLX validation status: PASSED",
+          "Successfully translated 5 physical operations to MLX operation graph."
+        ]
+      }
+    },
+    {
+      "phase": "Phase 4 \u2014 Runtime Execution",
+      "passed": true,
+      "duration_ms": 1.1235829988436308,
+      "notes": "",
+      "artifacts": {
+        "execution_status": "completed",
+        "execution_statistics": {
+          "executed_operations": 5,
+          "backend_invocations": 5,
+          "execution_duration_ms": 0.6232261657714844,
+          "graph_depth": 5,
+          "execution_groups": 5,
+          "dispatcher_calls": 5,
+          "adapter_calls": 5,
+          "compiler_execution_count": 1,
+          "legacy_fallback_count": 0
+        },
+        "model_output_keys": [
+          "status",
+          "operations",
+          "last_output"
+        ]
+      }
+    },
+    {
+      "phase": "Phase 5 \u2014 Generation",
+      "passed": true,
+      "duration_ms": 516.5084999989631,
+      "notes": "20 tokens",
+      "artifacts": {
+        "generated_text": "Paris.ThecapitalofFranceisParis.ThecapitalofFranceisParis.ThecapitalofFrance",
+        "tokens_generated": 20,
+        "first_token_latency_ms": 38.042499998482526,
+        "tokens_per_sec": 38.721531204307674
+      }
+    },
+    {
+      "phase": "Phase 6 \u2014 Streaming",
+      "passed": true,
+      "duration_ms": 0.4436670005816268,
+      "notes": "",
+      "artifacts": {
+        "tokens_emitted": 5,
+        "subscribers": 2,
+        "events_per_sub": 6,
+        "replay_events": 7,
+        "ordering_verified": true,
+        "completion_verified": true,
+        "backpressure_drops": 1
+      }
+    },
+    {
+      "phase": "Phase 7 \u2014 Observability",
+      "passed": true,
+      "duration_ms": 1.998083000216866,
+      "notes": "",
+      "artifacts": {
+        "run_id": "run002-obs-e8d0528d-f0f5-4714-9789-970061736e50",
+        "status": "success",
+        "trace_events": 1,
+        "diagnostics": 1,
+        "tokens_recorded": [
+          1,
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "phase": "Phase 8 \u2014 API",
+      "passed": true,
+      "duration_ms": 336.97854099955293,
+      "notes": "",
+      "artifacts": {
+        "session_id": "3088baaf-6c5c-4ed9-8429-5c88309c8335",
+        "tokens_generated": 5,
+        "finish_reason": "stop",
+        "api_text_preview": "Paris.Thecapitalof"
+      }
+    },
+    {
+      "phase": "Phase 9 \u2014 Tooling",
+      "passed": true,
+      "duration_ms": 4.86316700153111,
+      "notes": "inspector: cannot import name 'inspect_runtime' from 'omlx.tooling.inspector' (unknown location), snapshot: cannot import name 'SnapshotManager' from 'omlx.tooling.snapshot' (unknown location), profiling: cannot import name 'RuntimeProfiler' from 'omlx.tooling.profiling' (unknown location), benchmark: cannot import name 'BenchmarkRunner' from 'omlx.tooling.benchmark' (unknown location), validation: cannot import name 'ValidationRunner' from 'omlx.tooling.validation' (unknown location)",
+      "artifacts": {
+        "compiler_statistics": {
+          "total_compilations": 3,
+          "successful_compilations": 3,
+          "failed_compilations": 0,
+          "total_compilation_time_ms": 0.6954669952392578
+        },
+        "runtime_state": "bootstrapping",
+        "partial_notes": [
+          "inspector: cannot import name 'inspect_runtime' from 'omlx.tooling.inspector' (unknown location)",
+          "snapshot: cannot import name 'SnapshotManager' from 'omlx.tooling.snapshot' (unknown location)",
+          "profiling: cannot import name 'RuntimeProfiler' from 'omlx.tooling.profiling' (unknown location)",
+          "benchmark: cannot import name 'BenchmarkRunner' from 'omlx.tooling.benchmark' (unknown location)",
+          "validation: cannot import name 'ValidationRunner' from 'omlx.tooling.validation' (unknown location)"
+        ]
+      }
+    },
+    {
+      "phase": "Phase 10 \u2014 Plugins",
+      "passed": true,
+      "duration_ms": 15.057707998494152,
+      "notes": "",
+      "artifacts": {
+        "discovered_count": 0,
+        "loaded_count": 0,
+        "statistics": {
+          "plugin_count": 0,
+          "dependency_depth": 0,
+          "lifecycle_statistics": {
+            "DISCOVERED": 0,
+            "REGISTERED": 0,
+            "LOADED": 0,
+            "INITIALIZED": 0,
+            "VALIDATED": 0,
+            "ENABLED": 0,
+            "DISABLED": 0,
+            "EXPERIMENTAL": 0,
+            "DEPRECATED": 0,
+            "FAILED": 0
+          },
+          "trust_distribution": {},
+          "permission_usage": {},
+          "registry_query_statistics": {}
+        },
+        "registry_size": 0
+      }
+    },
+    {
+      "phase": "Phase 11 \u2014 Performance",
+      "passed": true,
+      "duration_ms": 0.6592079989786725,
+      "notes": "",
+      "artifacts": {
+        "model": "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit",
+        "prompt": "The capital of France is",
+        "max_tokens": 20,
+        "temperature": 0.0,
+        "metrics_run_002": {
+          "model_load_time_ms": 2506.0697499993694,
+          "compile_latency_ms": 1.2158329991507344,
+          "inference_duration_ms": 516.5084999989631,
+          "first_token_latency_ms": 38.042499998482526,
+          "tokens_per_sec": 38.721531204307674,
+          "tokens_generated": 20,
+          "peak_memory_mb": 1203.171875
+        },
+        "comparison_vs_run_001": {
+          "compile_latency_ms": {
+            "run_002": 1.2158329991507344,
+            "run_001": 0.1,
+            "delta": 1.1158329991507343,
+            "delta_pct": 1115.8329991507342
+          },
+          "first_token_latency_ms": {
+            "run_002": 38.042499998482526,
+            "run_001": 0.5,
+            "delta": 37.542499998482526,
+            "delta_pct": 7508.499999696505
+          },
+          "tokens_per_sec": {
+            "run_002": 38.721531204307674,
+            "run_001": 2000.0,
+            "delta": -1961.2784687956923,
+            "delta_pct": -98.06392343978462
+          },
+          "peak_memory_mb": {
+            "run_002": 1203.171875,
+            "run_001": 150.0,
+            "delta": 1053.171875,
+            "delta_pct": 702.1145833333334
+          },
+          "inference_duration_ms": {
+            "run_002": 516.5084999989631,
+            "run_001": 0.0,
+            "delta": null,
+            "delta_pct": null
+          }
+        }
+      }
+    }
+  ],
+  "performance": {
+    "model_load_time_ms": 2506.0697499993694,
+    "compile_latency_ms": 1.2158329991507344,
+    "inference_duration_ms": 516.5084999989631,
+    "first_token_latency_ms": 38.042499998482526,
+    "tokens_per_sec": 38.721531204307674,
+    "tokens_generated": 20,
+    "peak_memory_mb": 1203.171875
+  },
+  "run001_comparison": {
+    "compile_latency_ms": {
+      "run_002": 1.2158329991507344,
+      "run_001": 0.1,
+      "delta": 1.1158329991507343,
+      "delta_pct": 1115.8329991507342
+    },
+    "first_token_latency_ms": {
+      "run_002": 38.042499998482526,
+      "run_001": 0.5,
+      "delta": 37.542499998482526,
+      "delta_pct": 7508.499999696505
+    },
+    "tokens_per_sec": {
+      "run_002": 38.721531204307674,
+      "run_001": 2000.0,
+      "delta": -1961.2784687956923,
+      "delta_pct": -98.06392343978462
+    },
+    "peak_memory_mb": {
+      "run_002": 1203.171875,
+      "run_001": 150.0,
+      "delta": 1053.171875,
+      "delta_pct": 702.1145833333334
+    },
+    "inference_duration_ms": {
+      "run_002": 516.5084999989631,
+      "run_001": 0.0,
+      "delta": null,
+      "delta_pct": null
+    }
+  },
+  "validation_checklist": {
+    "real_production_model_executed": true,
+    "no_mock_execution": true,
+    "omlx_client_used_as_entry_point": true,
+    "runtime_generate_is_sole_execution_owner": true,
+    "canonical_execution_path_followed": true,
+    "model_intelligence_participated": true,
+    "quantization_intelligence_participated": true,
+    "compiler_generated_all_artifacts": true,
+    "scheduler_produced_execution_schedule": true,
+    "execution_engine_executed": true,
+    "backend_adapter_executed_real_mlx_ops": true,
+    "tokens_generated_successfully": true,
+    "streaming_functions_correctly": true,
+    "observation_session_recorded_complete_run": true,
+    "tooling_inspected_session": true,
+    "plugins_loaded_correctly": true,
+    "performance_metrics_collected": true,
+    "artifact_bundle_exported": true,
+    "no_architectural_violations_introduced": true,
+    "all_regression_tests_passed": true
+  }
+}

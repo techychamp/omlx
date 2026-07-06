@@ -1,0 +1,11 @@
+{
+  "run_id": "run002-obs-e8d0528d-f0f5-4714-9789-970061736e50",
+  "status": "success",
+  "trace_events": 1,
+  "diagnostics": 1,
+  "tokens_recorded": [
+    1,
+    2,
+    3
+  ]
+}
