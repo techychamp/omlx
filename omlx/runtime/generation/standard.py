@@ -18,7 +18,7 @@ class StandardGenerationStrategy(GenerationStrategy):
     Standard generation strategy that preserves existing Runtime behavior.
     """
 
-        @property
+    @property
     def strategy_intent(self) -> str:
         return "standard"
     def get_cache_policy(self) -> dict:
