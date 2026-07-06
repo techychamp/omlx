@@ -75,6 +75,8 @@ class Runtime:
     def __init__(self, context: RuntimeContext) -> None:
         self.context = context
         self.state = RuntimeStateEnum.CREATED
+        import threading
+        self._generate_lock = threading.Lock()
 
         # Subsystems
         self.settings: Any = context.settings
@@ -150,7 +152,7 @@ class Runtime:
         )
         return self.execution_engine.execute(exec_context)
 
-    def _sample_token(self, execution_result: Any, temperature: float, mx: Any) -> tuple[int, str]:
+    def _sample_token(self, execution_result: Any, sampler: Any, mx: Any) -> tuple[int, str]:
         model_output = execution_result.model_output
         if not model_output or not model_output.get("last_output"):
             raise ValueError("No output from adapter")
@@ -169,86 +171,100 @@ class Runtime:
 
         if mx is None:
             return 0, " simulated"
-        elif temperature == 0.0:
-            return mx.argmax(logits[:, -1, :], axis=-1).item(), None
+
+        if callable(sampler):
+            # Pluggable sampler
+            return sampler(logits).item(), None
         else:
-            scaled_logits = logits[:, -1, :] / temperature
-            return mx.random.categorical(scaled_logits).item(), None
+            # Fallback backward compatibility
+            if sampler == 0.0:
+                return mx.argmax(logits[:, -1, :], axis=-1).item(), None
+            else:
+                scaled_logits = logits[:, -1, :] / sampler
+                return mx.random.categorical(scaled_logits).item(), None
 
     def generate(
-        self,
+            self,
         request_context: Any,
         max_tokens: int = 10,
-        temperature: float = 0.0,
+        sampler: Any = 0.0,
+        stop_sequences: list[str] = None,
+        timeout: float = None,
     ) -> Any:
         import time
-        try:
-            import mlx.core as mx
-        except ImportError:
-            mx = None
-
-        from omlx.runtime.streaming.types import StreamingToken, StreamCompletion
-        from omlx.runtime.streaming.events import StreamingEvent, StreamingEventType
-        from omlx.runtime.observability import get_observer
-
-        model_id, prompt, model, tokenizer = self._prepare_generation_context(request_context)
-        translation_result = self._compile_request(model_id, request_context)
-        backend_op_graph = getattr(translation_result, "backend_graph", getattr(translation_result, "backend_operation_graph", None))
-        adapter = self._resolve_adapter(translation_result)
-
-        session = self.streaming_controller.create_session()
-        input_ids = tokenizer.encode(prompt)
-
-        generated_tokens = []
-        generated_text = ""
-
-        with get_observer().observe_phase("Execution", "Runtime", "generate"):
+        # intentional limitation: a single runtime-wide lock prevents continuous batching and concurrent sessions on a single instance
+        with self._generate_lock:
             try:
-                for step in range(max_tokens):
-                    execution_result = self._execute_forward_pass(
-                        backend_op_graph, input_ids, translation_result, adapter, model, tokenizer
-                    )
+                import mlx.core as mx
+            except ImportError:
+                mx = None
 
-                    if execution_result.status.value == "failed":
-                        raise RuntimeError("Execution failed")
+            from omlx.runtime.streaming.types import StreamingToken, StreamCompletion
+            from omlx.runtime.streaming.events import StreamingEvent, StreamingEventType
+            from omlx.runtime.observability import get_observer
 
-                    next_token, token_text = self._sample_token(execution_result, temperature, mx)
+            model_id, prompt, model, tokenizer = self._prepare_generation_context(request_context)
+            translation_result = self._compile_request(model_id, request_context)
+            backend_op_graph = getattr(translation_result, "backend_graph", getattr(translation_result, "backend_operation_graph", None))
+            adapter = self._resolve_adapter(translation_result)
 
-                    if token_text is None:
-                        token_text = tokenizer.decode([next_token])
+            session = self.streaming_controller.create_session()
+            input_ids = tokenizer.encode(prompt)
 
-                    generated_tokens.append(next_token)
-                    generated_text += token_text
+            generated_tokens = []
+            generated_text = ""
 
-                    stream_token = StreamingToken(
-                        token_id=next_token,
-                        decoded_text=token_text,
-                        timestamp=time.time(),
-                        sequence_index=step
-                    )
+            with get_observer().observe_phase("Execution", "Runtime", "generate"):
+                try:
+                    for step in range(max_tokens):
+                        execution_result = self._execute_forward_pass(
+                            backend_op_graph, input_ids, translation_result, adapter, model, tokenizer
+                        )
 
-                    self.streaming_controller.publish_event(session.session_id, StreamingEvent(
-                        event_type=StreamingEventType.TOKEN_GENERATED,
-                        timestamp=time.time(),
-                        payload={"token": stream_token}
-                    ))
+                        if execution_result.status.value == "failed":
+                            raise RuntimeError("Execution failed")
 
-                    input_ids.append(next_token)
+                        next_token, token_text = self._sample_token(execution_result, sampler, mx)
 
-                    if hasattr(tokenizer, "eos_token_id") and next_token == tokenizer.eos_token_id:
-                        break
+                        if token_text is None:
+                            token_text = tokenizer.decode([next_token])
 
-                self.streaming_controller.complete_session(session.session_id, StreamCompletion.SUCCESS)
+                        generated_tokens.append(next_token)
+                        generated_text += token_text
 
-            except Exception as e:
-                self.streaming_controller.complete_session(session.session_id, StreamCompletion.ERROR, e)
-                get_observer().track_event("ExecutionError", {"error": str(e)})
+                        stream_token = StreamingToken(
+                            token_id=next_token,
+                            decoded_text=token_text,
+                            timestamp=time.time(),
+                            sequence_index=step
+                        )
 
-        return {
-            "generated_text": generated_text,
-            "tokens": generated_tokens,
-            "session": session
-        }
+                        self.streaming_controller.publish_event(session.session_id, StreamingEvent(
+                            event_type=StreamingEventType.TOKEN_GENERATED,
+                            timestamp=time.time(),
+                            payload={"token": stream_token}
+                        ))
+
+                        input_ids.append(next_token)
+
+                        if hasattr(tokenizer, "eos_token_id") and next_token == tokenizer.eos_token_id:
+                            break
+
+                    self.streaming_controller.complete_session(session.session_id, StreamCompletion.SUCCESS)
+
+                except Exception as e:
+                    self.streaming_controller.complete_session(session.session_id, StreamCompletion.ERROR, e)
+                    with get_observer().observe_phase("Execution", "Runtime", "generate_error"):
+                        pass
+                    import logging
+                    logger = logging.getLogger("omlx.runtime")
+                    logger.error(f"ExecutionError in generation loop: {e}")
+
+            return {
+                "generated_text": generated_text,
+                "tokens": generated_tokens,
+                "session": session
+            }
 
     def execute_request(self, request_context: Any) -> Any:
         """
