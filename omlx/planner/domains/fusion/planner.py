@@ -5,7 +5,8 @@ Planner for the fusion domain. Creates a FusionPlan based on analysis.
 
 from .artifacts import FusionPlan, FusionGroup, FusionStatistics
 from .analyzer import FusionAnalyzer
-from omlx.framework.graph.artifacts import GraphAnalysisReport, GraphDescriptor
+from omlx.framework.graph.artifacts import GraphAnalysisReport
+from omlx.framework.graph.descriptor import GraphDescriptor
 from omlx.runtime.scheduling.artifacts import DependencyGraph
 
 class FusionPlanner:

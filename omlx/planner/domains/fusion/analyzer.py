@@ -5,7 +5,8 @@ Analyzer for discovering fusion opportunities in the compiler graph.
 
 from typing import Iterable, Sequence
 from .artifacts import FusionOpportunity, FusionDiagnostic, FusionCompatibilityReport
-from omlx.framework.graph.artifacts import GraphAnalysisReport, GraphDescriptor
+from omlx.framework.graph.artifacts import GraphAnalysisReport
+from omlx.framework.graph.descriptor import GraphDescriptor
 from omlx.runtime.scheduling.artifacts import DependencyGraph
 
 class FusionAnalyzer:
