@@ -4,7 +4,8 @@ from typing import Any, Mapping
 
 @dataclass(frozen=True)
 class GraphDescriptor:
-
+    id: str = "planning_graph"
+    metadata: MappingProxyType[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
 @dataclass(frozen=True)
 class GraphNode:
@@ -18,6 +19,8 @@ class GraphAnalysisReport:
     node_properties: MappingProxyType[str, Any] = field(default_factory=lambda: MappingProxyType({}))
     metrics: MappingProxyType[str, Any] = field(default_factory=lambda: MappingProxyType({}))
     metadata: MappingProxyType[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+
+@dataclass(frozen=True)
 class GraphEdge:
     """Canonical representation of a directed graph edge."""
     source_id: str

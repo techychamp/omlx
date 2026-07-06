@@ -18,6 +18,8 @@ from .dependency_tracker import DependencyTracker
 from .backend.adapter import BaseBackendAdapter
 from .backend.registry import AdapterRegistry
 from omlx.runtime.observability import get_observer
+from omlx.planner.domains.bundle import PlanningBundle
+from omlx.planner.compiler.transformation.pass_ import FusionRealizationPass
 
 logger = logging.getLogger("omlx.compiler")
 
@@ -36,9 +38,18 @@ class CompilerEngine:
         self.lowering_engine = lowering_engine or LoweringEngine(cache_manager=cache_manager, dependency_tracker=self.dependency_tracker)
         self.optimization_pipeline = OptimizationPipeline(self.logical_registry, self.physical_registry)
 
-    def compile(self, logical_ir: ExecutionIR) -> PhysicalIR:
+    def compile(self, logical_ir: ExecutionIR, planning_bundle: Optional[PlanningBundle] = None) -> PhysicalIR:
         """Runs the full compiler pipeline: Planning -> IR -> Logical Passes -> Lowering -> Physical Passes."""
         with get_observer().observe_phase("Compilation", "Compiler", "compile"):
+
+            # Conditionally inject fusion realization pass if plan is provided
+            if planning_bundle and planning_bundle.fusion_plan:
+                 # It's better to dynamically inject rather than mutating a shared registry
+                 # But for simplicity in the engine structure, we can temporarily add and apply
+                 fusion_pass = FusionRealizationPass(planning_bundle.fusion_plan)
+                 logical_ir = fusion_pass.apply(logical_ir)
+                 get_observer().track_artifact("FusionTransformationReport", fusion_pass.report)
+
             # 1. Logical Optimization
             logger.debug("Applying logical passes")
             optimized_logical_ir = self.optimization_pipeline.optimize_logical(logical_ir)

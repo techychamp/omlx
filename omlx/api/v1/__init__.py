@@ -6,7 +6,7 @@ from .quantization import QuantizationInfo, QuantizationService
 from .capability import CapabilityInfo, CapabilityService
 from .runtime import RuntimeBuilder, RuntimeService, RuntimeConfig
 from .compiler import CompilerRequestBuilder, CompilerService, CompilerRequest, CompilerResult, CompilerArtifactSummary
-from .planning import PlanningRequestBuilder, Planner, PlanningRequest, PlanningResult, PlanningStageSummary
+from .planning import PlanningClient, PlanningRequest
 from .backend import BackendRequestBuilder, BackendManager, BackendRequest, BackendSelectionResult, HardwareConstraint
 from .inspection import Inspector, InspectionResult, HealthMetric
 from .verification import VerificationRequestBuilder, Verifier, VerificationRequest, VerificationResult, VerificationMetric

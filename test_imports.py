@@ -1,4 +1,4 @@
-from omlx.framework.cache import CacheDescriptor, CachePlan
-from omlx.runtime.execution import CacheSession
-from omlx.runtime.builder import RuntimeBuilder
-print("Imports OK")
+import sys
+import os
+sys.path.insert(0, os.path.abspath("."))
+import omlx.api.v1.fusion.transformation
