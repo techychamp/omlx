@@ -4,7 +4,7 @@ import logging
 from typing import Dict, List, Optional, Any
 from .registry import PluginRegistry
 from .context import PluginInitializationContext
-from .descriptor import PluginDescriptor, PluginLifecycleState
+from .descriptor import PluginDescriptor, PluginLifecycleState, PluginFailure
 from .compatibility import CompatibilityNegotiator
 from .validation import PluginValidationFramework
 
@@ -54,22 +54,9 @@ class PluginManager:
         Phase 2: Load the discovered entry points (import modules) and read descriptors.
         Registers descriptors into the PluginRegistry.
         """
-        for ep_name, ep in self._discovered_entry_points.items():
-            try:
-                plugin_module = ep.load()
-
-                if hasattr(plugin_module, "get_descriptor"):
-                    descriptor = plugin_module.get_descriptor()
-                    if isinstance(descriptor, PluginDescriptor):
-                        self._registry.register_plugin(descriptor)
-                        self._registry.transition_state(descriptor.plugin_id, PluginLifecycleState.LOADED)
-                        self._loaded_modules[descriptor.plugin_id] = plugin_module
-                    else:
-                        logger.warning(f"Entry point {ep.name} did not return a valid PluginDescriptor")
-                else:
-                    logger.warning(f"Entry point {ep.name} has no get_descriptor() function")
-            except Exception as e:
-                logger.error(f"Failed to load plugin from entry point {ep.name}: {e}")
+        from .loader import PluginLoader
+        loader = PluginLoader(self._registry)
+        self._loaded_modules = loader.load_parallel(self._discovered_entry_points)
 
     def initialize_plugins(self) -> None:
         """
@@ -100,6 +87,17 @@ class PluginManager:
 
                     self._registry.transition_state(plugin_id, PluginLifecycleState.INITIALIZED)
                 except Exception as e:
+                    import traceback
+                    failure = PluginFailure(
+                        plugin_id=plugin_id,
+                        phase='initialization',
+                        exception=str(e),
+                        stack_trace=traceback.format_exc(),
+                        diagnostics={}
+                    )
+                    if 'initialization_failures' not in self._registry._diagnostics:
+                        self._registry._diagnostics['initialization_failures'] = {}
+                    self._registry._diagnostics['initialization_failures'][plugin_id] = failure
                     logger.error(f"Failed to initialize plugin {plugin_id}: {e}")
                     self._registry.transition_state(plugin_id, PluginLifecycleState.FAILED)
 

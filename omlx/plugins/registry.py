@@ -1,6 +1,6 @@
 import threading
 from typing import Dict, List, Optional, Type, Any, Set
-from .descriptor import PluginDescriptor, PluginLifecycleState
+from .descriptor import PluginDescriptor, PluginLifecycleState, ExtensionDescriptor, PluginFailure
 from .contracts import ExtensionPoint
 from .versioning import SemanticVersion
 
@@ -61,6 +61,8 @@ class PluginRegistry:
             self._descriptors[descriptor.plugin_id] = descriptor
             self._plugin_states[descriptor.plugin_id] = PluginLifecycleState.REGISTERED
             self._extensions_by_plugin[descriptor.plugin_id] = []
+            if not hasattr(self, '_extensions_by_type'):
+                self._extensions_by_type = {}
             self._diagnostics["registration"][descriptor.plugin_id] = "Success"
             self._diagnostics["lifecycle"][descriptor.plugin_id] = PluginLifecycleState.REGISTERED.value
 
@@ -72,6 +74,12 @@ class PluginRegistry:
                 raise ValueError(f"Plugin ID {plugin_id} not found.")
 
             self._extensions_by_plugin[plugin_id].extend(extensions)
+            for ext in extensions:
+                for base in type(ext).__bases__:
+                    if base.__name__ != 'object':
+                        if base not in self._extensions_by_type:
+                            self._extensions_by_type[base] = []
+                        self._extensions_by_type[base].append(ext)
             # We will gather these by type in get_extensions dynamically
 
     def transition_state(self, plugin_id: str, new_state: PluginLifecycleState) -> None:
@@ -186,19 +194,23 @@ class PluginRegistry:
 
     def get_by_capability(self, capability) -> List[PluginDescriptor]:
         with self._lock:
-            return [desc for desc in self._descriptors.values() if capability in desc.capabilities]
+            val = capability.value if hasattr(capability, 'value') else capability
+            return [desc for desc in self._descriptors.values() if val in desc.capabilities]
 
     def get_by_priority(self, priority) -> List[PluginDescriptor]:
         with self._lock:
-            return [desc for desc in self._descriptors.values() if desc.priority == priority]
+            val = priority.value if hasattr(priority, 'value') else priority
+            return [desc for desc in self._descriptors.values() if desc.priority == priority or getattr(desc.priority, 'value', desc.priority) == val]
 
     def get_by_permission(self, permission) -> List[PluginDescriptor]:
         with self._lock:
-            return [desc for desc in self._descriptors.values() if permission in desc.permissions]
+            val = permission.value if hasattr(permission, 'value') else permission
+            return [desc for desc in self._descriptors.values() if val in desc.permissions]
 
     def get_by_trust_level(self, trust_level) -> List[PluginDescriptor]:
         with self._lock:
-            return [desc for desc in self._descriptors.values() if desc.trust_level == trust_level]
+            val = trust_level.value if hasattr(trust_level, 'value') else trust_level
+            return [desc for desc in self._descriptors.values() if desc.trust_level == trust_level or getattr(desc.trust_level, 'value', desc.trust_level) == val]
 
     def get_by_compiler_stage(self, stage: str) -> List[PluginDescriptor]:
         with self._lock:
@@ -229,9 +241,10 @@ class PluginRegistry:
     def get_extensions_by_capability(self, capability) -> List[ExtensionPoint]:
         with self._lock:
             extensions = []
+            val = capability.value if hasattr(capability, 'value') else capability
             for exts in self._extensions_by_plugin.values():
                 for ext in exts:
-                    if capability in ext.capabilities:
+                    if capability in ext.capabilities or val in ext.capabilities:
                         extensions.append(ext)
             return extensions
 
