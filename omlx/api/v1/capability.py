@@ -1,7 +1,7 @@
 from typing import List, Dict, Any
 from pydantic import BaseModel, Field
 
-class CapabilityInfo(BaseModel, frozen=True):
+class CapabilityInfo(BaseModel):
     name: str
     supported: bool
     version: str

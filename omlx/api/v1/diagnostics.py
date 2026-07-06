@@ -3,12 +3,12 @@ from pydantic import BaseModel, Field
 import asyncio
 from omlx.api.v1.exceptions import DiagnosticsError
 
-class DiagnosticIssue(BaseModel, frozen=True):
+class DiagnosticIssue(BaseModel):
     severity: str
     component: str
     message: str
 
-class DiagnosticsResult(BaseModel, frozen=True):
+class DiagnosticsResult(BaseModel):
     issues_found: int = 0
     issues: List[DiagnosticIssue] = Field(default_factory=list)
     system_state_summary: str = "healthy"

@@ -3,13 +3,13 @@ from pydantic import BaseModel, Field
 import asyncio
 from omlx.api.v1.exceptions import OmlxError
 
-class MetricData(BaseModel, frozen=True):
+class MetricData(BaseModel):
     name: str
     value: float
     unit: str
     description: str
 
-class PerformanceResult(BaseModel, frozen=True):
+class PerformanceResult(BaseModel):
     metrics: List[MetricData] = Field(default_factory=list)
     bottlenecks: List[str] = Field(default_factory=list)
     suggestions: List[str] = Field(default_factory=list)

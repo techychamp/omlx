@@ -3,12 +3,12 @@ from pydantic import BaseModel, Field
 import asyncio
 from omlx.api.v1.exceptions import PluginError
 
-class PluginMetadata(BaseModel, frozen=True):
+class PluginMetadata(BaseModel):
     version: str
     author: str
     description: str
 
-class PluginResult(BaseModel, frozen=True):
+class PluginResult(BaseModel):
     success: bool = True
     plugin_id: str
     metadata: Optional[PluginMetadata] = None

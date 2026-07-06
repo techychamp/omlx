@@ -7,18 +7,18 @@ import logging
 
 logger = logging.getLogger("omlx.api.v1.compiler")
 
-class CompilerArtifactSummary(BaseModel, frozen=True):
+class CompilerArtifactSummary(BaseModel):
     node_count: int = 0
     root_count: int = 0
     has_translation: bool = False
     target_backend: str
 
-class CompilerResult(BaseModel, frozen=True):
+class CompilerResult(BaseModel):
     success: bool = True
     artifacts: CompilerArtifactSummary
     diagnostics: Dict[str, str] = Field(default_factory=dict)
 
-class CompilerRequest(BaseModel, frozen=True):
+class CompilerRequest(BaseModel):
     model_id: str
     target_backend: str = "mlx"
     optimizations: Dict[str, bool] = Field(default_factory=dict)

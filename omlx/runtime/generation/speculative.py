@@ -46,6 +46,8 @@ class SpeculativeGenerationStrategy(GenerationStrategy):
         @property
     def strategy_intent(self) -> str:
         return "verification_memory_required"
+    def get_cache_policy(self) -> dict:
+        return {"use_cache": True, "policy": "speculative"}
 
     def generate(self, runtime: Any, request_context: Any, **kwargs) -> Any:
         max_tokens = kwargs.get("max_tokens", 10)

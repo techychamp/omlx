@@ -2,7 +2,7 @@
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
 
-class QuantizationInfo(BaseModel, frozen=True):
+class QuantizationInfo(BaseModel):
     method: str
     bits: int
     group_size: int

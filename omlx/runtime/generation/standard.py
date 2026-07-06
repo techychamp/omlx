@@ -21,6 +21,8 @@ class StandardGenerationStrategy(GenerationStrategy):
         @property
     def strategy_intent(self) -> str:
         return "standard"
+    def get_cache_policy(self) -> dict:
+        return {"use_cache": True, "policy": "standard"}
 
     def generate(self, runtime: Any, request_context: Any, **kwargs) -> Any:
         max_tokens = kwargs.get("max_tokens", 10)

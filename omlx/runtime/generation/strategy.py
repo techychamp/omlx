@@ -22,3 +22,9 @@ class GenerationStrategy(Protocol):
         Orchestrates generation according to the specific strategy.
         """
         ...
+
+    def get_cache_policy(self) -> dict:
+        """
+        Returns the cache usage policy for this strategy.
+        """
+        return {"use_cache": True, "policy": "standard"}

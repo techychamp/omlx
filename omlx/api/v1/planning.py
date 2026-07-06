@@ -10,18 +10,18 @@ import logging
 
 logger = logging.getLogger("omlx.api.v1.planning")
 
-class PlanningStageSummary(BaseModel, frozen=True):
+class PlanningStageSummary(BaseModel):
     stage_name: str
     description: str
     operations_count: int = 0
 
-class PlanningResult(BaseModel, frozen=True):
+class PlanningResult(BaseModel):
     success: bool = True
     plan_id: str = "plan-123"
     stages: List[PlanningStageSummary] = Field(default_factory=list)
     diagnostics: Dict[str, str] = Field(default_factory=dict)
 
-class PlanningRequest(BaseModel, frozen=True):
+class PlanningRequest(BaseModel):
     capabilities: List[str] = Field(default_factory=list)
     constraints: Dict[str, Any] = Field(default_factory=dict)
     model_id: Optional[str] = None

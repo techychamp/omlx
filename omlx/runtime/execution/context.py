@@ -24,6 +24,8 @@ class ExecutionContext:
     diagnostics: Optional[Any] = None
     statistics: Optional[Any] = None
     adapter: Optional[Any] = None
+    cache_plan: Optional[Any] = None
+    cache_session: Optional[Any] = None
     # Loaded model and tokenizer — injected by the execution harness for RUN-001.
     # The backend adapter does not read these in RUN-001; they are reserved for
     # BACKEND-005 where MLXAdapter.execute() will invoke real MLX kernel dispatch.

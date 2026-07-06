@@ -3,22 +3,22 @@ from pydantic import BaseModel, Field
 import asyncio
 from omlx.api.v1.exceptions import OmlxError
 
-class ToolOutput(BaseModel, frozen=True):
+class ToolOutput(BaseModel):
     status_code: int
     output_message: str
 
-class ToolingResult(BaseModel, frozen=True):
+class ToolingResult(BaseModel):
     success: bool = True
     output: Optional[ToolOutput] = None
     errors: List[str] = Field(default_factory=list)
     diagnostics: Dict[str, str] = Field(default_factory=dict)
 
-class ReplayEvent(BaseModel, frozen=True):
+class ReplayEvent(BaseModel):
     event_id: str
     timestamp: float
     status: str
 
-class ReplayResult(BaseModel, frozen=True):
+class ReplayResult(BaseModel):
     success: bool = True
     replay_id: str = "replay-123"
     events_processed: int = 0
