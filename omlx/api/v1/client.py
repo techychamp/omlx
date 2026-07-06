@@ -126,6 +126,12 @@ class OMLXClient:
              return await asyncio.to_thread(self._runtime.verifier.verify, request)
          raise OMLXRuntimeError("Verifier is not available in the current runtime.")
 
+    # Graph Diagnostics
+    def get_graph_diagnostics(self, graph_descriptor_id: str) -> List[Any]:
+         if hasattr(self._runtime, 'diagnostics_runner') and hasattr(self._runtime.diagnostics_runner, 'get_graph_diagnostics'):
+              return self._runtime.diagnostics_runner.get_graph_diagnostics(graph_descriptor_id)
+         raise OMLXRuntimeError("DiagnosticsRunner is not available in the current runtime.")
+
     # Model and Quantization Introspection
     def get_model_info(self) -> Any:
          if hasattr(self._runtime, 'models') and hasattr(self._runtime.models, 'get_info'):
@@ -152,3 +158,9 @@ class OMLXClient:
          if hasattr(self._runtime, 'plugins'):
               return self._runtime.plugins
          raise OMLXRuntimeError("Plugin framework is not available.")
+
+    def analyze_graph(self, ir) -> Any:
+         """Analyzes an ExecutionIR graph using the Graph Analysis Framework."""
+         from omlx.planner.ir.analysis import GraphAnalyzer
+         analyzer = GraphAnalyzer()
+         return analyzer.analyze(ir)

@@ -9,6 +9,7 @@ import json
 from omlx.capabilities.descriptor import CapabilityDescriptor
 from omlx.planner.plan import ExecutionPlan
 from omlx.planner.ir.graph import ExecutionIR
+from omlx.planner.ir.analysis import GraphAnalyzer
 from omlx.planner.ir.physical.graph import PhysicalIR
 
 class CompilerInspector:
@@ -57,8 +58,25 @@ class CompilerInspector:
         return self._freeze_dict(res)
 
     def inspect_logical_ir(self, ir: ExecutionIR) -> dict[str, Any]:
-        """Inspects a Logical IR and returns its dictionary representation."""
-        return ir.to_dict()
+        """Inspects a Logical IR and returns its dictionary representation along with analysis."""
+        analyzer = GraphAnalyzer()
+        report = analyzer.analyze(ir)
+
+        return {
+            "ir": ir.to_dict(),
+            "analysis": {
+                "is_valid": report.validation.is_valid,
+                "node_count": report.statistics.node_count,
+                "edge_count": report.statistics.edge_count,
+                "max_depth": report.statistics.max_depth,
+                "has_cycles": report.dependencies.has_cycles,
+                "critical_path_cost": report.critical_path.estimated_cost if report.critical_path else None,
+                "diagnostics": [
+                    {"level": d.level.value, "message": d.message, "node_id": d.node_id}
+                    for d in report.validation.diagnostics
+                ]
+            }
+        }
 
     def inspect_physical_ir(self, ir: PhysicalIR) -> dict[str, Any]:
         """Inspects a Physical IR and returns its dictionary representation."""

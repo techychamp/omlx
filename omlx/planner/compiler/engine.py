@@ -8,6 +8,7 @@ from typing import Optional, Dict, Any
 from omlx.planner.compiler.cache.utils import compute_cache_key
 
 from omlx.planner.ir.graph import ExecutionIR
+from omlx.planner.ir.analysis import GraphAnalyzer
 from omlx.planner.ir.physical.graph import PhysicalIR
 from .passes import LogicalPassRegistry, PhysicalPassRegistry
 from .lowering import LoweringEngine
@@ -42,6 +43,16 @@ class CompilerEngine:
             logger.debug("Applying logical passes")
             optimized_logical_ir = self.optimization_pipeline.optimize_logical(logical_ir)
             get_observer().track_artifact("LogicalIR", optimized_logical_ir)
+
+            # Run Graph Analysis
+            analyzer = GraphAnalyzer()
+            report = analyzer.analyze(optimized_logical_ir)
+            get_observer().track_artifact("LogicalIR_Analysis", report)
+            get_observer().record_graph_metrics(report.statistics)
+
+            if not report.validation.is_valid:
+                for diag in report.validation.diagnostics:
+                    get_observer().add_diagnostic(f"Graph Analysis: {diag.message}")
 
             # 2. Lowering
             logger.debug("Lowering Logical IR to Physical IR")

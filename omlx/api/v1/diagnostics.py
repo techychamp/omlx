@@ -21,6 +21,12 @@ class DiagnosticsRunner:
     async def run_diagnostics_async(self) -> DiagnosticsResult:
         return await asyncio.to_thread(self.run_diagnostics)
 
+    def get_graph_diagnostics(self, graph_descriptor_id: str) -> List[DiagnosticIssue]:
+        return []
+
+    async def get_graph_diagnostics_async(self, graph_descriptor_id: str) -> List[DiagnosticIssue]:
+        return await asyncio.to_thread(self.get_graph_diagnostics, graph_descriptor_id)
+
     def run_diagnostics(self) -> DiagnosticsResult:
         try:
             return DiagnosticsResult()
