@@ -40,8 +40,9 @@ class GraphScheduler(IGraphScheduler):
 
         has_ops = hasattr(graph, 'operations') and graph.operations
         has_moe = type(graph).__name__ == 'ExpertExecutionGraph' and hasattr(graph, 'routing_graph')
+        has_phase = type(graph).__name__ == 'ExecutionPhaseGraph' and hasattr(graph, 'phases')
 
-        if not has_ops and not has_moe:
+        if not has_ops and not has_moe and not has_phase:
             return ExecutionSchedule(
                 statistics=SchedulingStatistics(schedule_generation_time_ms=(time.time() - start_time) * 1000)
             )
@@ -50,6 +51,8 @@ class GraphScheduler(IGraphScheduler):
              return self._build_from_execution_phase_graph(graph, start_time)
         elif isinstance(graph, DependencyGraph):
              return self._build_from_dependency_graph(graph, start_time)
+        elif type(graph).__name__ == 'ExecutionPhaseGraph':
+            return self._build_from_execution_phase_graph(graph, start_time)
         elif type(graph).__name__ == 'ExpertExecutionGraph':
              return self._build_from_expert_graph(graph, start_time)
         else:
