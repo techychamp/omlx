@@ -21,14 +21,22 @@ class CacheTransformationValidator:
     def validate(self, original_ir: ExecutionIR, transformed_ir: ExecutionIR) -> CacheValidationReport:
         """
         Validates the transformed ExecutionIR to ensure cache constraints are met.
-        For example, checking if every CACHE_READ is validly connected.
+
+        Currently, this validator is intentionally lightweight and only checks for basic
+        connectivity properties (e.g., that CACHE_WRITE nodes have dependencies).
+
+        TODO: CACHE-003 will perform deeper validation, including:
+        - read/write ordering correctness
+        - dependency validation across complex control flow
+        - cache lifetime consistency checks
+        - cache coherence verification across multiple streams/requests
         """
         diagnostics = []
         is_valid = True
 
         for node_id, node in transformed_ir.nodes.items():
             if node.node_type == IRNodeType.CACHE_READ:
-                # Cache read should have some dependency if not root
+                # Cache read should ideally have some dependency if not root
                 pass
             elif node.node_type == IRNodeType.CACHE_WRITE:
                 if not node.dependencies:

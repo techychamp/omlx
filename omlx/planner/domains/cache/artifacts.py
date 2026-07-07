@@ -6,6 +6,7 @@ Immutable artifacts for compiler-native cache realization.
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, Tuple
+from omlx.framework.graph.descriptor import GraphDescriptor
 
 @dataclass(frozen=True)
 class CacheRealizationDiagnostic:
@@ -24,16 +25,14 @@ class CacheRealizationStatistics:
     metadata: MappingProxyType[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
 @dataclass(frozen=True)
+class CacheExecutionGraph:
+    """Immutable realization of cache execution operations."""
+    graph: GraphDescriptor = field(default_factory=lambda: GraphDescriptor(id="default", nodes=MappingProxyType({}), edges=tuple()))
+
+@dataclass(frozen=True)
 class CacheRealizationReport:
     """Immutable report resulting from cache realization."""
     is_successful: bool
     statistics: CacheRealizationStatistics = field(default_factory=CacheRealizationStatistics)
     diagnostics: Tuple[CacheRealizationDiagnostic, ...] = field(default_factory=tuple)
-
-@dataclass(frozen=True)
-class CacheExecutionGraph:
-    """Immutable realization of cache execution operations."""
-    # We can reuse the structure of GraphDescriptor here conceptually, but typically
-    # in this codebase the domain artifacts just wrap the underlying standard graph artifacts
-    # or exist alongside them in a report.
-    pass
+    execution_graph: CacheExecutionGraph = field(default_factory=lambda: CacheExecutionGraph())

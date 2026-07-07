@@ -5,6 +5,7 @@ from omlx.planner.ir.graph import ExecutionIR
 from omlx.framework.cache.plan import CachePlan
 from .realizer import CacheRealizer
 from .validator import CacheTransformationValidator
+from omlx.planner.domains.cache.artifacts import CacheRealizationReport
 
 class CacheRealizationPass(LogicalPass):
     """
@@ -28,7 +29,13 @@ class CacheRealizationPass(LogicalPass):
 
         validation_report = self._validator.validate(ir, transformed_ir)
         if not validation_report.is_valid:
-            # If invalid, rollback and return the original graph
+            # If invalid, rollback and return the original graph, but surface diagnostics
+            self._report = CacheRealizationReport(
+                is_successful=False,
+                statistics=report.statistics,
+                diagnostics=validation_report.diagnostics,
+                execution_graph=report.execution_graph
+            )
             return ir
 
         self._report = report
