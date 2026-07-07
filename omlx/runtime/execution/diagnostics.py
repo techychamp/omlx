@@ -16,6 +16,13 @@ class BackendInvocationReport:
     """Immutable snapshot of backend invocations."""
     invocations: List[Dict[str, Any]] = field(default_factory=list)
 
+
+@dataclass(frozen=True)
+class DiffusionExecutionReport:
+    """Immutable snapshot of diffusion execution metrics."""
+    total_timesteps_executed: int = 0
+    execution_latency_ms: float = 0.0
+
 @dataclass(frozen=True)
 class ExecutionReport:
     """Immutable snapshot of the execution report."""
@@ -25,6 +32,7 @@ class ExecutionReport:
     compiler_execution_report: Optional[Dict[str, Any]] = None
     compatibility_report: Optional[Dict[str, Any]] = None
     summary: str = ""
+    diffusion_report: Optional[DiffusionExecutionReport] = None
     trace: List[str] = field(default_factory=list)
 
 from typing import Optional

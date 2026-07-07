@@ -58,6 +58,8 @@ class TranslationResult:
     warnings: tuple[str, ...] = tuple()
     diagnostics: tuple[str, ...] = tuple()
     statistics: MappingProxyType[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+    diffusion_execution_graph: Optional[Any] = None
+
 
     # Diagnostics Estimates
     estimated_execution_cost: float = 0.0
@@ -389,7 +391,9 @@ class MLXAdapter(BaseBackendAdapter):
             estimated_routing_complexity=0.0,
             estimated_cache_pressure=0.0,
             estimated_hardware_utilization=0.0,
+            diffusion_execution_graph=physical_ir.metadata.get("diffusion_execution_graph")
         )
+
 
     def execute(self, operation: BackendOperation, context: Any) -> Any:
         """
