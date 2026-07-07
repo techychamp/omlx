@@ -38,8 +38,8 @@ class ExecutionEngine:
 
         logger.debug("ExecutionEngine starting execution")
 
-        if not context.backend_operation_graph:
-            logger.error("ExecutionContext missing backend_operation_graph")
+        if not context.backend_operation_graph and not getattr(context, 'expert_execution_graph', None):
+            logger.error("ExecutionContext missing execution graph (neither backend_operation_graph nor expert_execution_graph)")
             return ExecutionResult(
                 status=ExecutionStatus.FAILED,
                 model_output=None
@@ -52,7 +52,8 @@ class ExecutionEngine:
                 if getattr(session, "cache_session", None):
                     logger.debug(f"ExecutionEngine utilizing cache session for plan: {session.cache_session.cache_plan.plan_id}")
 
-                result = self._executor.execute(context.backend_operation_graph, context)
+                execution_graph = getattr(context, 'expert_execution_graph', None) or context.backend_operation_graph
+                result = self._executor.execute(execution_graph, context)
                 get_observer().track_artifact("ExecutionResult", result)
                 return result
             except Exception as e:

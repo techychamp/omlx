@@ -283,13 +283,18 @@ class Runtime:
                     cache_session.activate()
                     logger.debug(f"Runtime activated cache session for plan: {cache_plan.plan_id}")
 
+                # Attempt to get adapter from registry for backwards compatibility with tests
+                adapter = None
+                if hasattr(self, 'adapter_registry'):
+                    adapter = self.adapter_registry.resolve(backend="mlx", hardware="any", execution_family="autoregressive", execution_mode="standard")
+
                 # Construct ExecutionContext
                 exec_context = ExecutionContext(
                     request_context=request_context,
                     backend_operation_graph=backend_op_graph,
                     diagnostics=getattr(translation_result, "diagnostics", None),
                     statistics=getattr(translation_result, "statistics", None),
-                    adapter=None, # Fallback path has no adapter configured previously in the script
+                    adapter=adapter,
                     cache_plan=cache_plan,
                     cache_session=cache_session
                 )
@@ -329,13 +334,18 @@ class Runtime:
                     cache_session.activate()
                     logger.debug(f"Runtime activated cache session for plan: {cache_plan.plan_id}")
 
+                # Attempt to get adapter from registry for backwards compatibility with tests
+                adapter = None
+                if hasattr(self, 'adapter_registry'):
+                    adapter = self.adapter_registry.resolve(backend="mlx", hardware="any", execution_family="autoregressive", execution_mode="standard")
+
                 # Construct ExecutionContext
                 exec_context = ExecutionContext(
                     request_context=request_context,
                     backend_operation_graph=backend_op_graph,
                     diagnostics=getattr(translation_result, "diagnostics", None),
                     statistics=getattr(translation_result, "statistics", None),
-                    adapter=None, # Fallback path has no adapter configured previously in the script
+                    adapter=adapter,
                     cache_plan=cache_plan,
                     cache_session=cache_session
                 )

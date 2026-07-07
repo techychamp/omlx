@@ -14,6 +14,19 @@ from .artifacts import BackendOperationGraph
 
 logger = logging.getLogger("omlx.execution.dispatcher")
 
+def _get_operation_from_graph(graph: Any, op_id: str) -> Any:
+    if hasattr(graph, 'operations') and op_id in graph.operations:
+        return graph.operations[op_id]
+    elif type(graph).__name__ == 'ExpertExecutionGraph' and hasattr(graph, 'routing_graph'):
+        if graph.routing_graph.routing_node.id == op_id:
+            return graph.routing_graph.routing_node
+        for expert in graph.routing_graph.expert_graphs:
+            for node in expert.expert_nodes:
+                if node.id == op_id:
+                    return node
+    return None
+
+
 class SequentialExecutionDispatcher(ExecutionDispatcher):
     """
     Dispatches graph operations sequentially without scheduling logic.
@@ -22,11 +35,17 @@ class SequentialExecutionDispatcher(ExecutionDispatcher):
     def __init__(self):
         pass
 
-    def dispatch(self, graph: BackendOperationGraph, context: ExecutionContext, execution_order=None, schedule=None) -> ExecutionResult:
+    def dispatch(self, graph: Any, context: ExecutionContext, execution_order=None, schedule=None) -> ExecutionResult:
         logger.debug("SequentialExecutionDispatcher dispatching graph operations")
 
-        if not execution_order and hasattr(graph, 'operations'):
-            execution_order = list(graph.operations.keys())
+        if not execution_order:
+            if hasattr(graph, 'operations'):
+                execution_order = list(graph.operations.keys())
+            elif type(graph).__name__ == 'ExpertExecutionGraph':
+                execution_order = [graph.routing_graph.routing_node.id]
+                for e in graph.routing_graph.expert_graphs:
+                    for n in e.expert_nodes:
+                        execution_order.append(n.id)
 
         if not execution_order:
              return ExecutionResult(
@@ -46,7 +65,9 @@ class SequentialExecutionDispatcher(ExecutionDispatcher):
         last_output = None
 
         for op_id in execution_order:
-            op = graph.operations[op_id]
+            op = _get_operation_from_graph(graph, op_id)
+            if not op:
+                continue
             if hasattr(adapter, 'execute'):
                  # Formal BackendAdapter.execute boundary
                  out = adapter.execute(op, context)
@@ -73,7 +94,7 @@ class ParallelExecutionDispatcher(ExecutionDispatcher):
         import concurrent.futures
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers)
 
-    def dispatch(self, graph: BackendOperationGraph, context: ExecutionContext, execution_order=None, schedule=None) -> ExecutionResult:
+    def dispatch(self, graph: Any, context: ExecutionContext, execution_order=None, schedule=None) -> ExecutionResult:
         logger.debug("ParallelExecutionDispatcher dispatching graph operations")
 
         if not schedule or not hasattr(schedule, 'execution_groups') or not schedule.execution_groups:
@@ -108,12 +129,12 @@ class ParallelExecutionDispatcher(ExecutionDispatcher):
             with get_observer().observe_phase("Execution", "Group", f"group_{group.group_id}") as group_phase:
                 futures = []
                 for op_id in group.operations:
-                    if op_id not in graph.operations:
+                    op = _get_operation_from_graph(graph, op_id)
+                    if not op:
                         logger.error(f"Operation {op_id} from schedule not found in graph")
                         has_failure = True
                         break
 
-                    op = graph.operations[op_id]
                     if has_adapter_execute:
                         def exec_with_obs(inner_op, inner_context):
                             thread_id = threading.get_ident()
