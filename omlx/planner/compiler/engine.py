@@ -4,7 +4,7 @@ Compiler Engine that orchestrates the full pipeline.
 """
 from __future__ import annotations
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, TYPE_CHECKING
 from omlx.planner.compiler.cache.utils import compute_cache_key
 
 from omlx.planner.ir.graph import ExecutionIR
@@ -18,7 +18,8 @@ from .dependency_tracker import DependencyTracker
 from .backend.adapter import BaseBackendAdapter
 from .backend.registry import AdapterRegistry
 from omlx.runtime.observability import get_observer
-from omlx.planner.domains.bundle import PlanningBundle
+if TYPE_CHECKING:
+    from omlx.planner.domains.bundle import PlanningBundle
 from omlx.planner.compiler.transformation.pass_ import FusionRealizationPass
 from omlx.optimization.fusion import FusionEvaluator
 from omlx.planner.domains.moe.transformation.pass_ import MoERealizationPass
@@ -46,7 +47,7 @@ class CompilerEngine:
         self.lowering_engine = lowering_engine or LoweringEngine(cache_manager=cache_manager, dependency_tracker=self.dependency_tracker)
         self.optimization_pipeline = OptimizationPipeline(self.logical_registry, self.physical_registry)
 
-    def compile(self, logical_ir: ExecutionIR, planning_bundle: Optional[PlanningBundle] = None) -> PhysicalIR:
+    def compile(self, logical_ir: ExecutionIR, planning_bundle: Optional['PlanningBundle'] = None) -> PhysicalIR:
         """Runs the full compiler pipeline: Planning -> IR -> Logical Passes -> Lowering -> Physical Passes."""
         with get_observer().observe_phase("Compilation", "Compiler", "compile"):
 

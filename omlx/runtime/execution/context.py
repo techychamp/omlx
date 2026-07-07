@@ -4,10 +4,11 @@ Execution Context for OMLX Execution Engine.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Tuple, TYPE_CHECKING
 from omlx.runtime.execution.artifacts import ExecutionGraph
-from omlx.planner.domains.speculation.artifacts import SpeculativeExecutionGraph
-from omlx.planner.domains.speculation.artifacts import SpeculativeExecutionGraph
+
+if TYPE_CHECKING:
+    from omlx.planner.domains.speculation.artifacts import SpeculativeExecutionGraph
 
 @dataclass(frozen=True)
 class AppleExecutionMetadata:
@@ -49,7 +50,7 @@ class ExecutionContext:
     physical_ir: Optional[Any] = None
     backend_operation_graph: Optional[Any] = None
     diffusion_execution_graph: Optional[Any] = None
-    speculative_execution_graph: Optional[SpeculativeExecutionGraph] = None
+    speculative_execution_graph: Optional['SpeculativeExecutionGraph'] = None
     execution_graphs: Optional[Tuple[ExecutionGraph, ...]] = None
     compiler_session: Optional[Any] = None
     capability_descriptor: Optional[Any] = None

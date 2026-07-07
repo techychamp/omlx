@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
-from .artifacts import ExecutionGraph, CacheExecutionGraph, MemoryExecutionGraph, BatchExecutionGraph, SpeculativeExecutionGraph, ExpertExecutionGraph, DiffusionExecutionGraph
+from .artifacts import ExecutionGraph, CacheExecutionGraph, MemoryExecutionGraph, BatchExecutionGraph, ExpertExecutionGraph, DiffusionExecutionGraph
 from .types import ExecutionStatus, ExecutionResult
 from .interfaces import ExecutionDispatcher, GraphExecutor, ExecutionExecutor
 from .context import ExecutionContext

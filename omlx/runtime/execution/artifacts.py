@@ -6,8 +6,10 @@ Artifacts for OMLX Execution Engine.
 from typing import Any, Optional
 from dataclasses import dataclass, field
 from omlx.framework.graph.descriptor import GraphDescriptor
-from typing import List, Optional
-from omlx.planner.domains.speculation.artifacts import SpeculativeExecutionGraph
+from typing import List, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from omlx.planner.domains.speculation.artifacts import SpeculativeExecutionGraph
 
 BackendOperationGraph = Any
 
@@ -115,7 +117,7 @@ class CommitReport:
 @dataclass(frozen=True)
 class RuntimeSpeculativeState:
     """Runtime state wrapper for speculative execution."""
-    speculative_graph: Optional[SpeculativeExecutionGraph] = None
+    speculative_graph: Optional['SpeculativeExecutionGraph'] = None
     reports: tuple[Any, ...] = field(default_factory=tuple)
 
 
