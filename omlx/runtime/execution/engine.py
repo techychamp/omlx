@@ -34,12 +34,16 @@ class ExecutionEngine:
         """
         Executes the compiled intent using the provided RuntimeSession.
         """
+        from omlx.runtime.session import SessionState
+        session.transition(SessionState.EXECUTING)
+
         context = session.execution_context
 
         logger.debug("ExecutionEngine starting execution")
 
         if not context.backend_operation_graph:
             logger.error("ExecutionContext missing backend_operation_graph")
+            session.transition(SessionState.FAILED)
             return ExecutionResult(
                 status=ExecutionStatus.FAILED,
                 model_output=None
@@ -47,12 +51,25 @@ class ExecutionEngine:
 
         with get_observer().observe_phase("Execution", "Engine", "execute"):
             try:
-                # The execution engine purely consumes the context.
-                # If cache is required, it accesses session.cache_session without managing its lifecycle.
                 if getattr(session, "cache_session", None):
                     logger.debug(f"ExecutionEngine utilizing cache session for plan: {session.cache_session.cache_plan.plan_id}")
 
                 result = self._executor.execute(context.backend_operation_graph, context)
+                get_observer().track_artifact("ExecutionResult", result)
+
+                if result.status == ExecutionStatus.COMPLETED:
+                     session.transition(SessionState.COMPLETED)
+                else:
+                     session.transition(SessionState.FAILED)
+
+                return result
+            except Exception as e:
+                logger.error(f"ExecutionEngine encountered error: {e}", exc_info=True)
+                result = ExecutionResult(
+                    status=ExecutionStatus.FAILED,
+                    model_output=None
+                )
+                session.transition(SessionState.FAILED)
                 get_observer().track_artifact("ExecutionResult", result)
                 return result
             except Exception as e:

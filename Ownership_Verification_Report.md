@@ -1,5 +1,14 @@
 # Ownership Verification Report
 
+**User Review Required**
+
+## Summary
+
+- **Runtime**: Owns RuntimeSession lifecycle.
+- **Queue**: Handles admission but yields RuntimeSession at execution hand-off.
+- **Compiler**: Populates ExecutionContext immutably; never takes ownership.
+- **ExecutionEngine**: Consumes RuntimeSession for read-only dispatch contexts.
+Ownership rules verify complete decoupling of execution from planning.
 Verified Compiler owns graph realization, Scheduler owns execution readiness, Engine owns execution.
 ## Batch Realization
 - **Compiler**: Verified to be the sole owner of batch realization (`BatchRealizer`).

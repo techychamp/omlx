@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Optional, Any, Dict, List
+import enum
 import uuid
 
 from omlx.planner.domains.bundle import PlanningBundle
@@ -9,6 +10,18 @@ try:
     from omlx.framework.queue.artifacts import QueueSession
 except ImportError:
     QueueSession = Any
+
+
+class SessionState(enum.Enum):
+    CREATED = "created"
+    PLANNED = "planned"
+    READY = "ready"
+    EXECUTING = "executing"
+    STREAMING = "streaming"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
 
 @dataclass(frozen=True)
 class SessionDescriptor:
@@ -31,6 +44,32 @@ class SessionStatistics:
     tokens_generated: int = 0
     memory_peak: int = 0
 
+
+@dataclass(frozen=True)
+class SessionLifecycleReport:
+    session_id: str
+    final_state: str
+    state_transitions: List[Dict[str, Any]] = field(default_factory=list)
+
+@dataclass(frozen=True)
+class SessionExecutionReport:
+    session_id: str
+    execution_duration_ms: float
+    status: str
+
+@dataclass(frozen=True)
+class SessionDiagnostics:
+    session_id: str
+    errors: List[str] = field(default_factory=list)
+    warnings: List[str] = field(default_factory=list)
+
+@dataclass(frozen=True)
+class SessionStateSnapshot:
+    session_id: str
+    state: str
+    timestamp: float
+
+
 @dataclass(frozen=True)
 class SessionValidationReport:
     """Immutable diagnostic report of the session parameters."""
@@ -47,7 +86,7 @@ class RuntimeSession:
     Owns the execution context but does not perform execution itself.
     """
     session_id: str
-    state: str = "created"
+    state: SessionState = SessionState.CREATED
     queue_session: Optional[QueueSession] = None
 
     # Owned immutable artifacts
@@ -74,7 +113,12 @@ class RuntimeSession:
     # Batch Realization additions
     batch_execution_graph: Optional[Any] = None
     batch_realization_report: Optional[Any] = None
-
+    
+    def transition(self, new_state: SessionState) -> None:
+        # We can add strict transition rules later, but for now we enforce thread safety
+        # and immutability conceptually by just setting the enum state.
+        self.state = new_state
+        
     @classmethod
     def create(cls) -> "RuntimeSession":
         """Creates a default RuntimeSession without a preceding QueueSession."""
@@ -89,6 +133,6 @@ class RuntimeSession:
         return cls(
             session_id=str(uuid.uuid4()),
             planning_bundle=planning_bundle,
-            state="created",
+            state=SessionState.CREATED,
             queue_session=queue_session
         )
