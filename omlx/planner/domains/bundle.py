@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import Optional, Dict, Any
 
 from .memory.artifacts import MemoryPlan
+from omlx.framework.cache.plan import CachePlan
 from .fusion.artifacts import FusionPlan
 from .diffusion.artifacts import DiffusionPlan
 from .moe.artifacts import MoEPlan
@@ -15,7 +16,7 @@ class PlanningBundle:
     """
     execution_plan: Optional[Any] = None # Will be properly typed when ExecutionPlan is moved
     memory_plan: Optional[MemoryPlan] = None
-    cache_plan: Optional[Any] = None # Placeholder for future CachePlan
+    cache_plan: Optional[CachePlan] = None
     verification_plan: Optional[Any] = None # Placeholder for future VerificationPlan
     fusion_plan: Optional[FusionPlan] = None
     diffusion_plan: Optional[DiffusionPlan] = None

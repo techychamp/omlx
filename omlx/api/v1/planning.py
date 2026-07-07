@@ -6,6 +6,7 @@ from omlx.planner.plan import ExecutionPlan
 from omlx.planner.bundle import PlanningBundle, MemoryPlan, CachePlan, VerificationPlan
 from omlx.planner.device.artifacts import DevicePlan
 from omlx.planner.domains.moe.artifacts import MoEPlan, RoutingCompatibilityReport, RoutingValidationReport, RoutingStatistics
+from omlx.planner.domains.cache.artifacts import CacheRealizationReport, CacheRealizationStatistics
 from omlx.runtime.scheduling.artifacts import DependencyGraph, ExecutionPhase, DependencyBarrier, SynchronizationPoint
 
 @dataclass(frozen=True)
@@ -43,6 +44,23 @@ class PlanningClient:
             diagnostics['groups'] = len(bundle.moe_plan.groups)
             diagnostics['has_routing'] = bundle.moe_plan.routing is not None
         return diagnostics
+
+    def get_cache_report(self, bundle: PlanningBundle) -> Optional[CacheRealizationReport]:
+
+        """Retrieve cache realization report from the PlanningBundle."""
+
+        return getattr(bundle, "_cache_report", None) # in reality would be on bundle, or observer
+
+
+
+    def get_cache_statistics(self, bundle: PlanningBundle) -> Optional[CacheRealizationStatistics]:
+
+        """Retrieve cache realization statistics from the PlanningBundle."""
+
+        report = self.get_cache_report(bundle)
+
+        return report.statistics if report else None
+
 
     def get_routing_reports(self, bundle: PlanningBundle) -> tuple[Optional[RoutingCompatibilityReport], Optional[RoutingValidationReport]]:
         """Retrieve routing compatibility and validation reports."""

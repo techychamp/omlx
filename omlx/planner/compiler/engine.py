@@ -23,6 +23,7 @@ from omlx.planner.compiler.transformation.pass_ import FusionRealizationPass
 from omlx.optimization.fusion import FusionEvaluator
 from omlx.planner.domains.moe.transformation.pass_ import MoERealizationPass
 from omlx.planner.domains.diffusion.transformation.pass_ import DiffusionRealizationPass
+from omlx.planner.domains.cache.transformation.pass_ import CacheRealizationPass
 
 
 logger = logging.getLogger("omlx.compiler")
@@ -45,6 +46,19 @@ class CompilerEngine:
     def compile(self, logical_ir: ExecutionIR, planning_bundle: Optional[PlanningBundle] = None) -> PhysicalIR:
         """Runs the full compiler pipeline: Planning -> IR -> Logical Passes -> Lowering -> Physical Passes."""
         with get_observer().observe_phase("Compilation", "Compiler", "compile"):
+
+            # Conditionally inject Cache realization pass if plan is provided
+
+            if planning_bundle and planning_bundle.cache_plan:
+
+                 cache_pass = CacheRealizationPass(planning_bundle.cache_plan)
+
+                 logical_ir = cache_pass.apply(logical_ir)
+
+                 if cache_pass.report:
+
+                     get_observer().track_artifact("CacheTransformationReport", cache_pass.report)
+
 
             # Conditionally inject fusion realization pass if plan is provided
             if planning_bundle and planning_bundle.fusion_plan:
