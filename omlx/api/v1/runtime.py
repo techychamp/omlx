@@ -7,6 +7,7 @@ from omlx.runtime.feature_flags import FeatureFlags
 from omlx.api.v1.generation import GenerationService
 from omlx.api.v1.model import ModelService
 from omlx.api.v1.compiler import CompilerService
+from omlx.framework.queue.api import QueueAPI
 
 class RuntimeConfig(BaseModel):
     settings: Dict[str, Any] = Field(default_factory=dict)
@@ -17,6 +18,10 @@ class RuntimeService:
         self._internal = internal_runtime
         self._generation = GenerationService(self._internal)
         self._model = ModelService(self._internal)
+        if hasattr(self._internal, 'queue_manager') and self._internal.queue_manager:
+            self._queue_api = QueueAPI(self._internal.queue_manager)
+        else:
+            self._queue_api = None
 
     @property
     def status(self) -> str:
@@ -51,6 +56,35 @@ class RuntimeService:
                        })
         return sessions
 
+
+
+    def get_queue_statistics(self) -> Dict[str, Any]:
+        """Public API to query queue statistics."""
+        if self._queue_api:
+            stats = self._queue_api.get_statistics()
+            return {
+                "queue_id": stats.queue_id,
+                "current_depth": stats.current_depth,
+                "total_admitted": stats.total_admitted,
+                "total_dequeued": stats.total_dequeued,
+                "average_wait_time": stats.average_wait_time,
+                "timestamp": stats.timestamp
+            }
+        return {}
+
+    def get_queue_diagnostics(self) -> Dict[str, Any]:
+        """Public API to query queue diagnostics."""
+        if self._queue_api:
+            diag = self._queue_api.get_diagnostics()
+            return {
+                "queue_id": diag.queue_id,
+                "is_healthy": diag.is_healthy,
+                "last_error": diag.last_error,
+                "validation_errors": diag.validation_report.errors if diag.validation_report else [],
+                "validation_warnings": diag.validation_report.warnings if diag.validation_report else [],
+                "timestamp": diag.timestamp
+            }
+        return {}
 
     def get_speculative_statistics(self) -> Dict[str, Any]:
         """Public API to query active speculative execution statistics."""

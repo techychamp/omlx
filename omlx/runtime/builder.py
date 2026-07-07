@@ -17,6 +17,7 @@ from omlx.planner.bundle import PlanningBundle
 from omlx.planner.ir.builder import IRBuilder
 from omlx.planner.compiler import LoweringEngine
 from omlx.planner.compiler.backend import AdapterRegistry, BackendDescriptorRegistry, MLXAdapter
+from omlx.framework.queue.manager import QueueManager
 
 from typing import Any, Optional
 from omlx.runtime.execution import ExecutionEngine, ExecutionContext
@@ -53,6 +54,7 @@ class RuntimeContext:
     startup_metadata: dict[str, Any] = field(default_factory=dict)
     version_info: dict[str, str] = field(default_factory=dict)
     adapter_registry: AdapterRegistry | None = None
+    queue_manager: QueueManager | None = None
     descriptor_registry: BackendDescriptorRegistry | None = None
 
     # Compiler Runtime Artifacts
@@ -110,6 +112,7 @@ class Runtime:
         )
         self.adapter_registry = context.adapter_registry
         self.descriptor_registry = context.descriptor_registry
+        self.queue_manager = context.queue_manager
 
         from omlx.runtime.execution.engine import ExecutionEngine
         from omlx.runtime.execution.dispatcher import SequentialExecutionDispatcher
@@ -244,6 +247,38 @@ class Runtime:
 
         return strat.generate(self, request_context, **kwargs)
 
+
+    def enqueue_request(self, request: Any, priority: int = 0) -> Any:
+        """Admits a request to the queue and returns the queue session."""
+        if not self.queue_manager:
+            raise RuntimeError("QueueManager is not initialized.")
+
+        session = self.queue_manager.enqueue(request, priority)
+
+        self.event_bus.publish(Event(
+            type=RuntimeLifecycleEvent.QUEUE_ADMITTED,
+            category=EventCategory.RUNTIME,
+            source="Runtime",
+            payload={"session_id": session.session_id, "priority": priority}
+        ))
+        return session
+
+
+    def dequeue_request(self) -> Any:
+        """Dequeues a request and returns the queue session."""
+        if not self.queue_manager:
+            raise RuntimeError("QueueManager is not initialized.")
+
+        session = self.queue_manager.dequeue()
+        if session:
+            self.event_bus.publish(Event(
+                type=RuntimeLifecycleEvent.QUEUE_DEQUEUED,
+                category=EventCategory.RUNTIME,
+                source="Runtime",
+                payload={"session_id": session.session_id}
+            ))
+        return session
+
     def execute_request(self, request_context: Any) -> Any:
         """
         Execute an incoming request using the Compiler service and Execution Engine.
@@ -375,6 +410,7 @@ class RuntimeBuilder:
         self._engine_pool = None
         self._adapter_registry = AdapterRegistry()
         self._descriptor_registry = BackendDescriptorRegistry()
+        self._queue_manager = QueueManager()
 
         # MODEL-002: Universal Model Discovery
         from omlx.framework.model_intelligence.registry import ModelRegistry
@@ -435,6 +471,7 @@ class RuntimeBuilder:
             startup_metadata={"start_time": time.time()},
             adapter_registry=self._adapter_registry,
             descriptor_registry=self._descriptor_registry,
+            queue_manager=self._queue_manager,
             strategy_resolver=self._strategy_resolver
         )
 
