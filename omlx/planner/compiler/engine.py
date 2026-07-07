@@ -23,6 +23,7 @@ from omlx.planner.compiler.transformation.pass_ import FusionRealizationPass
 from omlx.optimization.fusion import FusionEvaluator
 from omlx.planner.domains.moe.transformation.pass_ import MoERealizationPass
 from omlx.planner.domains.diffusion.transformation.pass_ import DiffusionRealizationPass
+from omlx.planner.compiler.batch.transformation.pass_ import BatchRealizationPass
 from omlx.planner.domains.cache.transformation.pass_ import CacheRealizationPass
 
 
@@ -84,6 +85,13 @@ class CompilerEngine:
                  logical_ir = diffusion_pass.apply(logical_ir)
                  if diffusion_pass.report:
                      get_observer().track_artifact("DiffusionTransformationReport", diffusion_pass.report)
+            # Conditionally inject Batch realization pass if plan is provided
+            if planning_bundle and getattr(planning_bundle, 'batch_plan', None):
+                 batch_pass = BatchRealizationPass(planning_bundle.batch_plan)
+                 logical_ir = batch_pass.apply(logical_ir)
+                 if batch_pass.report:
+                     get_observer().track_artifact("BatchTransformationReport", batch_pass.report)
+
             # 1. Logical Optimization
             logger.debug("Applying logical passes")
             optimized_logical_ir = self.optimization_pipeline.optimize_logical(logical_ir)
