@@ -116,6 +116,48 @@ class ExecutionEngine:
                     execution_graph = getattr(context, 'expert_execution_graph', None) or context.backend_operation_graph
                     result = self._executor.execute(execution_graph, context)
 
+                if hasattr(context.adapter, "get_statistics"):
+                    stats = context.adapter.get_statistics()
+                    from omlx.runtime.execution.apple.reports import (
+                        AppleRuntimeDiagnostics,
+                        AppleRuntimeStatistics,
+                        ExecutionBatchStatistics,
+                        MetalExecutionPerformanceReport
+                    )
+                    raw = stats["raw_statistics"]
+                    metal = stats["metal_metrics"]
+                    batch_stats = ExecutionBatchStatistics(
+                        total_operations_batched=raw.get("total_operations_batched", 0),
+                        total_batches_executed=raw.get("total_batches_executed", 0),
+                        total_synchronization_events=raw.get("total_synchronization_events", 0),
+                        average_batch_size=(raw.get("total_operations_batched", 0) / raw.get("total_batches_executed", 1)) if raw.get("total_batches_executed", 0) > 0 else 0.0
+                    )
+                    metal_report = None
+                    if metal.get("peak_memory_bytes") is not None or metal.get("active_memory_bytes") is not None:
+                        metal_report = MetalExecutionPerformanceReport(
+                            peak_memory_bytes=metal.get("peak_memory_bytes"),
+                            active_memory_bytes=metal.get("active_memory_bytes"),
+                            cache_memory_bytes=metal.get("cache_memory_bytes"),
+                            diagnostics=("Metal execution statistics tracked successfully",)
+                        )
+                    runtime_stats = AppleRuntimeStatistics(
+                        total_execution_latency_ms=raw.get("total_execution_latency_ms", 0.0),
+                        total_memory_transfers=raw.get("total_memory_transfers", 0),
+                        total_placement_validations=raw.get("total_placement_validations", 0)
+                    )
+                    diagnostics = AppleRuntimeDiagnostics(
+                        execution_reports=tuple(raw.get("execution_reports", [])),
+                        memory_report=stats["memory_report"],
+                        placement_report=stats["placement_report"],
+                        metal_report=metal_report,
+                        batch_statistics=batch_stats,
+                        statistics=runtime_stats
+                    )
+                    session.apple_runtime_diagnostics = diagnostics
+                    session.unified_memory_statistics = diagnostics.memory_report
+                    session.metal_utilization_metrics = diagnostics.metal_report
+                    session.execution_batching_metrics = diagnostics.batch_statistics
+
                 get_observer().track_artifact("ExecutionResult", result)
 
                 if result.status == ExecutionStatus.COMPLETED:

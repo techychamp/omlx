@@ -33,7 +33,23 @@ class MLXRuntimeAdapter:
     Consumes compiled backend operations and AppleExecutionMetadata.
     """
     def __init__(self):
-        pass
+        self._pending_evals = []
+        self._raw_statistics = {
+            "total_execution_latency_ms": 0.0,
+            "total_memory_transfers": 0,
+            "total_placement_validations": 0,
+            "total_operations_batched": 0,
+            "total_batches_executed": 0,
+            "total_synchronization_events": 0,
+            "execution_reports": []
+        }
+        self._metal_metrics = {
+            "peak_memory_bytes": None,
+            "active_memory_bytes": None,
+            "cache_memory_bytes": None
+        }
+        self._memory_report = None
+        self._placement_report = None
 
     def execute(self, operation: BackendOperation, context: ExecutionContext) -> Any:
         """
@@ -48,16 +64,11 @@ class MLXRuntimeAdapter:
         error = None
 
         from omlx.runtime.execution.apple.reports import (
-            AppleExecutionReport,
-            UnifiedMemoryReport,
-            PlacementExecutionReport,
-            AppleRuntimeStatistics,
-            AppleRuntimeDiagnostics
+            AppleExecutionPerformanceReport,
+            UnifiedMemoryPerformanceReport,
+            PlacementExecutionReport
         )
         
-        memory_report = None
-        placement_report = None
-
         # Extract Apple execution metadata if present
         apple_metadata = getattr(context, "apple_execution_metadata", None)
         
@@ -82,30 +93,46 @@ class MLXRuntimeAdapter:
                 affinity = getattr(optimization_report, "affinity_preference", None)
 
                 # Metadata consistency validation
-                if placement_strategy and placement_strategy.memory_policy and affinity:
+                if placement_strategy and getattr(placement_strategy, "memory_policy", None) and affinity:
                     if placement_strategy.memory_policy.preferred_execution_device == "gpu" and affinity == ExecutionAffinityPreference.CPU:
                         error_msg = "Metadata consistency validation failed: GPU placement with CPU-only execution affinity."
                         diagnostics.append(error_msg)
                         return self._fail_execution(operation.id, error_msg, diagnostics)
 
                 # Consume memory policy
-                if memory_policy:
-                    diagnostics.append(f"Consuming UnifiedMemoryPolicy: residency={memory_policy.preferred_memory_residency}")
-                    memory_report = UnifiedMemoryReport(
+                if memory_policy and self._memory_report is None:
+                    cache_limit = None
+                    diag_list = ["Memory policy consumed successfully"]
+                    if memory_policy.preferred_memory_residency == "unified":
+                        if mlx_available and hasattr(mx, "metal") and hasattr(mx.metal, "set_cache_limit"):
+                            try:
+                                cache_limit_bytes = getattr(memory_policy, "cache_limit_bytes", None)
+                                if cache_limit_bytes:
+                                    mx.metal.set_cache_limit(cache_limit_bytes)
+                                    cache_limit = cache_limit_bytes
+                                    diag_list.append("set_cache_limit capability successfully utilized.")
+                            except Exception as me:
+                                diag_list.append(f"Failed to set cache limit: {me}")
+                        else:
+                            diag_list.append("set_cache_limit capability unavailable on this MLX version. Skipping.")
+                    
+                    self._memory_report = UnifiedMemoryPerformanceReport(
                         memory_policy_applied=memory_policy.preferred_memory_residency,
+                        cache_limit_bytes=cache_limit,
                         bytes_transferred=0,
                         synchronization_events=0,
-                        diagnostics=("Memory policy consumed successfully",)
+                        diagnostics=tuple(diag_list)
                     )
 
                 # Consume placement strategy
-                if placement_strategy:
+                if placement_strategy and self._placement_report is None:
                     diagnostics.append(f"Consuming PlacementStrategy: type={placement_strategy.strategy_type}")
-                    placement_report = PlacementExecutionReport(
+                    self._placement_report = PlacementExecutionReport(
                         placement_strategy_applied=placement_strategy.strategy_type,
                         actual_device="apple_silicon",
                         diagnostics=("Placement strategy consumed successfully",)
                     )
+                    self._raw_statistics["total_placement_validations"] += 1
 
         try:
             if isinstance(operation, MLXForwardOperation):
@@ -120,26 +147,49 @@ class MLXRuntimeAdapter:
                             # try to simulate passing input to model to see what it does
                             logits = context.model([0])
                             result_data = {"logits_shape": getattr(logits, "shape", None)}
+                            self._pending_evals.append("simulated_array")
+                            self._raw_statistics["total_operations_batched"] += 1
                         except Exception as inner_e:
                             diagnostics.append(f"Simulated forward failed: {inner_e}")
                         status = "executed"
                     else:
-                        diagnostics.append("Executing real MLX forward pass.")
+                        diagnostics.append("Executing real MLX forward pass (batching execution).")
                         # Execute a real forward kernel dispatch
                         input_ids = mx.array([[0]])
                         if getattr(context, "request_context", None) and hasattr(context.request_context, "input_ids"):
                             input_ids = mx.array([context.request_context.input_ids])
 
                         logits = context.model(input_ids)
+                        self._pending_evals.append(logits)
+                        self._raw_statistics["total_operations_batched"] += 1
                         result_data = {"logits": logits}
                         status = "executed"
 
             elif isinstance(operation, MLXSynchronizationOperation):
                 if mlx_available:
-                    mx.eval()
-                    diagnostics.append("Synchronized MLX stream (mx.eval).")
+                    if self._pending_evals:
+                        mx.eval(*self._pending_evals)
+                        diagnostics.append(f"Synchronized MLX stream (mx.eval on {len(self._pending_evals)} operations).")
+                        self._raw_statistics["total_batches_executed"] += 1
+                        self._pending_evals.clear()
+                    else:
+                        mx.eval()
+                        diagnostics.append("Synchronized MLX stream (mx.eval empty).")
+                    
+                    if hasattr(mx, "metal"):
+                        if hasattr(mx.metal, "get_peak_memory"):
+                            self._metal_metrics["peak_memory_bytes"] = mx.metal.get_peak_memory()
+                        if hasattr(mx.metal, "get_active_memory"):
+                            self._metal_metrics["active_memory_bytes"] = mx.metal.get_active_memory()
+                        if hasattr(mx.metal, "get_cache_memory"):
+                            self._metal_metrics["cache_memory_bytes"] = mx.metal.get_cache_memory()
                 else:
-                    diagnostics.append("No MLX to synchronize.")
+                    diagnostics.append(f"No MLX to synchronize. Batching simulated ({len(self._pending_evals)} operations).")
+                    if self._pending_evals:
+                        self._raw_statistics["total_batches_executed"] += 1
+                    self._pending_evals.clear()
+                
+                self._raw_statistics["total_synchronization_events"] += 1
                 status = "executed"
 
             elif isinstance(operation, MLXCacheLookupOperation):
@@ -169,8 +219,10 @@ class MLXRuntimeAdapter:
             error = str(e)
             diagnostics.append(f"Execution failed with exception: {str(e)}")
             logger.error(f"Execution failed in MLXRuntimeAdapter: {e}", exc_info=True)
+            self._pending_evals.clear()
 
         execution_duration_ms = (time.perf_counter() - start_time) * 1000
+        self._raw_statistics["total_execution_latency_ms"] += execution_duration_ms
 
         # Passively observe Apple execution metrics if metadata exists
         if apple_metadata and get_observer():
@@ -184,24 +236,14 @@ class MLXRuntimeAdapter:
             # Record execution metadata without taking ownership of placement logic
             get_observer().track_artifact("AppleExecutionMetrics", report_data)
 
-        execution_report = AppleExecutionReport(
+        execution_report = AppleExecutionPerformanceReport(
             operation_id=operation.id,
             latency_ms=execution_duration_ms,
             status=status,
             error_message=error,
             diagnostics=tuple(diagnostics)
         )
-
-        runtime_diagnostics = AppleRuntimeDiagnostics(
-            execution_reports=(execution_report,),
-            memory_report=memory_report,
-            placement_report=placement_report,
-            statistics=AppleRuntimeStatistics(
-                total_execution_latency_ms=execution_duration_ms,
-                total_memory_transfers=0,
-                total_placement_validations=1 if placement_report else 0
-            )
-        )
+        self._raw_statistics["execution_reports"].append(execution_report)
 
         return {
             "status": status,
@@ -210,30 +252,20 @@ class MLXRuntimeAdapter:
             "diagnostics": diagnostics,
             "execution_duration_ms": execution_duration_ms,
             "error": error,
-            "result": result_data,
-            "apple_runtime_diagnostics": runtime_diagnostics
+            "result": result_data
         }
 
     def _fail_execution(self, operation_id: str, error_msg: str, diagnostics: list) -> Any:
-        from omlx.runtime.execution.apple.reports import (
-            AppleExecutionReport,
-            AppleRuntimeStatistics,
-            AppleRuntimeDiagnostics
-        )
+        from omlx.runtime.execution.apple.reports import AppleExecutionPerformanceReport
         
-        execution_report = AppleExecutionReport(
+        execution_report = AppleExecutionPerformanceReport(
             operation_id=operation_id,
             latency_ms=0.0,
             status="failed",
             error_message=error_msg,
             diagnostics=tuple(diagnostics)
         )
-        runtime_diagnostics = AppleRuntimeDiagnostics(
-            execution_reports=(execution_report,),
-            statistics=AppleRuntimeStatistics(
-                total_placement_validations=1
-            )
-        )
+        self._raw_statistics["execution_reports"].append(execution_report)
         return {
             "status": "failed",
             "operation_id": operation_id,
@@ -241,6 +273,14 @@ class MLXRuntimeAdapter:
             "diagnostics": diagnostics,
             "execution_duration_ms": 0.0,
             "error": error_msg,
-            "result": {},
-            "apple_runtime_diagnostics": runtime_diagnostics
+            "result": {}
+        }
+        
+    def get_statistics(self) -> dict:
+        """Expose collected execution statistics for the ExecutionEngine."""
+        return {
+            "raw_statistics": self._raw_statistics,
+            "metal_metrics": self._metal_metrics,
+            "memory_report": self._memory_report,
+            "placement_report": self._placement_report
         }

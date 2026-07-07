@@ -124,6 +124,18 @@ class RuntimeSession:
     batch_realization_report: Optional[Any] = None
     
     # Apple Execution attachments
+    # We import the strongly-typed diagnostics locally to avoid circular dependencies
+    from omlx.runtime.execution.apple.reports import (
+        UnifiedMemoryPerformanceReport,
+        AppleExecutionPerformanceReport,
+        MetalExecutionPerformanceReport,
+        ExecutionBatchStatistics
+    )
+    unified_memory_statistics: Optional['UnifiedMemoryPerformanceReport'] = None
+    execution_latency_statistics: Optional['AppleExecutionPerformanceReport'] = None
+    metal_utilization_metrics: Optional['MetalExecutionPerformanceReport'] = None
+    execution_batching_metrics: Optional['ExecutionBatchStatistics'] = None
+    
     apple_runtime_diagnostics: Optional[Any] = None
 
     def transition(self, new_state: SessionState) -> None:
