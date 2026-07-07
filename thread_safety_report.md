@@ -1,6 +1,16 @@
 # Thread Safety Report
 
-The Optimization Framework ensures thread safety by:
-1. **Stateless Passes**: Passes are instantiated once but must not retain state between `.apply()` calls.
-2. **Context Isolation**: Each pipeline execution receives a unique `OptimizationContext`.
-3. **Immutable Artifacts**: Optimization passes return *new* artifacts rather than mutating them in place (where applicable to the artifact type).
+## Assessment
+The backend selection logic was reviewed for thread safety. In an async engine, multiple requests or background tasks might query registries concurrently.
+
+## Registries
+`AdapterRegistry` uses `threading.RLock()` to guarantee that `register()`, `resolve()`, and `query()` do not step on each other.
+
+## Data Structures
+All configuration and diagnostic data structures introduced in `selection/` are strictly immutable:
+- They use `@dataclass(frozen=True)`.
+- Dictionaries are wrapped in `MappingProxyType`.
+- Lists are converted to `tuple`.
+
+## Conclusion
+Parallel backend evaluation, registry lookups, and capability checking can safely occur across multiple threads without risking data races.

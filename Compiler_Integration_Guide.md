@@ -1,4 +1,3 @@
 # Compiler Integration Guide
 
-## Batch Integration
-The compiler manages batching through the `BatchRealizer`. This component translates abstract batch plans into physical graph representations.
+Reference the MemoryRealizationPass as an example for integrating arbitrary planning bundles into the transformation pipeline safely.
