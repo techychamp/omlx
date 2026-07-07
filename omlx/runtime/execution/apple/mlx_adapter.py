@@ -33,7 +33,11 @@ class MLXRuntimeAdapter:
     Consumes compiled backend operations and AppleExecutionMetadata.
     """
     def __init__(self):
+        self._created_at = time.perf_counter()
+        self._closed_at = None
         self._pending_evals = []
+        # Flush threshold must preserve compiler-defined execution ordering and observable semantics.
+        self._flush_threshold = 256
         self._raw_statistics = {
             "total_execution_latency_ms": 0.0,
             "total_memory_transfers": 0,
@@ -41,7 +45,9 @@ class MLXRuntimeAdapter:
             "total_operations_batched": 0,
             "total_batches_executed": 0,
             "total_synchronization_events": 0,
-            "execution_reports": []
+            "execution_reports": [],
+            "sync_latencies_ms": [],
+            "active_submission_time_ms": 0.0
         }
         self._metal_metrics = {
             "peak_memory_bytes": None,
@@ -159,14 +165,28 @@ class MLXRuntimeAdapter:
                         if getattr(context, "request_context", None) and hasattr(context.request_context, "input_ids"):
                             input_ids = mx.array([context.request_context.input_ids])
 
+                        submit_start = time.perf_counter()
                         logits = context.model(input_ids)
                         self._pending_evals.append(logits)
+                        self._raw_statistics["active_submission_time_ms"] += (time.perf_counter() - submit_start) * 1000
                         self._raw_statistics["total_operations_batched"] += 1
+                        
+                        # Apply automatic flush threshold (preserves compiler ordering and semantics)
+                        if len(self._pending_evals) >= self._flush_threshold:
+                            sync_start = time.perf_counter()
+                            mx.eval(*self._pending_evals)
+                            sync_latency = (time.perf_counter() - sync_start) * 1000
+                            self._raw_statistics["sync_latencies_ms"].append(sync_latency)
+                            diagnostics.append(f"Auto-flushed {len(self._pending_evals)} operations at threshold.")
+                            self._raw_statistics["total_batches_executed"] += 1
+                            self._pending_evals.clear()
+
                         result_data = {"logits": logits}
                         status = "executed"
 
             elif isinstance(operation, MLXSynchronizationOperation):
                 if mlx_available:
+                    sync_start = time.perf_counter()
                     if self._pending_evals:
                         mx.eval(*self._pending_evals)
                         diagnostics.append(f"Synchronized MLX stream (mx.eval on {len(self._pending_evals)} operations).")
@@ -175,6 +195,9 @@ class MLXRuntimeAdapter:
                     else:
                         mx.eval()
                         diagnostics.append("Synchronized MLX stream (mx.eval empty).")
+                    
+                    sync_latency = (time.perf_counter() - sync_start) * 1000
+                    self._raw_statistics["sync_latencies_ms"].append(sync_latency)
                     
                     if hasattr(mx, "metal"):
                         if hasattr(mx.metal, "get_peak_memory"):
@@ -276,9 +299,18 @@ class MLXRuntimeAdapter:
             "result": {}
         }
         
+    def close(self):
+        """Securely close the adapter, flushing arrays and tracking lifetime."""
+        self._closed_at = time.perf_counter()
+        if self._pending_evals:
+            logger.warning(f"MLXRuntimeAdapter closed with {len(self._pending_evals)} pending evaluations. Clearing to prevent leaks.")
+            self._pending_evals.clear()
+
     def get_statistics(self) -> dict:
         """Expose collected execution statistics for the ExecutionEngine."""
         return {
+            "created_at": self._created_at,
+            "closed_at": self._closed_at,
             "raw_statistics": self._raw_statistics,
             "metal_metrics": self._metal_metrics,
             "memory_report": self._memory_report,

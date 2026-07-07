@@ -45,10 +45,37 @@ class AppleRuntimeStatistics:
     total_placement_validations: int = 0
 
 @dataclass(frozen=True)
+class ExecutionTimelineReport:
+    active_submission_time_ms: float = 0.0
+    idle_time_ms: float = 0.0
+    total_tracked_time_ms: float = 0.0
+
+@dataclass(frozen=True)
+class SynchronizationReport:
+    total_synchronizations: int = 0
+    average_latency_ms: float = 0.0
+    max_latency_ms: float = 0.0
+    min_latency_ms: float = 0.0
+
+@dataclass(frozen=True)
+class ResourceLifetimeReport:
+    session_created_at: float = 0.0
+    session_closed_at: float = 0.0
+    context_created_at: float = 0.0
+    metadata_created_at: float = 0.0
+    adapter_created_at: float = 0.0
+    adapter_closed_at: float = 0.0
+    leaks_detected: bool = False
+    diagnostics: Tuple[str, ...] = field(default_factory=tuple)
+
+@dataclass(frozen=True)
 class AppleRuntimeDiagnostics:
     execution_reports: Tuple[AppleExecutionPerformanceReport, ...] = field(default_factory=tuple)
     memory_report: Optional[UnifiedMemoryPerformanceReport] = None
     placement_report: Optional[PlacementExecutionReport] = None
     metal_report: Optional[MetalExecutionPerformanceReport] = None
     batch_statistics: Optional[ExecutionBatchStatistics] = None
+    timeline_report: Optional[ExecutionTimelineReport] = None
+    synchronization_report: Optional[SynchronizationReport] = None
+    lifetime_report: Optional[ResourceLifetimeReport] = None
     statistics: AppleRuntimeStatistics = field(default_factory=AppleRuntimeStatistics)

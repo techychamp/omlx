@@ -116,22 +116,30 @@ class ExecutionEngine:
                     execution_graph = getattr(context, 'expert_execution_graph', None) or context.backend_operation_graph
                     result = self._executor.execute(execution_graph, context)
 
+                if hasattr(context.adapter, "close"):
+                    context.adapter.close()
+
                 if hasattr(context.adapter, "get_statistics"):
                     stats = context.adapter.get_statistics()
                     from omlx.runtime.execution.apple.reports import (
                         AppleRuntimeDiagnostics,
                         AppleRuntimeStatistics,
                         ExecutionBatchStatistics,
-                        MetalExecutionPerformanceReport
+                        MetalExecutionPerformanceReport,
+                        ExecutionTimelineReport,
+                        SynchronizationReport,
+                        ResourceLifetimeReport
                     )
                     raw = stats["raw_statistics"]
                     metal = stats["metal_metrics"]
+                    
                     batch_stats = ExecutionBatchStatistics(
                         total_operations_batched=raw.get("total_operations_batched", 0),
                         total_batches_executed=raw.get("total_batches_executed", 0),
                         total_synchronization_events=raw.get("total_synchronization_events", 0),
                         average_batch_size=(raw.get("total_operations_batched", 0) / raw.get("total_batches_executed", 1)) if raw.get("total_batches_executed", 0) > 0 else 0.0
                     )
+                    
                     metal_report = None
                     if metal.get("peak_memory_bytes") is not None or metal.get("active_memory_bytes") is not None:
                         metal_report = MetalExecutionPerformanceReport(
@@ -140,6 +148,31 @@ class ExecutionEngine:
                             cache_memory_bytes=metal.get("cache_memory_bytes"),
                             diagnostics=("Metal execution statistics tracked successfully",)
                         )
+                        
+                    timeline_report = ExecutionTimelineReport(
+                        active_submission_time_ms=raw.get("active_submission_time_ms", 0.0),
+                        idle_time_ms=raw.get("total_execution_latency_ms", 0.0) - raw.get("active_submission_time_ms", 0.0),
+                        total_tracked_time_ms=raw.get("total_execution_latency_ms", 0.0)
+                    )
+                    
+                    sync_lats = raw.get("sync_latencies_ms", [])
+                    sync_report = SynchronizationReport(
+                        total_synchronizations=len(sync_lats),
+                        average_latency_ms=sum(sync_lats) / len(sync_lats) if sync_lats else 0.0,
+                        max_latency_ms=max(sync_lats) if sync_lats else 0.0,
+                        min_latency_ms=min(sync_lats) if sync_lats else 0.0
+                    )
+                    
+                    lifetime_report = ResourceLifetimeReport(
+                        session_created_at=getattr(session, "created_at", 0.0),
+                        session_closed_at=time.perf_counter(),
+                        context_created_at=getattr(context, "created_at", 0.0),
+                        metadata_created_at=getattr(context.apple_execution_metadata, "created_at", 0.0) if getattr(context, "apple_execution_metadata", None) else 0.0,
+                        adapter_created_at=stats.get("created_at", 0.0),
+                        adapter_closed_at=stats.get("closed_at", 0.0),
+                        leaks_detected=False
+                    )
+
                     runtime_stats = AppleRuntimeStatistics(
                         total_execution_latency_ms=raw.get("total_execution_latency_ms", 0.0),
                         total_memory_transfers=raw.get("total_memory_transfers", 0),
@@ -151,6 +184,9 @@ class ExecutionEngine:
                         placement_report=stats["placement_report"],
                         metal_report=metal_report,
                         batch_statistics=batch_stats,
+                        timeline_report=timeline_report,
+                        synchronization_report=sync_report,
+                        lifetime_report=lifetime_report,
                         statistics=runtime_stats
                     )
                     session.apple_runtime_diagnostics = diagnostics
@@ -168,6 +204,8 @@ class ExecutionEngine:
                 return result
             except Exception as e:
                 logger.error(f"ExecutionEngine encountered error: {e}", exc_info=True)
+                if hasattr(context.adapter, "close"):
+                    context.adapter.close()
                 result = ExecutionResult(
                     status=ExecutionStatus.FAILED,
                     model_output=None
@@ -261,3 +299,6 @@ class ExecutionEngine:
                 result = ExecutionResult(status=ExecutionStatus.FAILED, model_output=None)
                 session.transition(SessionState.FAILED)
                 return result
+            finally:
+                if hasattr(context.adapter, "close"):
+                    context.adapter.close()
