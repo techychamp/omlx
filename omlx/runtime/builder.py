@@ -283,6 +283,11 @@ class Runtime:
         """
         Execute an incoming request using the Compiler service and Execution Engine.
         """
+        # Explicit queue integration
+        queue_session = None
+        if getattr(self, "queue_manager", None):
+             queue_session = self.enqueue_request(request_context)
+             queue_session = self.dequeue_request()
         # Explicit legacy handling
         if self.feature_flags.LEGACY_RUNTIME_ENABLED and not self.feature_flags.COMPILER_RUNTIME_ENABLED:
             logger.debug("Falling back to legacy runtime execution.")
@@ -330,7 +335,10 @@ class Runtime:
                 )
 
                 from omlx.runtime.session import RuntimeSession
-                runtime_session = RuntimeSession.create()
+                if queue_session:
+                    runtime_session = RuntimeSession.from_queue_session(queue_session)
+                else:
+                    runtime_session = RuntimeSession.create()
                 runtime_session.execution_context = exec_context
                 runtime_session.cache_session = cache_session
 
@@ -376,7 +384,10 @@ class Runtime:
                 )
 
                 from omlx.runtime.session import RuntimeSession
-                runtime_session = RuntimeSession.create()
+                if queue_session:
+                    runtime_session = RuntimeSession.from_queue_session(queue_session)
+                else:
+                    runtime_session = RuntimeSession.create()
                 runtime_session.execution_context = exec_context
                 runtime_session.cache_session = cache_session
 
