@@ -110,12 +110,15 @@ class RuntimeSession:
     speculative_statistics: Optional[Any] = None
     speculative_reports: List[Any] = field(default_factory=list)
 
-
+    # Batch Realization additions
+    batch_execution_graph: Optional[Any] = None
+    batch_realization_report: Optional[Any] = None
+    
     def transition(self, new_state: SessionState) -> None:
         # We can add strict transition rules later, but for now we enforce thread safety
         # and immutability conceptually by just setting the enum state.
         self.state = new_state
-
+        
     @classmethod
     def create(cls) -> "RuntimeSession":
         """Creates a default RuntimeSession without a preceding QueueSession."""

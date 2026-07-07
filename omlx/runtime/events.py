@@ -93,6 +93,8 @@ class RuntimeLifecycleEvent(enum.Enum):
     PLUGIN_LOADED = "plugin_loaded"
     PLUGIN_FAILED = "plugin_failed"
     REGISTRY_LOCKED = "registry_locked"
+    QUEUE_ADMITTED = "queue_admitted"
+    QUEUE_DEQUEUED = "queue_dequeued"
     ENGINE_CREATED = "engine_created"
     ENGINE_DESTROYED = "engine_destroyed"
     MODEL_LOADED = "model_loaded"

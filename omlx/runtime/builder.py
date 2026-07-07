@@ -17,6 +17,7 @@ from omlx.planner.bundle import PlanningBundle
 from omlx.planner.ir.builder import IRBuilder
 from omlx.planner.compiler import LoweringEngine
 from omlx.planner.compiler.backend import AdapterRegistry, BackendDescriptorRegistry, MLXAdapter
+from omlx.framework.queue.manager import QueueManager
 
 from typing import Any, Optional
 from omlx.runtime.execution import ExecutionEngine, ExecutionContext
@@ -53,6 +54,7 @@ class RuntimeContext:
     startup_metadata: dict[str, Any] = field(default_factory=dict)
     version_info: dict[str, str] = field(default_factory=dict)
     adapter_registry: AdapterRegistry | None = None
+    queue_manager: QueueManager | None = None
     descriptor_registry: BackendDescriptorRegistry | None = None
 
     # Compiler Runtime Artifacts
@@ -110,6 +112,7 @@ class Runtime:
         )
         self.adapter_registry = context.adapter_registry
         self.descriptor_registry = context.descriptor_registry
+        self.queue_manager = context.queue_manager
 
         from omlx.runtime.execution.engine import ExecutionEngine
         from omlx.runtime.execution.dispatcher import SequentialExecutionDispatcher
@@ -244,10 +247,48 @@ class Runtime:
 
         return strat.generate(self, request_context, **kwargs)
 
+
+    def enqueue_request(self, request: Any, priority: int = 0) -> Any:
+        """Admits a request to the queue and returns the queue session."""
+        if not self.queue_manager:
+            raise RuntimeError("QueueManager is not initialized.")
+
+        session = self.queue_manager.enqueue(request, priority)
+
+        self.event_bus.publish(Event(
+            type=RuntimeLifecycleEvent.QUEUE_ADMITTED,
+            category=EventCategory.RUNTIME,
+            source="Runtime",
+            payload={"session_id": session.session_id, "priority": priority}
+        ))
+        return session
+
+
+    def dequeue_request(self) -> Any:
+        """Dequeues a request and returns the queue session."""
+        if not self.queue_manager:
+            raise RuntimeError("QueueManager is not initialized.")
+
+        session = self.queue_manager.dequeue()
+        if session:
+            self.event_bus.publish(Event(
+                type=RuntimeLifecycleEvent.QUEUE_DEQUEUED,
+                category=EventCategory.RUNTIME,
+                source="Runtime",
+                payload={"session_id": session.session_id}
+            ))
+        return session
+
     def execute_request(self, request_context: Any) -> Any:
         """
         Execute an incoming request using the Compiler service and Execution Engine.
         """
+        # Explicit queue integration
+        queue_session = None
+        if getattr(self, "queue_manager", None):
+             queue_session = self.enqueue_request(request_context)
+             queue_session = self.dequeue_request()
+        # Explicit legacy handling
         if self.feature_flags.LEGACY_RUNTIME_ENABLED and not self.feature_flags.COMPILER_RUNTIME_ENABLED:
             logger.debug("Falling back to legacy runtime execution.")
             raise NotImplementedError("Legacy runtime execution is not yet implemented.")
@@ -289,9 +330,62 @@ class Runtime:
                     cache_session=cache_session
                 )
 
+                from omlx.runtime.session import RuntimeSession
+                if queue_session:
+                    runtime_session = RuntimeSession.from_queue_session(queue_session)
+                else:
+                    runtime_session = RuntimeSession.create()
                 runtime_session.execution_context = exec_context
                 runtime_session.cache_session = cache_session
 
+                execution_result = self.execution_engine.execute(runtime_session)
+
+                if cache_session:
+                    cache_session.deactivate()
+                    logger.debug("Runtime deactivated cache session")
+
+                logger.debug(f"Execution Engine completed with status {execution_result.status}")
+
+                return execution_result
+
+        raise NotImplementedError("No execution path available for request.") # Assuming legacy handling occurs elsewhere since this method only had compiler paths
+
+        if self.feature_flags.COMPILER_RUNTIME_ENABLED:
+            model_id = request_context.model
+            translation_result = self.compiler_service.run_compilation(model_id, request_context)
+            if translation_result:
+                logger.debug(f"Compiler pipeline successfully planned intent for {model_id}")
+
+                # Execution Engine
+                backend_op_graph = getattr(translation_result, "backend_graph", getattr(translation_result, "backend_operation_graph", None))
+
+                # Cache Session Lifecycle Coordination (Owned by Runtime)
+                cache_session = None
+                cache_plan = getattr(translation_result, "cache_plan", None)
+                if cache_plan:
+                    from omlx.runtime.execution.cache_session import CacheSession
+                    cache_session = CacheSession(cache_plan)
+                    cache_session.activate()
+                    logger.debug(f"Runtime activated cache session for plan: {cache_plan.plan_id}")
+
+                # Construct ExecutionContext
+                exec_context = ExecutionContext(
+                    request_context=request_context,
+                    backend_operation_graph=backend_op_graph,
+                    diagnostics=getattr(translation_result, "diagnostics", None),
+                    statistics=getattr(translation_result, "statistics", None),
+                    adapter=None, # Fallback path has no adapter configured previously in the script
+                    cache_plan=cache_plan,
+                    cache_session=cache_session
+                )
+
+                from omlx.runtime.session import RuntimeSession
+                if queue_session:
+                    runtime_session = RuntimeSession.from_queue_session(queue_session)
+                else:
+                    runtime_session = RuntimeSession.create()
+                runtime_session.execution_context = exec_context
+                runtime_session.cache_session = cache_session
                 runtime_session.transition(SessionState.READY)
 
                 # Execution happens via execution engine passing RuntimeSession
@@ -322,6 +416,7 @@ class RuntimeBuilder:
         self._engine_pool = None
         self._adapter_registry = AdapterRegistry()
         self._descriptor_registry = BackendDescriptorRegistry()
+        self._queue_manager = QueueManager()
 
         # MODEL-002: Universal Model Discovery
         from omlx.framework.model_intelligence.registry import ModelRegistry
@@ -382,6 +477,7 @@ class RuntimeBuilder:
             startup_metadata={"start_time": time.time()},
             adapter_registry=self._adapter_registry,
             descriptor_registry=self._descriptor_registry,
+            queue_manager=self._queue_manager,
             strategy_resolver=self._strategy_resolver
         )
 

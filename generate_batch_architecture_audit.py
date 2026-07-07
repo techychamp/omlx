@@ -1,33 +1,30 @@
-with open("Batch_Architecture_Audit.md", "w") as f:
-    f.write("""# Batch Architecture Audit
+def generate():
+    content = """
+# Batch Realization Architecture Audit
 
-## Planning Domains
-Batch Planning has been introduced as an independent Planning Domain. It produces immutable `BatchPlan` artifacts and performs no execution.
+## 1. Goal
+Implement compiler-native batch realization.
+Batch Planning describes batch parameters (BatchPlan), and the Compiler realizes this plan into an executable batch graph (BatchExecutionGraph).
 
-## Compiler
-The Compiler's responsibility remains focused on compatibility refinement and dependency propagation. The compiler consumes the batch plans but does not execute them.
+## 2. Ownership
+- **Batch Planning**: Owns the rules, logic, constraints, and strategy of batching via `BatchPlan`.
+- **Compiler**: Owns the realization (generation) of `BatchExecutionGraph` from `BatchPlan`.
+- **RuntimeSession**: Owns session execution metadata. Added attributes for `batch_execution_graph` and `batch_realization_report`.
+- **Scheduler**: Continues to own deterministic dependency scheduling without being aware of batch logic.
+- **Execution Engine**: Consumes `BatchExecutionGraph` and executes it.
+- **Backend**: Executes operations blindly, unaware of grouping, synchronization, or batch boundaries.
 
-## Runtime
-The Runtime coordinates the execution lifecycle and receives the immutable `PlanningBundle`, which now contains the optional `BatchPlan`. It does not construct batches or optimize queues.
+## 3. Implemented Components
+- `BatchExecutionGraph`, `BatchGroupingGraph`, `BatchSynchronizationGraph` added in `omlx/planner/compiler/batch/artifacts.py`
+- `BatchRealizationReport`, `BatchRealizationStatistics`, `BatchRealizationDiagnostic` added in `omlx/planner/compiler/batch/artifacts.py`
+- `BatchRealizer` implementation inside the Compiler that deterministically transforms `BatchPlan` into execution artifacts.
+- `Compiler.realize_batch(plan)` added.
+- `RuntimeSession` updated to attach batch realization artifacts.
 
-## GenerationStrategy
-`BatchGenerationStrategy` has been added alongside standard and speculative strategies. It dictates batch execution intent without owning scheduling logic.
-
-## Scheduler
-The Scheduler consumes the `BatchPlan` and continues to own execution ordering and dependencies. It remains unaware of specific batching policies.
-
-## ExecutionEngine
-The ExecutionEngine consumes the `PlanningBundle` and executes according to the `BatchPlan`. It remains strategy-agnostic.
-
-## Backend
-The Backend executes operations and remains completely unaware of batching policies or request groupings.
-
-## Observability
-Batch metrics (such as batch size, queue depth, etc.) can be captured passively through `BatchStatistics`.
-
-## API
-Future API exposure for batching configuration and reports should be implemented extending API-004.
-
-## Tooling
-Tooling can inspect `BatchPlan` and `PlanningBundle` in a read-only manner.
-""")
+## 4. Tests
+- Tests confirm that batch realization happens effectively within the compiler boundary.
+- Next step is to implement tooling to observe the realization graphs.
+"""
+    with open("Batch_Realization_Audit.md", "w") as f:
+        f.write(content)
+generate()

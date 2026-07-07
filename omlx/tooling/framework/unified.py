@@ -10,6 +10,7 @@ from omlx.tooling.inspector.inspector import CompilerInspector
 from omlx.tooling.inspector.runtime_inspector import RuntimeInspector
 from omlx.tooling.inspector.execution_inspector import ExecutionInspector
 from omlx.tooling.inspector.backend_inspector import BackendInspector
+from omlx.tooling.inspector.queue_inspector import QueueInspector
 from omlx.tooling.validation.validation_helpers import ValidationHelper
 from omlx.tooling.profiling.profiler import DeveloperProfiler
 from omlx.tooling.benchmark.benchmark_helpers import BenchmarkHelper
@@ -30,6 +31,7 @@ class UnifiedTooling:
         self.registry.register_inspector("runtime", RuntimeInspector())
         self.registry.register_inspector("execution", ExecutionInspector())
         self.registry.register_inspector("backend", BackendInspector())
+        self.registry.register_inspector("queue", QueueInspector())
 
         # Register default tools
         self.registry.register_validator("default", ValidationHelper())
