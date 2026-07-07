@@ -1,3 +1,5 @@
 # Future Continuous Batching Report
 
-The current `BatchPlanner` and `BatchPlan` structure provides a deterministic, immutable foundation. Continuous batching (BATCH-002) can be implemented by creating continuous batch planning domains that output updated `BatchPlan` artifacts per scheduler tick, without requiring architectural redesigns of the Runtime or Backend.
+## Architectural Readiness
+By establishing strict compiler-native batch realization boundaries in BATCH-002, the platform is fundamentally prepared for continuous batching (BATCH-003).
+Because the Runtime and Execution Engine are explicitly forbidden from mutating batch boundaries dynamically, continuous batching will be achieved via new, discrete compilation artifacts (e.g., streaming batch graphs) rather than unstructured runtime queue merging.

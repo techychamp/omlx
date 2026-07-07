@@ -1,5 +1,4 @@
-def generate():
-    content = """
+
 # Batch Realization Architecture Audit
 
 ## 1. Goal
@@ -24,7 +23,3 @@ Batch Planning describes batch parameters (BatchPlan), and the Compiler realizes
 ## 4. Tests
 - Tests confirm that batch realization happens effectively within the compiler boundary.
 - Next step is to implement tooling to observe the realization graphs.
-"""
-    with open("Batch_Realization_Audit.md", "w") as f:
-        f.write(content)
-generate()

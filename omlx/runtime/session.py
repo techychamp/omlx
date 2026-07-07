@@ -71,6 +71,10 @@ class RuntimeSession:
     speculative_statistics: Optional[Any] = None
     speculative_reports: List[Any] = field(default_factory=list)
 
+    # Batch Realization additions
+    batch_execution_graph: Optional[Any] = None
+    batch_realization_report: Optional[Any] = None
+
     @classmethod
     def create(cls) -> "RuntimeSession":
         """Creates a default RuntimeSession without a preceding QueueSession."""
