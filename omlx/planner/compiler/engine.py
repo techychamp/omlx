@@ -23,6 +23,7 @@ from omlx.planner.compiler.transformation.pass_ import FusionRealizationPass
 from omlx.optimization.fusion import FusionEvaluator
 from omlx.planner.domains.moe.transformation.pass_ import MoERealizationPass
 from omlx.planner.domains.diffusion.transformation.pass_ import DiffusionRealizationPass
+from omlx.planner.domains.memory.transformation.pass_ import MemoryRealizationPass
 from omlx.planner.compiler.batch.transformation.pass_ import BatchRealizationPass
 from omlx.planner.domains.cache.transformation.pass_ import CacheRealizationPass
 
@@ -87,6 +88,12 @@ class CompilerEngine:
                  if diffusion_pass.report:
                      get_observer().track_artifact("DiffusionTransformationReport", diffusion_pass.report)
 
+            # Conditionally inject Memory realization pass if plan is provided
+            if planning_bundle and planning_bundle.memory_plan:
+                 memory_pass = MemoryRealizationPass(planning_bundle.memory_plan)
+                 logical_ir = memory_pass.apply(logical_ir)
+                 if memory_pass.report:
+                     get_observer().track_artifact("MemoryRealizationReport", memory_pass.report)
             # Conditionally inject Speculation realization pass if plan is provided
             if planning_bundle and getattr(planning_bundle, 'speculation_plan', None):
                  from omlx.planner.domains.speculation.transformation.pass_ import SpeculationRealizationPass

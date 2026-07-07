@@ -44,6 +44,10 @@ class DefaultLoweringPass(LoweringPass):
                 op_type = PhysicalOperationType.CACHE_UPDATE
             elif node.node_type == IRNodeType.BARRIER:
                 op_type = PhysicalOperationType.SYNCHRONIZATION
+            elif node.node_type == IRNodeType.ALLOCATION:
+                op_type = PhysicalOperationType.ALLOCATION
+            elif node.node_type == IRNodeType.RELEASE:
+                op_type = PhysicalOperationType.RELEASE
 
             operations[node_id] = PhysicalOperation(
                 id=node_id,
