@@ -1,4 +1,3 @@
 # Runtime Integration Guide
-The Runtime no longer manages queue admission. It solely focuses on execution.
-- Runtime creates a `RuntimeSession` either independently or by taking ownership of an admitted `QueueSession` via `RuntimeSession.from_queue_session()`.
-- The `PlanningBundle` is attached to the `RuntimeSession` before the `ExecutionEngine` consumes it.
+
+See `omlx/runtime/builder.py` for standard construction of a session during `execute_request`. The Runtime Builder coordinates component attachment gracefully.

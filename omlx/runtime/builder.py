@@ -248,25 +248,23 @@ class Runtime:
         """
         Execute an incoming request using the Compiler service and Execution Engine.
         """
-        # Explicit legacy handling
         if self.feature_flags.LEGACY_RUNTIME_ENABLED and not self.feature_flags.COMPILER_RUNTIME_ENABLED:
             logger.debug("Falling back to legacy runtime execution.")
-            # We don't have a legacy implementation in this file yet, so we raise NotImplementedError
             raise NotImplementedError("Legacy runtime execution is not yet implemented.")
 
         if self.feature_flags.COMPILER_RUNTIME_ENABLED:
             model_id = request_context.model
 
-            # Use compiler to get graph directly instead of TranslationResult
+            from omlx.runtime.session import RuntimeSession, SessionState
+            runtime_session = RuntimeSession.create()
+            runtime_session.transition(SessionState.PLANNED)
+
             translation_result = self.compiler_service.run_compilation(model_id, request_context)
             if translation_result:
                 logger.debug(f"Compiler pipeline successfully planned intent for {model_id}")
 
-                # Execution Engine
-                # We extract graph here, but future versions of CompilerService will return it directly
                 backend_op_graph = getattr(translation_result, "backend_graph", getattr(translation_result, "backend_operation_graph", None))
 
-                # Determine backend adapter
                 adapter = None
                 backend = getattr(translation_result, "backend_descriptor", None)
                 if backend and hasattr(backend, "backend_id"):
@@ -274,84 +272,33 @@ class Runtime:
                 elif self.adapter_registry:
                      adapter = self.adapter_registry.resolve(backend="mlx", hardware="any", execution_family="autoregressive", execution_mode="standard")
 
-                # Cache Session Lifecycle Coordination (Owned by Runtime)
                 cache_session = None
                 cache_plan = getattr(translation_result, "cache_plan", None)
                 if cache_plan:
                     from omlx.runtime.execution.cache_session import CacheSession
                     cache_session = CacheSession(cache_plan)
                     cache_session.activate()
-                    logger.debug(f"Runtime activated cache session for plan: {cache_plan.plan_id}")
 
-                # Construct ExecutionContext
                 exec_context = ExecutionContext(
                     request_context=request_context,
                     backend_operation_graph=backend_op_graph,
                     diagnostics=getattr(translation_result, "diagnostics", None),
                     statistics=getattr(translation_result, "statistics", None),
-                    adapter=None, # Fallback path has no adapter configured previously in the script
+                    adapter=adapter,
                     cache_plan=cache_plan,
                     cache_session=cache_session
                 )
 
-                from omlx.runtime.session import RuntimeSession
-                runtime_session = RuntimeSession.create()
                 runtime_session.execution_context = exec_context
                 runtime_session.cache_session = cache_session
 
+                runtime_session.transition(SessionState.READY)
+
+                # Execution happens via execution engine passing RuntimeSession
                 execution_result = self.execution_engine.execute(runtime_session)
 
                 if cache_session:
                     cache_session.deactivate()
-                    logger.debug("Runtime deactivated cache session")
-
-                logger.debug(f"Execution Engine completed with status {execution_result.status}")
-
-                return execution_result
-
-        raise NotImplementedError("No execution path available for request.") # Assuming legacy handling occurs elsewhere since this method only had compiler paths
-
-        if self.feature_flags.COMPILER_RUNTIME_ENABLED:
-            model_id = request_context.model
-            translation_result = self.compiler_service.run_compilation(model_id, request_context)
-            if translation_result:
-                logger.debug(f"Compiler pipeline successfully planned intent for {model_id}")
-
-                # Execution Engine
-                backend_op_graph = getattr(translation_result, "backend_graph", getattr(translation_result, "backend_operation_graph", None))
-
-                # Cache Session Lifecycle Coordination (Owned by Runtime)
-                cache_session = None
-                cache_plan = getattr(translation_result, "cache_plan", None)
-                if cache_plan:
-                    from omlx.runtime.execution.cache_session import CacheSession
-                    cache_session = CacheSession(cache_plan)
-                    cache_session.activate()
-                    logger.debug(f"Runtime activated cache session for plan: {cache_plan.plan_id}")
-
-                # Construct ExecutionContext
-                exec_context = ExecutionContext(
-                    request_context=request_context,
-                    backend_operation_graph=backend_op_graph,
-                    diagnostics=getattr(translation_result, "diagnostics", None),
-                    statistics=getattr(translation_result, "statistics", None),
-                    adapter=None, # Fallback path has no adapter configured previously in the script
-                    cache_plan=cache_plan,
-                    cache_session=cache_session
-                )
-
-                from omlx.runtime.session import RuntimeSession
-                runtime_session = RuntimeSession.create()
-                runtime_session.execution_context = exec_context
-                runtime_session.cache_session = cache_session
-
-                execution_result = self.execution_engine.execute(runtime_session)
-
-                if cache_session:
-                    cache_session.deactivate()
-                    logger.debug("Runtime deactivated cache session")
-
-                logger.debug(f"Execution Engine completed with status {execution_result.status}")
 
                 return execution_result
 

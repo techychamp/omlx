@@ -24,7 +24,7 @@ class MockGraph:
     operations: Dict[str, MockOp]
 
 class MockDispatcher:
-    def dispatch(self, graph, context, execution_order=None):
+    def dispatch(self, graph, context, execution_order=None, schedule=None):
         from omlx.runtime.execution.types import ExecutionResult, ExecutionStatus
         return ExecutionResult(status=ExecutionStatus.COMPLETED, model_output={"order": execution_order})
 

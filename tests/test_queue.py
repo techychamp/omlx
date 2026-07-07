@@ -72,7 +72,8 @@ def test_runtime_session_handoff():
     runtime_session = RuntimeSession.from_queue_session(queue_session)
 
     assert isinstance(runtime_session, RuntimeSession)
-    assert runtime_session.state == "created"
+    from omlx.runtime.session import SessionState
+    assert runtime_session.state == SessionState.CREATED
     assert runtime_session.queue_session == queue_session
 
 def test_queue_observability_and_api():
