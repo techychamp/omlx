@@ -117,3 +117,18 @@ class RuntimeSpeculativeState:
     """Runtime state wrapper for speculative execution."""
     speculative_graph: Optional[SpeculativeExecutionGraph] = None
     reports: tuple[Any, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class ExpertExecutionReport:
+    """Report detailing expert execution details."""
+    executed_experts: int = 0
+    skipped_experts: int = 0
+    total_latency_ms: float = 0.0
+
+@dataclass(frozen=True)
+class RoutingExecutionStatistics:
+    """Statistics about routing execution."""
+    total_routings: int = 0
+    routing_latency_ms: float = 0.0
+

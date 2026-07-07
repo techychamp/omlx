@@ -7,6 +7,14 @@ from dataclasses import dataclass, field
 from typing import Any, Optional, Tuple
 from omlx.runtime.execution.artifacts import ExecutionGraph
 from omlx.planner.domains.speculation.artifacts import SpeculativeExecutionGraph
+from omlx.planner.domains.speculation.artifacts import SpeculativeExecutionGraph
+
+@dataclass(frozen=True)
+class AppleExecutionMetadata:
+    """Immutable metadata for Apple Silicon execution context."""
+    device_plan: Optional[Any] = None
+    placement: Optional[Any] = None
+    optimization_report: Optional[Any] = None
 
 @dataclass(frozen=True)
 class DeviceContext:
@@ -25,7 +33,15 @@ class MemoryContext:
 
 @dataclass(frozen=True)
 class ExecutionContext:
-    """Immutable snapshot of the execution context."""
+    """
+    Immutable snapshot of the execution context.
+    
+    Acts as the central transport object for carrying compilation plans, 
+    execution graphs, and platform-specific metadata (e.g., AppleExecutionMetadata) 
+    to the runtime execution backend, without tightly coupling the engine to 
+    specific platform implementations. Future integrations (e.g. CUDA, ROCm) 
+    should follow this pattern by attaching their respective metadata to this context.
+    """
     request_context: Any = None
     execution_plan: Optional[Any] = None
     planning_bundle: Optional[Any] = None
@@ -46,6 +62,7 @@ class ExecutionContext:
     adapter: Optional[Any] = None
     cache_plan: Optional[Any] = None
     cache_session: Optional[Any] = None
+    apple_execution_metadata: Optional[AppleExecutionMetadata] = None
 
     # MOE Execution Context
     expert_execution_graph: Optional[Any] = None

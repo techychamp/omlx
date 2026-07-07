@@ -27,6 +27,31 @@ def _get_operation_from_graph(graph: Any, op_id: str) -> Any:
     return None
 
 
+def _aggregate_expert_outputs(expert_outputs, routing_aggregation, routing_weights):
+    if not expert_outputs:
+        return None
+    if routing_aggregation == "weighted_merge" and routing_weights:
+        aggregated_logits = []
+        for idx, out in enumerate(expert_outputs):
+            weight = routing_weights[idx] if idx < len(routing_weights) else 1.0
+            res = out.get("result", {})
+            logits = res.get("logits", [])
+            if not aggregated_logits:
+                aggregated_logits = [val * weight for val in logits]
+            else:
+                for i in range(len(aggregated_logits)):
+                    if i < len(logits):
+                        aggregated_logits[i] += logits[i] * weight
+        return {"result": {"logits": aggregated_logits, "aggregated": True, "method": "weighted_merge"}}
+    elif routing_aggregation == "top-k merge":
+        return {"result": {"logits": expert_outputs[0].get("result", {}).get("logits", []), "aggregated": True, "method": "top-k merge"}}
+    elif routing_aggregation == "concatenation":
+        return {"result": {"logits": [val for out in expert_outputs for val in out.get("result", {}).get("logits", [])], "aggregated": True, "method": "concatenation"}}
+    elif routing_aggregation == "reduction":
+        return {"result": {"logits": [sum(val) for val in zip(*[out.get("result", {}).get("logits", []) for out in expert_outputs])], "aggregated": True, "method": "reduction"}}
+    return None
+
+
 class SequentialExecutionDispatcher(ExecutionDispatcher):
     """
     Dispatches graph operations sequentially without scheduling logic.
@@ -63,25 +88,60 @@ class SequentialExecutionDispatcher(ExecutionDispatcher):
 
         ops_executed = 0
         last_output = None
+        expert_outputs = []
+        routing_weights = None
+        routing_aggregation = None
 
+        has_failure = False
         for op_id in execution_order:
+            if has_failure:
+                break
             op = _get_operation_from_graph(graph, op_id)
             if not op:
                 continue
             if hasattr(adapter, 'execute'):
-                 # Formal BackendAdapter.execute boundary
-                 out = adapter.execute(op, context)
-                 if out and isinstance(out, dict) and out.get("result") is not None:
-                     res = out.get("result")
-                     if isinstance(res, dict) and ("logits" in res or "logits_shape" in res):
-                         last_output = out
+                 try:
+                     # Formal BackendAdapter.execute boundary
+                     out = adapter.execute(op, context)
+                     if out and isinstance(out, dict) and out.get("result") is not None:
+                         res = out.get("result")
+                         
+                         if type(graph).__name__ == 'ExpertExecutionGraph':
+                             # If it's a routing node
+                             if op.node_type.name == 'ROUTING':
+                                 if "weights" in res:
+                                     routing_weights = res["weights"]
+                                 if op.metadata and "aggregation" in op.metadata:
+                                     routing_aggregation = op.metadata.get("aggregation")
+                             # If it's a forward node (expert)
+                             elif op.node_type.name == 'FORWARD':
+                                 if "logits" in res or "expert_id" in res:
+                                     expert_outputs.append(out)
+                                     
+                         if isinstance(res, dict) and ("logits" in res or "logits_shape" in res):
+                             last_output = out
+                 except Exception as e:
+                     logger.error(f"Execution failed during sequential dispatch: {e}", exc_info=True)
+                     has_failure = True
+                     break
             ops_executed += 1
 
-        mock_output = {"status": "dispatched", "operations": ops_executed, "last_output": last_output}
+        if has_failure:
+            return ExecutionResult(
+                status=ExecutionStatus.FAILED,
+                model_output=None
+            )
+
+        if type(graph).__name__ == 'ExpertExecutionGraph' and expert_outputs:
+            agg_output = _aggregate_expert_outputs(expert_outputs, routing_aggregation, routing_weights)
+            if agg_output:
+                last_output = agg_output
+
+        dispatch_output = {"status": "dispatched", "operations": ops_executed, "last_output": last_output}
 
         return ExecutionResult(
             status=ExecutionStatus.COMPLETED,
-            model_output=mock_output,
+            model_output=dispatch_output,
         )
 
 class ParallelExecutionDispatcher(ExecutionDispatcher):
@@ -115,6 +175,9 @@ class ParallelExecutionDispatcher(ExecutionDispatcher):
         ops_executed = 0
         last_output = None
         has_failure = False
+        expert_outputs = []
+        routing_weights = None
+        routing_aggregation = None
 
         from omlx.runtime.observability import get_observer
         import threading
@@ -139,7 +202,7 @@ class ParallelExecutionDispatcher(ExecutionDispatcher):
                         def exec_with_obs(inner_op, inner_context):
                             thread_id = threading.get_ident()
                             with get_observer().observe_phase("Execution", "Worker", f"op_{inner_op.id if hasattr(inner_op, 'id') else op_id}_thread_{thread_id}"):
-                                return adapter.execute(inner_op, inner_context)
+                                return inner_op, adapter.execute(inner_op, inner_context)
                         futures.append(self._executor.submit(exec_with_obs, op, context))
                     else:
                         ops_executed += 1
@@ -147,11 +210,24 @@ class ParallelExecutionDispatcher(ExecutionDispatcher):
                 if has_failure:
                     break
 
+                # To maintain deterministic ordering when collecting outputs, we can sort by op.id later if needed
+                group_outputs = []
                 for future in concurrent.futures.as_completed(futures):
                     try:
-                        result = future.result()
+                        inner_op, result = future.result()
                         if result is not None and isinstance(result, dict) and result.get("result") is not None:
                             res = result.get("result")
+                            
+                            if type(graph).__name__ == 'ExpertExecutionGraph':
+                                if inner_op.node_type.name == 'ROUTING':
+                                    if "weights" in res:
+                                        routing_weights = res["weights"]
+                                    if inner_op.metadata and "aggregation" in inner_op.metadata:
+                                        routing_aggregation = inner_op.metadata.get("aggregation")
+                                elif inner_op.node_type.name == 'FORWARD':
+                                    if "logits" in res or "expert_id" in res:
+                                        group_outputs.append((inner_op.id, result))
+                            
                             if isinstance(res, dict) and ("logits" in res or "logits_shape" in res):
                                 last_output = result
                         ops_executed += 1
@@ -160,14 +236,24 @@ class ParallelExecutionDispatcher(ExecutionDispatcher):
                         has_failure = True
                         break # Stop processing this group, wait for others to finish before raising
 
+                # Sort group outputs to maintain determinism
+                group_outputs.sort(key=lambda x: x[0])
+                for _, out in group_outputs:
+                    expert_outputs.append(out)
+
+        if type(graph).__name__ == 'ExpertExecutionGraph' and expert_outputs:
+            agg_output = _aggregate_expert_outputs(expert_outputs, routing_aggregation, routing_weights)
+            if agg_output:
+                last_output = agg_output
+
         if has_failure:
             return ExecutionResult(
                 status=ExecutionStatus.FAILED,
                 model_output=None
             )
 
-        mock_output = {"status": "dispatched", "operations": ops_executed, "last_output": last_output}
+        dispatch_output = {"status": "dispatched", "operations": ops_executed, "last_output": last_output}
         return ExecutionResult(
             status=ExecutionStatus.COMPLETED,
-            model_output=mock_output,
+            model_output=dispatch_output,
         )

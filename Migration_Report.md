@@ -1,5 +1,3 @@
 # Migration Report
 
-## Status
-Migrated models to automated discovery via `ModelDiscoveryFramework` (MODEL-002).
-Runtime and executions are unmodified.
+No breaking changes exist. Any absence of MemoryPlan results in a no-op graph transformation.

@@ -320,9 +320,21 @@ class Runtime:
                     cache_session = CacheSession(cache_plan)
                     cache_session.activate()
 
-                # Attempt to get adapter from registry for backwards compatibility with tests
+                # Resolve MLX execution adapter directly from runtime layer
                 adapter = None
-                if hasattr(self, 'adapter_registry'):
+                apple_execution_metadata = None
+                
+                backend = getattr(translation_result, "backend_descriptor", None)
+                if backend and backend.backend_id == "mlx":
+                    from omlx.runtime.execution.apple.mlx_adapter import MLXRuntimeAdapter
+                    from omlx.runtime.execution.context import AppleExecutionMetadata
+                    adapter = MLXRuntimeAdapter()
+                    apple_execution_metadata = AppleExecutionMetadata(
+                        device_plan=getattr(translation_result, "device_plan", None),
+                        placement=getattr(translation_result, "placement", None),
+                        optimization_report=getattr(translation_result, "apple_optimization_report", getattr(translation_result, "optimization_report", None))
+                    )
+                elif hasattr(self, 'adapter_registry'):
                     adapter = self.adapter_registry.resolve(backend="mlx", hardware="any", execution_family="autoregressive", execution_mode="standard")
 
                 # Construct ExecutionContext
@@ -333,7 +345,8 @@ class Runtime:
                     statistics=getattr(translation_result, "statistics", None),
                     adapter=adapter,
                     cache_plan=cache_plan,
-                    cache_session=cache_session
+                    cache_session=cache_session,
+                    apple_execution_metadata=apple_execution_metadata
                 )
 
                 from omlx.runtime.session import RuntimeSession
@@ -374,9 +387,21 @@ class Runtime:
                     cache_session.activate()
                     logger.debug(f"Runtime activated cache session for plan: {cache_plan.plan_id}")
 
-                # Attempt to get adapter from registry for backwards compatibility with tests
+                # Resolve MLX execution adapter directly from runtime layer
                 adapter = None
-                if hasattr(self, 'adapter_registry'):
+                apple_execution_metadata = None
+                
+                backend = getattr(translation_result, "backend_descriptor", None)
+                if backend and backend.backend_id == "mlx":
+                    from omlx.runtime.execution.apple.mlx_adapter import MLXRuntimeAdapter
+                    from omlx.runtime.execution.context import AppleExecutionMetadata
+                    adapter = MLXRuntimeAdapter()
+                    apple_execution_metadata = AppleExecutionMetadata(
+                        device_plan=getattr(translation_result, "device_plan", None),
+                        placement=getattr(translation_result, "placement", None),
+                        optimization_report=getattr(translation_result, "apple_optimization_report", getattr(translation_result, "optimization_report", None))
+                    )
+                elif hasattr(self, 'adapter_registry'):
                     adapter = self.adapter_registry.resolve(backend="mlx", hardware="any", execution_family="autoregressive", execution_mode="standard")
 
                 # Construct ExecutionContext
@@ -387,7 +412,8 @@ class Runtime:
                     statistics=getattr(translation_result, "statistics", None),
                     adapter=adapter,
                     cache_plan=cache_plan,
-                    cache_session=cache_session
+                    cache_session=cache_session,
+                    apple_execution_metadata=apple_execution_metadata
                 )
 
                 from omlx.runtime.session import RuntimeSession

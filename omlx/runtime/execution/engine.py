@@ -61,9 +61,8 @@ class ExecutionEngine:
             return self._execute_speculative(session, context, context.speculative_execution_graph)
 
         if not context.backend_operation_graph and not getattr(context, 'expert_execution_graph', None):
-
             logger.error("ExecutionContext missing execution graph (neither backend_operation_graph nor expert_execution_graph)")
-        if not context.backend_operation_graph and not context.execution_graphs:
+        if not context.backend_operation_graph and not context.execution_graphs and not getattr(context, 'expert_execution_graph', None):
             logger.error("ExecutionContext missing backend_operation_graph or execution_graphs")
             return ExecutionResult(
                 status=ExecutionStatus.FAILED,
@@ -106,12 +105,6 @@ class ExecutionEngine:
                         result = dataclasses.replace(last_res, execution_duration_ms=total_latency)
                     else:
                         result = ExecutionResult(status=ExecutionStatus.COMPLETED, model_output=getattr(last_res, "model_output", None), execution_duration_ms=total_latency)
-                else:
-                    # Standard canonical graph execution
-                    result = self._executor.execute(context.backend_operation_graph, context)
-
-                execution_graph = getattr(context, 'expert_execution_graph', None) or context.backend_operation_graph
-                result = self._executor.execute(execution_graph, context)
                 if context.execution_graphs:
                     last_result = None
                     for graph in context.execution_graphs:
@@ -120,7 +113,8 @@ class ExecutionEngine:
                             break
                     result = last_result
                 else:
-                    result = self._executor.execute(context.backend_operation_graph, context)
+                    execution_graph = getattr(context, 'expert_execution_graph', None) or context.backend_operation_graph
+                    result = self._executor.execute(execution_graph, context)
 
                 get_observer().track_artifact("ExecutionResult", result)
 
