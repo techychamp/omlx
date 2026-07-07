@@ -1,7 +1,8 @@
 # Ownership Verification Report
 
-Ownership domains remain cleanly separated:
-1. **Device Optimization:** Owns optimization passes and optimization policies. Provides diagnostics.
-2. **Compiler:** Only consumes optimized planning bundles. Never implements optimization execution policies.
-3. **Execution Engine:** Consumes final Physical IR without any optimization details filtering down into dispatch logic.
-4. **Runtime/Scheduler:** Purely manage state lifecycles and dependency scheduling, blind to device tuning and placement affinity overrides.
+## Batch Realization
+- **Compiler**: Verified to be the sole owner of batch realization (`BatchRealizer`).
+- **Runtime**: Verified to not perform any batch realization. It only attaches the `BatchExecutionGraph` and `BatchRealizationReport` to the `RuntimeSession`.
+- **Queue**: Verified to remain strictly queue-based. No batch grouping or batch graph generation logic exists inside `QueueManager`.
+- **Scheduler**: Verified to remain deterministic. It executes the finalized schedule without dynamic or adaptive batch grouping logic.
+- **Backend**: Remains entirely oblivious to batch configurations.

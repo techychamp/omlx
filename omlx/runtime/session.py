@@ -109,6 +109,9 @@ class RuntimeSession:
     verification_context: Optional[Any] = None
     speculative_statistics: Optional[Any] = None
     speculative_reports: List[Any] = field(default_factory=list)
+    draft_tokens: tuple = tuple()
+    accepted_tokens: tuple = tuple()
+    rejected_tokens: tuple = tuple()
 
     # MOE Execution attachments
     expert_execution_graph: Optional[Any] = None

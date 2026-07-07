@@ -6,6 +6,7 @@ Execution Context for OMLX Execution Engine.
 from dataclasses import dataclass, field
 from typing import Any, Optional, Tuple
 from omlx.runtime.execution.artifacts import ExecutionGraph
+from omlx.planner.domains.speculation.artifacts import SpeculativeExecutionGraph
 
 @dataclass(frozen=True)
 class DeviceContext:
@@ -32,6 +33,7 @@ class ExecutionContext:
     physical_ir: Optional[Any] = None
     backend_operation_graph: Optional[Any] = None
     diffusion_execution_graph: Optional[Any] = None
+    speculative_execution_graph: Optional[SpeculativeExecutionGraph] = None
     execution_graphs: Optional[Tuple[ExecutionGraph, ...]] = None
     compiler_session: Optional[Any] = None
     capability_descriptor: Optional[Any] = None

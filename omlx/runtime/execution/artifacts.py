@@ -31,10 +31,6 @@ class BatchExecutionGraph(ExecutionGraph):
     """Execution graph specialized for batched execution."""
     pass
 
-@dataclass(frozen=True)
-class SpeculativeExecutionGraph(ExecutionGraph):
-    """Execution graph specialized for speculative decoding."""
-    pass
 
 @dataclass(frozen=True)
 class ExpertExecutionGraph(ExecutionGraph):
@@ -45,6 +41,35 @@ class ExpertExecutionGraph(ExecutionGraph):
 class DiffusionExecutionGraph(ExecutionGraph):
     """Execution graph specialized for diffusion modeling."""
     pass
+
+
+
+@dataclass(frozen=True)
+class VerificationResult:
+    """Strongly typed outcome from VerificationExecutionGraph."""
+    accepted: bool
+    accepted_tokens: tuple[int, ...] = tuple()
+    rejected_tokens: tuple[int, ...] = tuple()
+
+@dataclass(frozen=True)
+class VerificationExecutionReport:
+    """Report detailing verification outcome and latency."""
+    accepted: bool = False
+    accepted_tokens_count: int = 0
+    rejected_tokens_count: int = 0
+    latency_ms: float = 0.0
+
+@dataclass(frozen=True)
+class AcceptanceExecutionReport:
+    """Report detailing acceptance evaluation."""
+    accepted_tokens: tuple[int, ...] = tuple()
+    latency_ms: float = 0.0
+
+@dataclass(frozen=True)
+class RollbackExecutionReport:
+    """Report detailing rollback operation due to rejection."""
+    rejected_tokens: tuple[int, ...] = tuple()
+    latency_ms: float = 0.0
 
 @dataclass(frozen=True)
 class SpeculativeExecutionReport:
@@ -91,4 +116,4 @@ class CommitReport:
 class RuntimeSpeculativeState:
     """Runtime state wrapper for speculative execution."""
     speculative_graph: Optional[SpeculativeExecutionGraph] = None
-    reports: List[SpeculativeExecutionReport] = field(default_factory=list)
+    reports: tuple[Any, ...] = field(default_factory=tuple)
