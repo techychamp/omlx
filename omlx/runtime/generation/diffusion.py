@@ -33,9 +33,8 @@ class DiffusionGenerationStrategy(GenerationStrategy):
         translation_result = runtime.compiler_service.run_compilation(request_context.model, request_context)
         adapter = runtime.adapter_registry.resolve(translation_result)
 
-        # Retrieve the realized diffusion graph from the observer
-        report_artifact = get_observer().artifact_tracker.get("DiffusionTransformationReport")
-        diffusion_graph = report_artifact.execution_graph if report_artifact else None
+        # Retrieve the realized diffusion graph directly from the compiler artifact
+        diffusion_graph = getattr(translation_result, "diffusion_execution_graph", None)
 
         # Build context and session
         context = ExecutionContext(
@@ -59,12 +58,13 @@ class DiffusionGenerationStrategy(GenerationStrategy):
         return {
             "status": "success",
             "statistics": DiffusionStatistics(
-                planning_latency_ms=1.5,
+                planning_latency_ms=0.0, # TODO: Real statistics to be extracted from execution report
                 iteration_statistics={"total_steps": len(self.plan.timestep_schedule)},
                 timestep_statistics={"schedule": self.plan.timestep_schedule}
             ),
             "diffusion_report": diffusion_report,
             "model_output": result.model_output
         }
+
     def get_cache_policy(self) -> dict:
         return {"use_cache": False, "policy": "diffusion_no_cache"}

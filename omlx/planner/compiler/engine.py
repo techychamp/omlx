@@ -65,11 +65,14 @@ class CompilerEngine:
                      get_observer().track_artifact("MoETransformationReport", moe_pass.report)
 
             # Conditionally inject Diffusion realization pass if plan is provided
+            diffusion_execution_graph = None
             if planning_bundle and planning_bundle.diffusion_plan:
                  diffusion_pass = DiffusionRealizationPass(planning_bundle.diffusion_plan)
                  logical_ir = diffusion_pass.apply(logical_ir)
                  if diffusion_pass.report:
                      get_observer().track_artifact("DiffusionTransformationReport", diffusion_pass.report)
+                     diffusion_execution_graph = diffusion_pass.report.execution_graph
+
             # 1. Logical Optimization
             logger.debug("Applying logical passes")
             optimized_logical_ir = self.optimization_pipeline.optimize_logical(logical_ir)
@@ -92,6 +95,14 @@ class CompilerEngine:
             # 3. Physical Optimization
             logger.debug("Applying physical passes")
             optimized_physical_ir = self.optimization_pipeline.optimize_physical(physical_ir)
+
+            if diffusion_execution_graph:
+                import dataclasses
+                from types import MappingProxyType
+                new_meta = dict(optimized_physical_ir.metadata)
+                new_meta["diffusion_execution_graph"] = diffusion_execution_graph
+                optimized_physical_ir = dataclasses.replace(optimized_physical_ir, metadata=MappingProxyType(new_meta))
+
             get_observer().track_artifact("PhysicalIR", optimized_physical_ir)
 
             return optimized_physical_ir

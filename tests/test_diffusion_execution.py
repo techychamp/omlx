@@ -29,7 +29,8 @@ def observer_setup():
 def test_diffusion_execution_engine(observer_setup):
     # Mock Executor
     mock_executor = MagicMock()
-    mock_executor.execute.return_value = MagicMock(execution_duration_ms=150.0)
+    from omlx.runtime.execution.types import ExecutionResult, ExecutionStatus
+    mock_executor.execute.return_value = ExecutionResult(status=ExecutionStatus.COMPLETED, model_output=None, execution_duration_ms=150.0)
 
     engine = ExecutionEngine(executor=mock_executor)
 
@@ -59,35 +60,34 @@ def test_diffusion_execution_engine(observer_setup):
 
     result = engine.execute(session)
 
-    # Assert canonical executor was called
-    mock_executor.execute.assert_called_once_with(context.backend_operation_graph, context)
+    # Assert executor was called 5 times (latent, conditioning, and 3 timesteps)
+    assert mock_executor.execute.call_count == 5
 
     # Assert Report was emitted
     report = get_observer().artifact_tracker.get("DiffusionExecutionReport")
     assert report is not None
     assert report.total_timesteps_executed == 3
-    assert report.execution_latency_ms == 150.0
+    assert report.execution_latency_ms == 750.0
 
 
 def test_diffusion_generation_strategy(observer_setup):
-    # Setup mocks
-    mock_runtime = MagicMock()
-    mock_runtime.compiler_service.run_compilation.return_value = MagicMock(backend_graph=MagicMock())
-    mock_runtime.adapter_registry.resolve.return_value = MagicMock()
-    mock_result = MagicMock()
-    mock_result.model_output = "mock_output"
-    mock_runtime.execution_engine.execute.return_value = mock_result
-
     # Track a mock transformation report
     mock_diffusion_graph = DiffusionExecutionGraph(
         latent_graph=LatentExecutionGraph(nodes=()),
         conditioning_graph=ConditioningExecutionGraph(nodes=()),
         timesteps=(RealizedTimestepGraph(1, ()),)
     )
-    mock_transformation_report = MagicMock(execution_graph=mock_diffusion_graph)
-    observer_setup.artifact_tracker.track("DiffusionTransformationReport", mock_transformation_report)
 
-    # Track a mock execution report (since we mocked engine.execute)
+    # Setup mocks
+    mock_runtime = MagicMock()
+    mock_runtime.compiler_service.run_compilation.return_value = MagicMock(
+        backend_graph=MagicMock(),
+        diffusion_execution_graph=mock_diffusion_graph
+    )
+    mock_runtime.adapter_registry.resolve.return_value = MagicMock()
+    mock_result = MagicMock()
+    mock_result.model_output = "mock_output"
+    mock_runtime.execution_engine.execute.return_value = mock_result    # Track a mock execution report (since we mocked engine.execute)
     from omlx.runtime.execution.diagnostics import DiffusionExecutionReport
     mock_execution_report = DiffusionExecutionReport(total_timesteps_executed=1, execution_latency_ms=10.0)
     observer_setup.artifact_tracker.track("DiffusionExecutionReport", mock_execution_report)
