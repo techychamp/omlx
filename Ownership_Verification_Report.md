@@ -1,15 +1,13 @@
 # Ownership Verification Report
+- Runtime owns: Runtime lifecycle, RuntimeSession lifecycle (Verified)
+- RuntimeSession owns: execution context, PlanningBundle, metadata (Verified)
+- Compiler owns: graph realization, dependency graphs (Verified)
+- Scheduler owns: execution ordering, synchronization (Verified)
+- ExecutionEngine owns: orchestration, phase progression, completion, diagnostics (Verified)
+- Dispatcher owns: dispatch, backend invocation (Verified)
+- Backend owns: tensor/kernel execution (Verified)
+# User Review Required
 
-**User Review Required**
-
-## Summary
-
-- **Runtime**: Owns RuntimeSession lifecycle.
-- **Queue**: Handles admission but yields RuntimeSession at execution hand-off.
-- **Compiler**: Populates ExecutionContext immutably; never takes ownership.
-- **ExecutionEngine**: Consumes RuntimeSession for read-only dispatch contexts.
-Ownership rules verify complete decoupling of execution from planning.
-Verified Compiler owns graph realization, Scheduler owns execution readiness, Engine owns execution.
 ## Batch Realization
 - **Compiler**: Verified to be the sole owner of batch realization (`BatchRealizer`).
 - **Runtime**: Verified to not perform any batch realization. It only attaches the `BatchExecutionGraph` and `BatchRealizationReport` to the `RuntimeSession`.

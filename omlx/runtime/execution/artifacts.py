@@ -3,11 +3,48 @@
 Artifacts for OMLX Execution Engine.
 """
 
-from typing import Any
-BackendOperationGraph = Any
+from typing import Any, Optional
 from dataclasses import dataclass, field
+from omlx.framework.graph.descriptor import GraphDescriptor
 from typing import List, Optional
 from omlx.planner.domains.speculation.artifacts import SpeculativeExecutionGraph
+
+BackendOperationGraph = Any
+
+@dataclass(frozen=True)
+class ExecutionGraph(GraphDescriptor):
+    """Base canonical execution graph."""
+    pass
+
+@dataclass(frozen=True)
+class CacheExecutionGraph(ExecutionGraph):
+    """Execution graph specialized for caching operations."""
+    pass
+
+@dataclass(frozen=True)
+class MemoryExecutionGraph(ExecutionGraph):
+    """Execution graph specialized for memory allocation and movement."""
+    pass
+
+@dataclass(frozen=True)
+class BatchExecutionGraph(ExecutionGraph):
+    """Execution graph specialized for batched execution."""
+    pass
+
+@dataclass(frozen=True)
+class SpeculativeExecutionGraph(ExecutionGraph):
+    """Execution graph specialized for speculative decoding."""
+    pass
+
+@dataclass(frozen=True)
+class ExpertExecutionGraph(ExecutionGraph):
+    """Execution graph specialized for Mixture of Experts (MoE) execution."""
+    pass
+
+@dataclass(frozen=True)
+class DiffusionExecutionGraph(ExecutionGraph):
+    """Execution graph specialized for diffusion modeling."""
+    pass
 
 @dataclass(frozen=True)
 class SpeculativeExecutionReport:
@@ -20,14 +57,14 @@ class SpeculativeExecutionReport:
 @dataclass(frozen=True)
 class VerificationWindow:
     """Window of generated tokens to be verified."""
-    draft_tokens: List[int] = field(default_factory=list)
+    draft_tokens: tuple[int, ...] = tuple()
     start_index: int = 0
 
 @dataclass(frozen=True)
 class AcceptanceWindow:
     """Window of accepted tokens after verification."""
-    accepted_tokens: List[int] = field(default_factory=list)
-    rejected_tokens: List[int] = field(default_factory=list)
+    accepted_tokens: tuple[int, ...] = tuple()
+    rejected_tokens: tuple[int, ...] = tuple()
 
 @dataclass(frozen=True)
 class AcceptanceStatistics:
@@ -46,7 +83,7 @@ class VerificationStatistics:
 @dataclass(frozen=True)
 class CommitReport:
     """Report detailing committed tokens and state updates."""
-    committed_tokens: List[int] = field(default_factory=list)
+    committed_tokens: tuple[int, ...] = tuple()
     commit_latency_ms: float = 0.0
 
 

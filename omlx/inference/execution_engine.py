@@ -122,7 +122,7 @@ class TransformerExecutionEngine(ExecutionEngine):
 
     def forward(self, inputs: Any = None) -> Any:
         """Perform a single step forward pass via the compiler runtime."""
-        raise NotImplementedError("Compiler-native Runtime owns generation.")
         if hasattr(self.batch_generator, "next_generated"):
             return self.batch_generator.next_generated()
+        raise NotImplementedError("Compiler-native Runtime owns generation.")
         return []

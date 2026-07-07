@@ -4,7 +4,8 @@ Execution Context for OMLX Execution Engine.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
+from omlx.runtime.execution.artifacts import ExecutionGraph
 
 @dataclass(frozen=True)
 class DeviceContext:
@@ -30,6 +31,7 @@ class ExecutionContext:
     logical_ir: Optional[Any] = None
     physical_ir: Optional[Any] = None
     backend_operation_graph: Optional[Any] = None
+    execution_graphs: Optional[Tuple[ExecutionGraph, ...]] = None
     compiler_session: Optional[Any] = None
     capability_descriptor: Optional[Any] = None
     model_descriptor: Optional[Any] = None
