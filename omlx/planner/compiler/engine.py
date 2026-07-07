@@ -25,6 +25,7 @@ from omlx.planner.domains.moe.transformation.pass_ import MoERealizationPass
 from omlx.planner.domains.diffusion.transformation.pass_ import DiffusionRealizationPass
 
 
+
 logger = logging.getLogger("omlx.compiler")
 
 class CompilerEngine:
@@ -70,6 +71,16 @@ class CompilerEngine:
                  logical_ir = diffusion_pass.apply(logical_ir)
                  if diffusion_pass.report:
                      get_observer().track_artifact("DiffusionTransformationReport", diffusion_pass.report)
+
+            # Conditionally inject Speculation realization pass if plan is provided
+            if planning_bundle and getattr(planning_bundle, 'speculation_plan', None):
+                 from omlx.planner.domains.speculation.transformation.pass_ import SpeculationRealizationPass
+                 spec_pass = SpeculationRealizationPass(planning_bundle.speculation_plan)
+                 logical_ir = spec_pass.apply(logical_ir)
+                 if spec_pass.report:
+                     planning_bundle.speculative_graph = spec_pass.report.speculative_graph
+                     get_observer().track_artifact("SpeculativeRealizationReport", spec_pass.report)
+
             # 1. Logical Optimization
             logger.debug("Applying logical passes")
             optimized_logical_ir = self.optimization_pipeline.optimize_logical(logical_ir)

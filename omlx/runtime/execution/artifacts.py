@@ -7,6 +7,7 @@ from typing import Any
 BackendOperationGraph = Any
 from dataclasses import dataclass, field
 from typing import List, Optional
+from omlx.planner.domains.speculation.artifacts import SpeculativeExecutionGraph
 
 @dataclass(frozen=True)
 class SpeculativeExecutionReport:
@@ -47,3 +48,10 @@ class CommitReport:
     """Report detailing committed tokens and state updates."""
     committed_tokens: List[int] = field(default_factory=list)
     commit_latency_ms: float = 0.0
+
+
+@dataclass(frozen=True)
+class RuntimeSpeculativeState:
+    """Runtime state wrapper for speculative execution."""
+    speculative_graph: Optional[SpeculativeExecutionGraph] = None
+    reports: List[SpeculativeExecutionReport] = field(default_factory=list)

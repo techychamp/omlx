@@ -5,9 +5,11 @@ from .memory.artifacts import MemoryPlan
 from .fusion.artifacts import FusionPlan
 from .diffusion.artifacts import DiffusionPlan
 from .moe.artifacts import MoEPlan
+from .speculation.artifacts import SpeculativeExecutionDescriptor, SpeculativeExecutionGraph
+
 from omlx.planner.device.artifacts import DevicePlan
 
-@dataclass(frozen=True)
+@dataclass
 class PlanningBundle:
     """
     Immutable composition of all planning artifacts from different Planning Domains.
@@ -21,6 +23,8 @@ class PlanningBundle:
     diffusion_plan: Optional[DiffusionPlan] = None
     moe_plan: Optional[MoEPlan] = None
     device_plan: Optional[DevicePlan] = None
+    speculation_plan: Optional[SpeculativeExecutionDescriptor] = None
+    speculative_graph: Optional[SpeculativeExecutionGraph] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def get_plan(self, domain: str) -> Optional[Any]:

@@ -10,6 +10,7 @@ from omlx.planner.domains.bundle import PlanningBundle
 from omlx.planner.domains.memory.planner import MemoryPlanner
 from omlx.planner.domains.fusion.planner import FusionPlanner
 from omlx.planner.domains.diffusion.planner import DiffusionPlanner
+from omlx.planner.domains.speculation.planner import SpeculativePlanner
 from omlx.planner.domains.diffusion.artifacts import DiffusionRequirement, TimestepDescriptor, ConditioningDescriptor, DiffusionDescriptor, LatentDescriptor
 from omlx.planner.domains.fusion.analyzer import FusionAnalyzer
 from omlx.framework.graph.artifacts import GraphAnalysisReport
@@ -28,6 +29,7 @@ class CompilerPlanner:
         self.memory_planner = memory_planner or MemoryPlanner()
         self.fusion_planner = FusionPlanner(FusionAnalyzer())
         self.diffusion_planner = DiffusionPlanner()
+        self.speculative_planner = SpeculativePlanner()
 
     def compose_bundle(self, descriptor: CapabilityDescriptor, execution_plan: ExecutionPlan, strategy_intent: Any = None) -> PlanningBundle:
         """
@@ -45,6 +47,9 @@ class CompilerPlanner:
         fusion_plan = self.fusion_planner.plan(graph_descriptor, dependency_graph, analysis_report)
 
         # Basic diffusion plan if requested
+
+        speculation_plan = self.speculative_planner.plan(descriptor, execution_plan, strategy_intent)
+
         diffusion_plan = None
         if strategy_intent and getattr(strategy_intent, "execution_mode", "") == "diffusion":
             diffusion_descriptor = DiffusionDescriptor(
@@ -63,5 +68,6 @@ class CompilerPlanner:
             execution_plan=execution_plan,
             memory_plan=memory_plan,
             fusion_plan=fusion_plan,
-            diffusion_plan=diffusion_plan
+            diffusion_plan=diffusion_plan,
+            speculation_plan=speculation_plan
         )
