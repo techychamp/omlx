@@ -11,6 +11,10 @@ def test_batch_realization():
     assert report.success
     assert report.batch_execution_graph is not None
     assert report.batch_execution_graph.batch_id == "batch_0"
+    assert report.statistics is not None
+    assert report.statistics.batch_size == 2
+    assert report.batch_execution_graph.grouping_graph is not None
+    assert report.batch_execution_graph.synchronization_graph is not None
 
     print("Batch realization test passed!")
 

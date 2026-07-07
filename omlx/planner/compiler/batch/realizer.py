@@ -26,6 +26,8 @@ class BatchRealizer:
         # Generate execution graph
         execution_graph = BatchExecutionGraph(
             batch_id=plan.batch_descriptor.batch_id,
+            grouping_graph=grouping_graph,
+            synchronization_graph=sync_graph,
             nodes=[{"id": "node_1", "type": "batch_op"}],
             edges=[]
         )
@@ -41,7 +43,8 @@ class BatchRealizer:
         return BatchRealizationReport(
             success=True,
             batch_execution_graph=execution_graph,
-            diagnostics=[]
+            diagnostics=[],
+            statistics=stats
         )
 
     def _realize_grouping(self, plan: BatchPlan) -> BatchGroupingGraph:

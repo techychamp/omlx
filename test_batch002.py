@@ -31,6 +31,10 @@ class TestBatchRealization(unittest.TestCase):
         self.assertTrue(report.success)
         self.assertIsNotNone(report.batch_execution_graph)
         self.assertEqual(report.batch_execution_graph.batch_id, "test_batch_1")
+        self.assertIsNotNone(report.statistics)
+        self.assertEqual(report.statistics.batch_size, 2)
+        self.assertIsNotNone(report.batch_execution_graph.grouping_graph)
+        self.assertIsNotNone(report.batch_execution_graph.synchronization_graph)
 
     def test_runtime_session_attaches_graph(self):
         report = self.realizer.realize(self.plan)
