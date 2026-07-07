@@ -110,6 +110,12 @@ class RuntimeSession:
     speculative_statistics: Optional[Any] = None
     speculative_reports: List[Any] = field(default_factory=list)
 
+    # MOE Execution attachments
+    expert_execution_graph: Optional[Any] = None
+    routing_reports: List[Any] = field(default_factory=list)
+    execution_reports: List[Any] = field(default_factory=list)
+    execution_metadata: Dict[str, Any] = field(default_factory=dict)
+
     # Batch Realization additions
     batch_execution_graph: Optional[Any] = None
     batch_realization_report: Optional[Any] = None

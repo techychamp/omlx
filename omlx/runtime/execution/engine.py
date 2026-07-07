@@ -41,6 +41,8 @@ class ExecutionEngine:
 
         logger.debug("ExecutionEngine starting execution")
 
+        if not context.backend_operation_graph and not getattr(context, 'expert_execution_graph', None):
+            logger.error("ExecutionContext missing execution graph (neither backend_operation_graph nor expert_execution_graph)")
         if not context.backend_operation_graph and not context.execution_graphs:
             logger.error("ExecutionContext missing backend_operation_graph or execution_graphs")
             return ExecutionResult(
@@ -53,6 +55,8 @@ class ExecutionEngine:
                 if getattr(session, "cache_session", None):
                     logger.debug(f"ExecutionEngine utilizing cache session for plan: {session.cache_session.cache_plan.plan_id}")
 
+                execution_graph = getattr(context, 'expert_execution_graph', None) or context.backend_operation_graph
+                result = self._executor.execute(execution_graph, context)
                 if context.execution_graphs:
                     last_result = None
                     for graph in context.execution_graphs:

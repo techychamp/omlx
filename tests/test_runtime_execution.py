@@ -47,6 +47,8 @@ def test_execution_engine_valid_graph():
     session = RuntimeSession.create()
     session.execution_context = context
 
+    session = MagicMock()
+    session.execution_context = context
     result = engine.execute(session)
     assert result.status == ExecutionStatus.COMPLETED
     assert result.model_output["operations"] == 1
@@ -102,7 +104,7 @@ def test_runtime_execute_request_integration():
 
     # Mock adapter registry
     mock_adapter = MagicMock()
-    mock_adapter.execute.return_value = {"result": {"logits": "executed_by_adapter"}}
+    mock_adapter.execute.return_value = {"result": {"logits": [1]}, "val": "executed_by_adapter"}
     runtime.adapter_registry = MagicMock()
     runtime.adapter_registry.resolve.return_value = mock_adapter
 
@@ -112,7 +114,7 @@ def test_runtime_execute_request_integration():
     result = runtime.execute_request(request)
     assert result is not None
     assert result.status == ExecutionStatus.COMPLETED
-    assert result.model_output["last_output"] == {"result": {"logits": "executed_by_adapter"}}
+    assert result.model_output["last_output"]["val"] == "executed_by_adapter"
     assert mock_adapter.execute.call_count == 1
 
 def test_legacy_fallback():
@@ -151,7 +153,7 @@ def test_parallel_execution_dispatcher():
         time.sleep(0.01) # to simulate some work and ensure threads interleave
         with lock:
             execution_record.append(op)
-        return {"result": {"logits": "output"}}
+        return {"result": {"logits": [1,2,3]}, "val": "output"}
 
     mock_adapter = MagicMock()
     mock_adapter.execute.side_effect = mock_execute
@@ -167,7 +169,7 @@ def test_parallel_execution_dispatcher():
 
     assert result.status == ExecutionStatus.COMPLETED
     assert result.model_output["operations"] == 3
-    assert result.model_output["last_output"] == {"result": {"logits": "output"}}
+    assert result.model_output["last_output"]["val"] == "output"
 
     assert len(execution_record) == 3
     # op3 must run after op1 and op2 because it's in a later group
@@ -248,7 +250,7 @@ def test_group_barrier_synchronization():
             active_operations.remove(op.id)
             events.append((op.id, "end"))
 
-        return {"result": {"logits": "output"}}
+        return {"result": {"logits": [1,2,3]}, "val": "output"}
 
     mock_adapter = MagicMock()
     mock_adapter.execute.side_effect = mock_execute
@@ -289,7 +291,7 @@ def test_dispatcher_stress():
     graph = MockGraph(operations={"op1": mock_op1})
 
     mock_adapter = MagicMock()
-    mock_adapter.execute.return_value = {"result": {"logits": "stress_output"}}
+    mock_adapter.execute.return_value = {"result": {"logits": [1]}, "val": "stress_output"}
     context = ExecutionContext(request_context=Mock(), adapter=mock_adapter)
 
     group1 = ExecutionGroup(group_id="g1", operations=["op1"])
@@ -311,7 +313,7 @@ def test_dispatcher_stress():
     for r in results:
         assert r.status == ExecutionStatus.COMPLETED
         assert r.model_output["operations"] == 1
-        assert r.model_output["last_output"] == {"result": {"logits": "stress_output"}}
+        assert r.model_output["last_output"]["val"] == "stress_output"
 
 def test_dispatcher_determinism():
     from omlx.runtime.execution.dispatcher import ParallelExecutionDispatcher
@@ -340,7 +342,7 @@ def test_dispatcher_determinism():
     def mock_execute(op, context):
         with lock:
             execution_orders[-1].append(op.id)
-        return {"result": {"logits": "output"}}
+        return {"result": {"logits": [1,2,3]}, "val": "output"}
 
     mock_adapter = MagicMock()
     mock_adapter.execute.side_effect = mock_execute

@@ -26,7 +26,7 @@ class DeterministicGraphExecutor(GraphExecutor):
         self.dispatcher = dispatcher
         self.scheduler = scheduler or GraphScheduler()
 
-    def traverse_and_execute(self, graph: Union[BackendOperationGraph, DependencyGraph], context: ExecutionContext) -> ExecutionResult:
+    def traverse_and_execute(self, graph: Any, context: ExecutionContext) -> ExecutionResult:
         logger.debug("GraphExecutor building schedule and traversing graph")
 
         start_time = time.time()
@@ -39,7 +39,8 @@ class DeterministicGraphExecutor(GraphExecutor):
             )
 
         # Basic validation
-        if not hasattr(graph, 'operations'):
+        is_moe = type(graph).__name__ == 'ExpertExecutionGraph'
+        if not hasattr(graph, 'operations') and not is_moe:
             logger.error("Invalid graph: missing operations")
             return ExecutionResult(
                 status=ExecutionStatus.FAILED,
@@ -50,9 +51,13 @@ class DeterministicGraphExecutor(GraphExecutor):
         schedule = self.scheduler.build_schedule(graph)
         execution_order = schedule.ordered_operations
 
-        operations = graph.operations
-        if len(execution_order) != len(operations):
-            logger.warning(f"Graph traversal incomplete: cycle detected or missing operations. Traversed {len(execution_order)}/{len(operations)}")
+        if is_moe:
+            op_count = 1 + sum(len(e.expert_nodes) for e in graph.routing_graph.expert_graphs)
+        else:
+            op_count = len(graph.operations)
+
+        if len(execution_order) != op_count:
+            logger.warning(f"Graph traversal incomplete: cycle detected or missing operations. Traversed {len(execution_order)}/{op_count}")
 
         # Pass ordered nodes to dispatcher
         dispatch_result = self.dispatcher.dispatch(graph, context, execution_order=execution_order, schedule=schedule)

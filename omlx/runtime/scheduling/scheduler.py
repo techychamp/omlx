@@ -33,7 +33,15 @@ class GraphScheduler(IGraphScheduler):
         start_time = time.time()
         logger.debug(f"Building schedule with policy {self.policy}")
 
-        if not graph or (not getattr(graph, 'operations', None) and not getattr(graph, 'phases', None)):
+        if not graph:
+            return ExecutionSchedule(
+                statistics=SchedulingStatistics(schedule_generation_time_ms=(time.time() - start_time) * 1000)
+            )
+
+        has_ops = hasattr(graph, 'operations') and graph.operations
+        has_moe = type(graph).__name__ == 'ExpertExecutionGraph' and hasattr(graph, 'routing_graph')
+
+        if not has_ops and not has_moe:
             return ExecutionSchedule(
                 statistics=SchedulingStatistics(schedule_generation_time_ms=(time.time() - start_time) * 1000)
             )
@@ -42,6 +50,8 @@ class GraphScheduler(IGraphScheduler):
              return self._build_from_execution_phase_graph(graph, start_time)
         elif isinstance(graph, DependencyGraph):
              return self._build_from_dependency_graph(graph, start_time)
+        elif type(graph).__name__ == 'ExpertExecutionGraph':
+             return self._build_from_expert_graph(graph, start_time)
         else:
              return self._build_from_backend_graph(graph, start_time)
 
@@ -274,6 +284,72 @@ class GraphScheduler(IGraphScheduler):
             dependency_levels={op: phase_idx for op, phase_idx in op_phase_map.items()},
             execution_groups=tuple(execution_groups),
             critical_path=tuple(),
+            ready_queues=ready_queues,
+            metadata={"policy": self.policy.value},
+            diagnostics=diagnostics,
+            statistics=stats
+        )
+
+    def _build_from_expert_graph(self, graph: Any, start_time: float) -> ExecutionSchedule:
+        # 1. Routing Phase
+        ordered_operations: List[str] = []
+        ready_queues: Dict[int, List[str]] = {}
+        execution_groups: List[ExecutionGroup] = []
+
+        routing_op_id = graph.routing_graph.routing_node.id
+        ordered_operations.append(routing_op_id)
+        ready_queues[0] = [routing_op_id]
+
+        execution_groups.append(ExecutionGroup(
+             group_id=f"routing_group_{graph.group_id}",
+             operations=[routing_op_id],
+             dependency_level=0,
+             parallelizable=False
+        ))
+
+        # 2. Experts Phase
+        expert_op_ids = []
+        for expert in graph.routing_graph.expert_graphs:
+            for node in expert.expert_nodes:
+                expert_op_ids.append(node.id)
+                ordered_operations.append(node.id)
+
+        if expert_op_ids:
+            ready_queues[1] = expert_op_ids
+            execution_groups.append(ExecutionGroup(
+                 group_id=f"experts_group_{graph.group_id}",
+                 operations=expert_op_ids,
+                 dependency_level=1,
+                 parallelizable=True
+            ))
+
+        stats = SchedulingStatistics(
+            graph_depth=2 if expert_op_ids else 1,
+            graph_width=len(expert_op_ids) if expert_op_ids else 1,
+            critical_path_length=2 if expert_op_ids else 1,
+            dependency_fan_in=1.0,
+            dependency_fan_out=float(len(expert_op_ids)) if expert_op_ids else 1.0,
+            parallel_groups=1 if expert_op_ids else 0,
+            execution_levels=2 if expert_op_ids else 1,
+            estimated_parallelism=len(ordered_operations) / 2 if expert_op_ids else 1.0,
+            schedule_generation_time_ms=(time.time() - start_time) * 1000
+        )
+
+        diagnostics = SchedulingDiagnostics(
+             scheduling_report={"status": "success", "policy": self.policy.value, "type": "ExpertExecutionGraph"},
+             dependency_report={"roots": [routing_op_id], "leaves": expert_op_ids, "is_cyclic": False},
+             critical_path_report={"path": [routing_op_id] + (expert_op_ids[:1] if expert_op_ids else []), "length": 2 if expert_op_ids else 1},
+             execution_group_report={"groups_count": len(execution_groups)},
+             parallelism_report={"estimated": stats.estimated_parallelism},
+             policy_report={"active_policy": self.policy.value},
+             execution_ordering_report={"operations_count": len(ordered_operations)}
+        )
+
+        return ExecutionSchedule(
+            ordered_operations=ordered_operations,
+            dependency_levels={op: 0 if op == routing_op_id else 1 for op in ordered_operations},
+            execution_groups=execution_groups,
+            critical_path=diagnostics.critical_path_report["path"],
             ready_queues=ready_queues,
             metadata={"policy": self.policy.value},
             diagnostics=diagnostics,
