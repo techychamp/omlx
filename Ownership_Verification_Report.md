@@ -1,5 +1,6 @@
 # Ownership Verification Report
 
+Verified Compiler owns graph realization, Scheduler owns execution readiness, Engine owns execution.
 ## Batch Realization
 - **Compiler**: Verified to be the sole owner of batch realization (`BatchRealizer`).
 - **Runtime**: Verified to not perform any batch realization. It only attaches the `BatchExecutionGraph` and `BatchRealizationReport` to the `RuntimeSession`.
