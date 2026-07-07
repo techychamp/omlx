@@ -1,2 +1,1 @@
-# Compiler Statistics Guide
-Completed as part of PERF-004.
+# Compiler Statistics Guide\nCompleted as part of PERF-004.

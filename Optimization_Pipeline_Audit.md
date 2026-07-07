@@ -1,2 +1,1 @@
-# Optimization Pipeline Audit
-Completed as part of PERF-004.
+# Optimization Pipeline Audit\nCompleted as part of PERF-004.

@@ -1,2 +1,1 @@
-# Pipeline Phases Guide
-Completed as part of PERF-004.
+# Pipeline Phases Guide\nCompleted as part of PERF-004.

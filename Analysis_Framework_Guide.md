@@ -1,2 +1,1 @@
-# Analysis Framework Guide
-Completed as part of PERF-004.
+# Analysis Framework Guide\nCompleted as part of PERF-004.
