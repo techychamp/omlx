@@ -5,6 +5,14 @@ Artifacts for OMLX Execution Engine.
 
 from typing import Any
 BackendOperationGraph = Any
+ExecutionGraph = Any
+CacheExecutionGraph = Any
+MemoryExecutionGraph = Any
+BatchExecutionGraph = Any
+SpeculativeExecutionGraph = Any
+ExpertExecutionGraph = Any
+DiffusionExecutionGraph = Any
+
 from dataclasses import dataclass, field
 from typing import List, Optional
 

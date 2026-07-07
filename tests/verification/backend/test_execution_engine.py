@@ -27,7 +27,9 @@ def test_execution_engine_consumes_schedule_only():
         "B": mock_op_B
     })
 
-    context = ExecutionContext()
+    mock_adapter = MagicMock()
+    mock_adapter.execute.return_value = {"result": {"logits": {}}}
+    context = ExecutionContext(adapter=mock_adapter)
 
     # Force execution order
     execution_order = ["B", "A"]
@@ -45,7 +47,7 @@ def test_dispatcher_execution_order_adherence():
         def resolve(self, **kwargs):
             return mock_adapter
 
-    dispatcher = SequentialExecutionDispatcher(adapter_registry=MockRegistry())
+    dispatcher = SequentialExecutionDispatcher()
 
     graph = MockGraph(operations={
         "X": "OperationX",
@@ -53,7 +55,9 @@ def test_dispatcher_execution_order_adherence():
         "Z": "OperationZ"
     })
 
-    context = ExecutionContext()
+    mock_adapter = MagicMock()
+    mock_adapter.execute.return_value = {"result": {"logits": {}}}
+    context = ExecutionContext(adapter=mock_adapter)
     execution_order = ["Y", "Z", "X"]
 
     result = dispatcher.dispatch(graph, context, execution_order=execution_order)
