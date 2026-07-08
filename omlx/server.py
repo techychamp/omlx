@@ -20,8 +20,6 @@ Usage:
     # Multi-model serving
     omlx serve --model-dir /path/to/models --max-model-memory 32GB
 
-    # With pinned models
-    omlx serve --model-dir /path/to/models --max-model-memory 48GB --pin llama-3b,qwen-7b
 
     # With MCP tools
     omlx serve --model-dir /path/to/models --max-model-memory 32GB --mcp-config mcp.json
@@ -1655,9 +1653,6 @@ def init_server(
     Note:
         - Pinned models and default model are managed via admin page (model_settings.json)
         - Sampling parameters (max_tokens, temperature, etc.) are per-model settings
-
-    Raises:
-        ValueError: If model directory doesn't exist or no models found
     """
     from pathlib import Path
 
@@ -2160,6 +2155,44 @@ async def health():
         "default_model": _server_state.default_model,
         "engine_pool": pool_status,
         "mcp": mcp_info,
+    }
+
+
+@app.get("/v1/runtime")
+async def get_runtime_status(_: bool = Depends(verify_api_key)):
+    """Canonical GUI-002 API endpoint for runtime status."""
+    from .server_metrics import get_server_metrics
+    metrics = get_server_metrics()
+    snapshot = metrics.get_snapshot()
+    return {
+        "apiVersion": "v1",
+        "status": "healthy",
+        "uptime": snapshot["uptime_seconds"],
+        "version": __version__
+    }
+
+
+@app.get("/v1/runtime/capabilities")
+async def get_runtime_capabilities(_: bool = Depends(verify_api_key)):
+    """Canonical GUI-002 API endpoint for runtime capabilities."""
+    
+    # We map the capability object to the expected DTO
+    return {
+        "apiVersion": "v1",
+        "supportsMoe": True,  # MLX supports MoE natively
+        "supportsSpeculation": True,  # OMLX supports linear speculation
+        "supportsDiffusion": True  # OMLX has experimental diffusion backend
+    }
+
+
+@app.get("/v1/runtime/info")
+async def get_runtime_info(_: bool = Depends(verify_api_key)):
+    """Canonical GUI-002 API endpoint for server info."""
+    return {
+        "apiVersion": "v1",
+        "host": _server_state.global_settings.server.host if _server_state.global_settings else "127.0.0.1",
+        "port": _server_state.global_settings.server.port if _server_state.global_settings else 8000,
+        "backend": "mlx"
     }
 
 
@@ -6647,9 +6680,6 @@ Examples:
     # Multi-model serving
     python -m omlx.server --model-dir /path/to/models
 
-    # With pinned models
-    python -m omlx.server --model-dir /path/to/models --pin llama-3b,qwen-7b
-
     # With MCP tools
     python -m omlx.server --model-dir /path/to/models --mcp-config mcp.json
 
@@ -6661,18 +6691,6 @@ Note: Use the omlx CLI for full feature support.
         type=str,
         required=True,
         help="Directory containing model subdirectories",
-    )
-    parser.add_argument(
-        "--pin",
-        type=str,
-        default=None,
-        help="Comma-separated model names to keep always loaded",
-    )
-    parser.add_argument(
-        "--default-model",
-        type=str,
-        default=None,
-        help="Default model when not specified in request",
     )
     parser.add_argument(
         "--host",
@@ -6692,12 +6710,6 @@ Note: Use the omlx CLI for full feature support.
         default=None,
         help="Path to MCP configuration file (JSON/YAML)",
     )
-    parser.add_argument(
-        "--max-tokens",
-        type=int,
-        default=32768,
-        help="Default max tokens for generation",
-    )
 
     args = parser.parse_args()
 
@@ -6705,14 +6717,14 @@ Note: Use the omlx CLI for full feature support.
     if args.mcp_config:
         os.environ["OMLX_MCP_CONFIG"] = args.mcp_config
 
-    # Parse pinned models
-    pinned_models = args.pin.split(",") if args.pin else []
+    from .settings import GlobalSettings
+    settings = GlobalSettings.load(cli_args=args)
+
     # Initialize server
     init_server(
-        model_dir=args.model_dir,
-        pinned_models=pinned_models,
-        default_model=args.default_model,
-        max_tokens=args.max_tokens,
+        model_dirs=[args.model_dir],
+        api_key=settings.auth.api_key,
+        global_settings=settings,
     )
 
     # Start server

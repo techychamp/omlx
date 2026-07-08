@@ -9,9 +9,6 @@ Commands:
 Usage:
     # Multi-model serving
     omlx serve --model-dir /path/to/models
-
-    # With pinned models
-    omlx serve --model-dir /path/to/models --pin llama-3b,qwen-7b
 """
 
 import argparse
