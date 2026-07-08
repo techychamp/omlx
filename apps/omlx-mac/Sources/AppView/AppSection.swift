@@ -9,7 +9,7 @@
 import SwiftUI
 
 enum AppSection: String, Hashable, CaseIterable, Identifiable, Sendable {
-    case server, status, network, performance, logs
+    case server, status, network, performance, diagnostics, logs
     case models, downloads, integrations, quantization
     case throughputBench, accuracyBench
     case security, about, developer
@@ -30,6 +30,10 @@ enum AppSection: String, Hashable, CaseIterable, Identifiable, Sendable {
             return String(localized: "sidebar.performance",
                           defaultValue: "Performance",
                           comment: "Sidebar row label / navigation title for the Performance section")
+        case .diagnostics:
+            return String(localized: "sidebar.diagnostics",
+                          defaultValue: "Diagnostics",
+                          comment: "Sidebar row label / navigation title for the Diagnostics section")
         case .status:
             return String(localized: "sidebar.status",
                           defaultValue: "Status",
@@ -82,6 +86,7 @@ enum AppSection: String, Hashable, CaseIterable, Identifiable, Sendable {
         case .server:          return "server.rack"
         case .network:         return "network"
         case .performance:     return "bolt.fill"
+        case .diagnostics:     return "chart.bar.doc.horizontal"
         case .status:          return "gauge.with.dots.needle.50percent"
         case .logs:            return "scroll"
         case .models:          return "cube.transparent"
