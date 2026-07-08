@@ -11,6 +11,10 @@ class CapabilitySource(ABC):
 
     @property
     @abstractmethod
+    def source_id(self) -> str:
+        return self.name
+
+    @property
     def name(self) -> str:
         """Name of the source for diagnostics."""
         pass
@@ -18,6 +22,10 @@ class CapabilitySource(ABC):
 class ModelMetadataSource(CapabilitySource):
     def __init__(self, raw_config: dict[str, Any]):
         self.raw_config = raw_config
+
+    @property
+    def source_id(self) -> str:
+        return self.name
 
     @property
     def name(self) -> str:
@@ -49,6 +57,10 @@ class FeatureFlagSource(CapabilitySource):
         self.flags_system = flags_system
 
     @property
+    def source_id(self) -> str:
+        return self.name
+
+    @property
     def name(self) -> str:
         return "FeatureFlagSource"
 
@@ -63,6 +75,10 @@ class RuntimeOverrideSource(CapabilitySource):
         self.overrides = overrides
 
     @property
+    def source_id(self) -> str:
+        return self.name
+
+    @property
     def name(self) -> str:
         return "RuntimeOverrideSource"
 
@@ -72,6 +88,10 @@ class RuntimeOverrideSource(CapabilitySource):
 class PluginSource(CapabilitySource):
     def __init__(self, plugins: list[Any]):
         self.plugins = plugins
+
+    @property
+    def source_id(self) -> str:
+        return self.name
 
     @property
     def name(self) -> str:

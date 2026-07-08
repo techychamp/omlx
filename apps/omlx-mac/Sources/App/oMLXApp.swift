@@ -20,6 +20,9 @@ import SwiftUI
 @main
 struct OMLXApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @StateObject private var appearanceManager = AppearanceManager()
+    @StateObject private var shortcutManager = KeyboardShortcutManager()
+    @StateObject private var windowStateManager = WindowStateManager()
 
     var body: some Scene {
         // Empty title string keeps the toolbar zone free of "oMLX" text
@@ -30,6 +33,10 @@ struct OMLXApp: App {
         Window("", id: "main") {
             AppView()
                 .environment(appDelegate.services)
+                .environmentObject(appearanceManager)
+                .environmentObject(shortcutManager)
+                .environmentObject(windowStateManager)
+                .preferredColorScheme(appearanceManager.appearanceMode.colorScheme)
         }
         .defaultLaunchBehavior(.suppressed)
         .handlesExternalEvents(matching: ["main"])
@@ -46,6 +53,19 @@ struct OMLXApp: App {
                 }
                 .keyboardShortcut("q", modifiers: .command)
             }
+            
+            CommandGroup(after: .appInfo) {
+                Button("Preferences...") {
+                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
+        }
+        
+        Settings {
+            PreferencesView()
+                .environmentObject(appearanceManager)
+                .preferredColorScheme(appearanceManager.appearanceMode.colorScheme)
         }
     }
 }

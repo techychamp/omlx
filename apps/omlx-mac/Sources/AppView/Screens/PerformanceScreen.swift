@@ -32,7 +32,7 @@ struct PerformanceScreen: View {
                 Button(String(localized: "performance.button.apply",
                               defaultValue: "Apply",
                               comment: "Apply button at the bottom of the Performance screen")) {
-                    Task { await vm.save(client: services.client) }
+                    Task { await vm.save(platformService: services.platformService) }
                 }
                 .buttonStyle(.omlx(.primary))
                 .disabled(!vm.hasPendingChanges || vm.isSaving)
@@ -48,7 +48,7 @@ struct PerformanceScreen: View {
                     .padding(.top, 8)
             }
         }
-        .task { await vm.load(client: services.client) }
+        .task { await vm.load(platformService: services.platformService) }
     }
 }
 

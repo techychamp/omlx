@@ -20,8 +20,9 @@ final class AccuracyBenchScreenVM {
     var lastError: String?
 
     @ObservationIgnored
-    private weak var client: OMLXClient?
+    private var modelManagementService: ModelManagementServiceProtocol?
     @ObservationIgnored
+    private var diagnosticsService: DiagnosticsServiceProtocol?
     private var pollTask: Task<Void, Never>?
 
     var canSubmit: Bool {
@@ -30,8 +31,12 @@ final class AccuracyBenchScreenVM {
 
     // MARK: Lifecycle
 
-    func start(client: OMLXClient) async {
-        self.client = client
+    func start(
+        modelManagementService: ModelManagementServiceProtocol,
+        diagnosticsService: DiagnosticsServiceProtocol
+    ) async {
+        self.modelManagementService = modelManagementService
+        self.diagnosticsService = diagnosticsService
         await loadModels()
         await pollOnce()
         startPolling()
@@ -45,9 +50,9 @@ final class AccuracyBenchScreenVM {
     // MARK: Loaders
 
     private func loadModels() async {
-        guard let client else { return }
+        guard let modelManagementService else { return }
         do {
-            let resp = try await client.listModels()
+            let resp = try await modelManagementService.listModels()
             self.models = resp.models
         } catch {
             self.lastError = String(localized: "bench.accuracy.error.load_models",
@@ -57,11 +62,11 @@ final class AccuracyBenchScreenVM {
     }
 
     private func pollOnce() async {
-        guard let client else { return }
+        guard let diagnosticsService else { return }
         // Status and results are independent endpoints — fan them out so a
         // slow one doesn't block the other.
-        async let statusFetch = client.getAccuracyQueueStatus()
-        async let resultsFetch = client.listAccuracyResults()
+        async let statusFetch = diagnosticsService.getAccuracyQueueStatus()
+        async let resultsFetch = diagnosticsService.listAccuracyResults()
         do {
             let s = try await statusFetch
             self.status = s
@@ -99,7 +104,7 @@ final class AccuracyBenchScreenVM {
 
     // MARK: Actions
 
-    func addToQueue(client: OMLXClient) {
+    func addToQueue() {
         guard canSubmit, !isAdding else { return }
         // Snapshot form state — the user can keep editing while the request
         // is in flight; we want the version they confirmed.
@@ -120,7 +125,8 @@ final class AccuracyBenchScreenVM {
         Task { [weak self] in
             defer { Task { @MainActor [weak self] in self?.isAdding = false } }
             do {
-                let s = try await client.addAccuracyQueue(body)
+                guard let diagnosticsService = self?.diagnosticsService else { return }
+                let s = try await diagnosticsService.addAccuracyQueue(body)
                 await MainActor.run {
                     guard let self else { return }
                     self.status = s
@@ -139,10 +145,11 @@ final class AccuracyBenchScreenVM {
         }
     }
 
-    func removeFromQueue(client: OMLXClient, index: Int) {
+    func removeFromQueue(index: Int) {
         Task { [weak self] in
             do {
-                let s = try await client.removeAccuracyQueue(index: index)
+                guard let diagnosticsService = self?.diagnosticsService else { return }
+                let s = try await diagnosticsService.removeAccuracyQueue(index: index)
                 await MainActor.run { self?.status = s }
             } catch {
                 await MainActor.run {
@@ -154,10 +161,11 @@ final class AccuracyBenchScreenVM {
         }
     }
 
-    func cancelRunning(client: OMLXClient) {
+    func cancelRunning() {
         Task { [weak self] in
             do {
-                _ = try await client.cancelAccuracyBench()
+                guard let diagnosticsService = self?.diagnosticsService else { return }
+                _ = try await diagnosticsService.cancelAccuracyBench()
                 await self?.pollOnce()
             } catch {
                 await MainActor.run {
@@ -169,10 +177,11 @@ final class AccuracyBenchScreenVM {
         }
     }
 
-    func resetResults(client: OMLXClient) {
+    func resetResults() {
         Task { [weak self] in
             do {
-                _ = try await client.resetAccuracyResults()
+                guard let diagnosticsService = self?.diagnosticsService else { return }
+                _ = try await diagnosticsService.resetAccuracyResults()
                 await MainActor.run { self?.results = [] }
                 await self?.pollOnce()
             } catch {

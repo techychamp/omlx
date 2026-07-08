@@ -5,7 +5,7 @@ OMLX Quantization Framework.
 Provides unified, metadata-driven quantization intelligence.
 """
 
-from .types import QuantizationFamily
+from .types import QuantizationFamily, ValidationStatus, PerformanceClass, HardwareRecommendation
 from .descriptor import QuantizationDescriptor
 from .classifier import QuantizationClassifier
 from .extractor import QuantizationCapabilityExtractor
@@ -16,9 +16,14 @@ from .compatibility import QuantizationCompatibilityFramework
 from .cost_model import QuantizationCostModel
 from .diagnostics import QuantizationDiagnostics
 from .statistics import QuantizationStatistics
+from .validation import QuantizationValidator
+from .planning import QuantizationConversionPlanner, ConversionPlan
 
 __all__ = [
     "QuantizationFamily",
+    "ValidationStatus",
+    "PerformanceClass",
+    "HardwareRecommendation",
     "QuantizationDescriptor",
     "QuantizationClassifier",
     "QuantizationCapabilityExtractor",
@@ -28,5 +33,8 @@ __all__ = [
     "QuantizationCompatibilityFramework",
     "QuantizationCostModel",
     "QuantizationDiagnostics",
-    "QuantizationStatistics"
+    "QuantizationStatistics",
+    "QuantizationValidator",
+    "QuantizationConversionPlanner",
+    "ConversionPlan"
 ]

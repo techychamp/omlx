@@ -99,3 +99,13 @@ enum AdminAPI {
     static let accuracyReset       = "\(prefix)/bench/accuracy/results/reset"
     static let accuracyCancel      = "\(prefix)/bench/accuracy/cancel"
 }
+
+enum RuntimeAPI {
+    static let v1ChatCompletions = "/v1/chat/completions"
+    static let v1Models          = "/v1/models"
+    static let v1Runtime         = "/v1/runtime"
+    static let v1Sessions        = "/v1/sessions"
+    static let v1Compiler        = "/v1/compiler"
+    static let v1Diagnostics     = "/v1/diagnostics"
+    static let v1Benchmarks      = "/v1/benchmarks"
+}

@@ -3,7 +3,7 @@
 Graph Executor for OMLX Execution Engine.
 """
 
-from typing import Any
+from typing import Any, Union
 import logging
 import time
 
@@ -14,32 +14,34 @@ from .artifacts import BackendOperationGraph
 from .statistics import ExecutionStatistics
 
 from omlx.runtime.scheduling.scheduler import GraphScheduler
+from omlx.runtime.scheduling.artifacts import DependencyGraph
 
 logger = logging.getLogger("omlx.execution.graph_executor")
 
 class DeterministicGraphExecutor(GraphExecutor):
     """
-    Validates and traverses BackendOperationGraph, invoking ExecutionDispatcher.
+    Validates and traverses dependency graphs, invoking ExecutionDispatcher.
     """
     def __init__(self, dispatcher: ExecutionDispatcher, scheduler: GraphScheduler = None):
         self.dispatcher = dispatcher
         self.scheduler = scheduler or GraphScheduler()
 
-    def traverse_and_execute(self, graph: BackendOperationGraph, context: ExecutionContext) -> ExecutionResult:
+    def traverse_and_execute(self, graph: Any, context: ExecutionContext) -> ExecutionResult:
         logger.debug("GraphExecutor building schedule and traversing graph")
 
         start_time = time.time()
 
         if not graph:
-            logger.error("No BackendOperationGraph provided to GraphExecutor")
+            logger.error("No graph provided to GraphExecutor")
             return ExecutionResult(
                 status=ExecutionStatus.FAILED,
                 model_output=None
             )
 
         # Basic validation
-        if not hasattr(graph, 'operations'):
-            logger.error("Invalid BackendOperationGraph: missing operations")
+        is_moe = type(graph).__name__ == 'ExpertExecutionGraph'
+        if not hasattr(graph, 'operations') and not is_moe:
+            logger.error("Invalid graph: missing operations")
             return ExecutionResult(
                 status=ExecutionStatus.FAILED,
                 model_output=None
@@ -49,12 +51,16 @@ class DeterministicGraphExecutor(GraphExecutor):
         schedule = self.scheduler.build_schedule(graph)
         execution_order = schedule.ordered_operations
 
-        operations = graph.operations
-        if len(execution_order) != len(operations):
-            logger.warning(f"Graph traversal incomplete: cycle detected or missing operations. Traversed {len(execution_order)}/{len(operations)}")
+        if is_moe:
+            op_count = 1 + sum(len(e.expert_nodes) for e in graph.routing_graph.expert_graphs)
+        else:
+            op_count = len(graph.operations)
+
+        if len(execution_order) != op_count:
+            logger.warning(f"Graph traversal incomplete: cycle detected or missing operations. Traversed {len(execution_order)}/{op_count}")
 
         # Pass ordered nodes to dispatcher
-        dispatch_result = self.dispatcher.dispatch(graph, context, execution_order=execution_order)
+        dispatch_result = self.dispatcher.dispatch(graph, context, execution_order=execution_order, schedule=schedule)
 
         end_time = time.time()
         duration_ms = (end_time - start_time) * 1000

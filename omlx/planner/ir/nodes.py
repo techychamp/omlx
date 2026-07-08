@@ -22,6 +22,8 @@ class IRNodeType(str, enum.Enum):
     ROUTING = "routing"
     SYNCHRONIZATION = "synchronization"
     BARRIER = "barrier"
+    ALLOCATION = "allocation"
+    RELEASE = "release"
     ROOT = "root"
 
 @dataclass(frozen=True)

@@ -16,7 +16,7 @@ def test_plan_autoregressive():
     )
 
     planner = ExecutionPlanner()
-    plan = planner.plan(descriptor)
+    plan = planner.plan(descriptor).execution_plan
 
     assert plan.execution_family == ExecutionFamily.AUTOREGRESSIVE
     assert plan.execution_backend == "autoregressive"
@@ -35,7 +35,7 @@ def test_plan_speculative():
     )
 
     planner = ExecutionPlanner()
-    plan = planner.plan(descriptor)
+    plan = planner.plan(descriptor).execution_plan
 
     assert plan.execution_family == ExecutionFamily.AUTOREGRESSIVE
     assert plan.execution_backend == "speculative"
@@ -50,7 +50,7 @@ def test_plan_diffusion():
     )
 
     planner = ExecutionPlanner()
-    plan = planner.plan(descriptor)
+    plan = planner.plan(descriptor).execution_plan
 
     assert plan.execution_family == ExecutionFamily.DIFFUSION
     assert plan.execution_backend == "diffusion"
@@ -67,7 +67,7 @@ def test_plan_embedding():
     )
 
     planner = ExecutionPlanner()
-    plan = planner.plan(descriptor)
+    plan = planner.plan(descriptor).execution_plan
 
     assert plan.execution_family == ExecutionFamily.EMBEDDING
     assert plan.execution_backend == "embedding"
@@ -90,7 +90,7 @@ def test_planning_pass():
         execution_family=ExecutionFamily.AUTOREGRESSIVE
     )
 
-    plan = planner.plan(descriptor)
+    plan = planner.plan(descriptor).execution_plan
 
     assert "test_pass" in plan.optimization_passes
     assert plan.execution_hints.get("test_pass_applied") is True
@@ -123,7 +123,36 @@ def test_immutable_plan():
     )
 
     planner = ExecutionPlanner()
-    plan = planner.plan(descriptor)
+    plan = planner.plan(descriptor).execution_plan
 
     with pytest.raises(Exception): # FrozenInstanceError
         plan.execution_backend = "something_else"
+
+def test_fusion_plan_integration():
+    from omlx.framework.graph.artifacts import GraphAnalysisReport, GraphDescriptor
+    from omlx.runtime.scheduling.artifacts import DependencyGraph
+    from types import MappingProxyType
+
+    class StrategyIntentMock:
+        def __init__(self):
+            self.graph_descriptor = GraphDescriptor(id="mock")
+            self.dependency_graph = DependencyGraph(operations={"node_1": {}, "node_2": {}})
+            self.analysis_report = GraphAnalysisReport(node_properties=MappingProxyType({
+                "node_1": {"fusion_candidate": True, "fusion_target": "node_2", "fusion_type": "QKV"}
+            }))
+
+    descriptor = CapabilityDescriptor(
+        execution_family=ExecutionFamily.AUTOREGRESSIVE,
+        supported_modalities=("text",),
+        attention_types=(AttentionType.CAUSAL,),
+        cache_layout=CacheLayoutType.PAGED,
+        supports_streaming=True,
+        supports_speculative=False
+    )
+
+    planner = ExecutionPlanner()
+    bundle = planner.plan(descriptor, strategy_intent=StrategyIntentMock())
+
+    assert bundle.fusion_plan is not None
+    assert len(bundle.fusion_plan.groups) == 1
+    assert bundle.fusion_plan.statistics.nodes_fused == 2

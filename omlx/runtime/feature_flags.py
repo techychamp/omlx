@@ -45,6 +45,8 @@ class FeatureFlags(metaclass=FeatureFlagsMeta):
     COMPILER_RUNTIME_ENABLED: bool = False
     PRIMARY_COMPILER_EXECUTION: bool = False
     COMPILER_COMPATIBILITY_MODE: bool = False
+    CACHE_PLANNING_ENABLED: bool = False
+    CACHE_RUNTIME_ENABLED: bool = False
 
 
 
@@ -70,6 +72,8 @@ class FeatureFlags(metaclass=FeatureFlagsMeta):
             COMPILER_RUNTIME_ENABLED=os.getenv("OMLX_FEATURE_COMPILER_RUNTIME_ENABLED", "0") == "1",
             PRIMARY_COMPILER_EXECUTION=os.getenv("OMLX_FEATURE_PRIMARY_COMPILER_EXECUTION", "0") == "1",
             COMPILER_COMPATIBILITY_MODE=os.getenv("OMLX_FEATURE_COMPILER_COMPATIBILITY_MODE", "0") == "1",
+            CACHE_PLANNING_ENABLED=os.getenv("OMLX_FEATURE_CACHE_PLANNING", "0") == "1",
+            CACHE_RUNTIME_ENABLED=os.getenv("OMLX_FEATURE_CACHE_RUNTIME", "0") == "1",
 
 
         )

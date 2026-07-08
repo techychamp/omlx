@@ -825,7 +825,7 @@ private struct WelcomeCTA: View {
                         .font(.system(size: 12, weight: .semibold))
                 }
             }
-            .foregroundStyle(Color.white)
+            .foregroundStyle(Color.primary)
             .frame(width: width, height: 32)
             .background(WelcomeStyle.accent)
             .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
@@ -844,7 +844,7 @@ private struct WelcomeIcon: View {
             .interpolation(.high)
             .frame(width: size, height: size)
             .clipShape(RoundedRectangle(cornerRadius: size * 0.22, style: .continuous))
-            .shadow(color: Color.black.opacity(0.10), radius: 12, y: 6)
+            .shadow(color: Color.primary.opacity(0.10), radius: 12, y: 6)
             .accessibilityLabel("oMLX")
     }
 }

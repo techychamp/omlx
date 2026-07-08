@@ -61,7 +61,7 @@ struct LogsScreen: View {
             }
         }
         .task(id: vm.refreshKey) {
-            await vm.start(client: services.client)
+            await vm.start(diagnosticsService: services.diagnosticsService)
         }
         .onChange(of: vm.lines) { _, _ in vm.bumpRefreshKey() }
         .onChange(of: vm.selectedFile) { _, _ in vm.bumpRefreshKey() }

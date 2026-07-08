@@ -66,7 +66,7 @@ struct QuantizationScreen: View {
                 oqLevel: $vm.oqLevel,
                 isStarting: vm.isStarting,
                 modelsLoaded: vm.modelsLoaded,
-                onStart: { vm.startQuantization(client: services.client) }
+                onStart: { vm.startQuantization(modelManagementService: services.modelManagementService) }
             )
 
             if vm.selectedModelPath.isEmpty == false {
@@ -94,35 +94,35 @@ struct QuantizationScreen: View {
 
             QueueSection(
                 tasks: vm.tasks,
-                onCancel: { id in vm.cancelTask(taskId: id, client: services.client) },
-                onRemove: { id in vm.removeTask(taskId: id, client: services.client) },
+                onCancel: { id in vm.cancelTask(taskId: id, modelManagementService: services.modelManagementService) },
+                onRemove: { id in vm.removeTask(taskId: id, modelManagementService: services.modelManagementService) },
                 onUpload: { task in vm.uploadTarget = task }
             )
 
             UploadTasksSection(
                 tasks: vm.uploadTasks,
-                onCancel: { id in vm.cancelUpload(taskId: id, client: services.client) },
-                onRemove: { id in vm.removeUpload(taskId: id, client: services.client) }
+                onCancel: { id in vm.cancelUpload(taskId: id, modelManagementService: services.modelManagementService) },
+                onRemove: { id in vm.removeUpload(taskId: id, modelManagementService: services.modelManagementService) }
             )
 
             AboutSection()
         }
-        .task { await vm.start(client: services.client) }
+        .task { await vm.start(modelManagementService: services.modelManagementService) }
         .onDisappear { vm.stop() }
         .onChange(of: vm.selectedModelPath) { _, _ in
             // Sensitivity choice is per-source-model; reset when source changes
             // so the dropdown can't dangle at a stale path.
             vm.sensitivityModelPath = ""
-            vm.scheduleEstimateRefresh(client: services.client)
+            vm.scheduleEstimateRefresh(modelManagementService: services.modelManagementService)
         }
         .onChange(of: vm.oqLevel) { _, _ in
-            vm.scheduleEstimateRefresh(client: services.client)
+            vm.scheduleEstimateRefresh(modelManagementService: services.modelManagementService)
         }
         .onChange(of: vm.preserveMtp) { _, _ in
-            vm.scheduleEstimateRefresh(client: services.client)
+            vm.scheduleEstimateRefresh(modelManagementService: services.modelManagementService)
         }
         .sheet(item: $vm.uploadTarget) { task in
-            UploadModalView(task: task, vm: vm, client: services.client)
+            UploadModalView(task: task, vm: vm, modelManagementService: services.modelManagementService)
         }
     }
 }
@@ -773,7 +773,7 @@ private struct UploadStatusChip: View {
 private struct UploadModalView: View {
     let task: OQTaskDTO
     @Bindable var vm: QuantizationScreenVM
-    let client: OMLXClient
+    let modelManagementService: ModelManagementServiceProtocol
 
     @Environment(\.omlxTheme) private var theme
 
@@ -881,7 +881,7 @@ private struct UploadModalView: View {
                             width: 220
                         )
                         Button {
-                            Task { await vm.validateUploadToken(client: client) }
+                            Task { await vm.validateUploadToken(modelManagementService: modelManagementService) }
                         } label: {
                             if vm.isValidatingToken {
                                 ProgressView().controlSize(.small)
@@ -1126,7 +1126,7 @@ private struct UploadModalView: View {
             private: isPrivate
         )
         Task { @MainActor in
-            await vm.startUpload(body: body, client: client)
+            await vm.startUpload(body: body, modelManagementService: modelManagementService)
             isStarting = false
             if let err = vm.lastUploadError, !err.isEmpty {
                 localError = err

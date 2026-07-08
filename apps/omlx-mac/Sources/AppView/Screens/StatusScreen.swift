@@ -133,7 +133,7 @@ struct StatusScreen: View {
             }
         }
         .task(id: vm.scope) {
-            await vm.start(client: services.client)
+            await vm.start(platformService: services.platformService, diagnosticsService: services.diagnosticsService)
         }
         .onDisappear { vm.stop() }
         .confirmationDialog(

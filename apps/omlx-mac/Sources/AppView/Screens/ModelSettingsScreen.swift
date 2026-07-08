@@ -36,21 +36,18 @@ struct ModelSettingsScreen: View {
                 ProfilesTab(
                     vm: vm,
                     presetStore: services.presetBundle,
-                    client: services.client,
                     serverDefaults: vm.serverDefaultSampling,
-                    // Deep-link to the Server tab's Default Profile
-                    // section. Setting the anchor *before* the section
-                    // means ContentScaffold's `.task(id:)` sees both
-                    // pieces in one go and scrolls without a noop pass.
                     onEditServer: {
                         services.requestedServerAnchor = .defaultProfile
                         services.requestedSection = .server
-                    }
+                    },
+                    modelManagementService: services.modelManagementService,
+                    platformService: services.platformService
                 )
             case .basic:
-                BasicTab(vm: vm, client: services.client)
+                BasicTab(vm: vm, )
             case .advanced:
-                AdvancedTab(vm: vm, client: services.client)
+                AdvancedTab(vm: vm, )
             }
 
             if let error = vm.lastError {
@@ -66,7 +63,7 @@ struct ModelSettingsScreen: View {
                 backButton
             }
         }
-        .task(id: modelID) { await vm.load(modelID: modelID, client: services.client) }
+        .task(id: modelID) { await vm.load(modelID: modelID, modelManagementService: services.modelManagementService, platformService: services.platformService) }
     }
 
     @ViewBuilder
@@ -148,7 +145,7 @@ private struct ProfilesTab: View {
     /// `vm.templates.filter { isBuiltin }` source after Phase 1 retired
     /// the server-side builtin templates.
     let presetStore: PresetBundleStore
-    let client: OMLXClient
+    
     /// Optional binding to a Server-Defaults DTO surfaced read-only at
     /// the bottom of the tab. Lives on the parent (a `@State`-
     /// owned VM) so Phase 3's Server screen and this tab share state.
@@ -157,6 +154,9 @@ private struct ProfilesTab: View {
     /// Defaults section. Lifted by the parent so we don't introduce a
     /// hard dep on AppServices from inside this view.
     var onEditServer: () -> Void
+    
+    var modelManagementService: ModelManagementServiceProtocol
+    var platformService: PlatformServiceProtocol
 
     /// Currently previewed chip (overrides the active-state detail card).
     @State private var preview: ActiveProfileState.NamedProfileRef? = nil
@@ -176,14 +176,14 @@ private struct ProfilesTab: View {
                     if case .working(let basedOn) = vm.activeProfileState, let basedOn {
                         Task {
                             await vm.updateProfileWithWorking(
-                                scope: basedOn.scope, name: basedOn.name, client: client
+                                scope: basedOn.scope, name: basedOn.name, 
                             )
                         }
                     }
                 },
                 onSaveAsNew: { openSaveAs(scope: .global) },
                 onRevert: {
-                    Task { await vm.revertWorking(client: client) }
+                    Task { await vm.revertWorking() }
                 }
             )
 
@@ -194,7 +194,7 @@ private struct ProfilesTab: View {
                     onCommit: {
                         Task {
                             await vm.saveWorkingAs(
-                                scope: saveAsScope, name: saveAsName, client: client
+                                scope: saveAsScope, name: saveAsName, 
                             )
                             saveAsOpen = false
                         }
@@ -216,7 +216,7 @@ private struct ProfilesTab: View {
                 onSelect: { previewChip(scope: .preset, name: $0) },
                 onSaveCurrent: { },
                 onRefresh: {
-                    Task { await presetStore.refresh(client: client) }
+                    Task { await presetStore.refresh(modelManagementService: modelManagementService) }
                 },
                 isRefreshing: presetStore.isRefreshing
             )
@@ -234,7 +234,7 @@ private struct ProfilesTab: View {
                 onSelect: { previewChip(scope: .global, name: $0) },
                 onSaveCurrent: { openSaveAs(scope: .global) },
                 onRename: { original, renamed in
-                    Task { await vm.renameTemplate(from: original, to: renamed, client: client) }
+                    Task { await vm.renameTemplate(from: original, to: renamed, ) }
                 }
             )
 
@@ -253,7 +253,7 @@ private struct ProfilesTab: View {
                 onSelect: { previewChip(scope: .model, name: $0) },
                 onSaveCurrent: { openSaveAs(scope: .model) },
                 onRename: { original, renamed in
-                    Task { await vm.renameModelProfile(from: original, to: renamed, client: client) }
+                    Task { await vm.renameModelProfile(from: original, to: renamed, ) }
                 }
             )
 
@@ -308,10 +308,10 @@ private struct ProfilesTab: View {
                         if preview.scope == .preset,
                            let entry = presetStore.entries
                                 .first(where: { $0.name == preview.name }) {
-                            await vm.applyPreset(entry, client: client)
+                            await vm.applyPreset(entry, )
                         } else {
                             await vm.applyChip(
-                                scope: preview.scope, name: preview.name, client: client
+                                scope: preview.scope, name: preview.name, 
                             )
                         }
                         self.preview = nil
@@ -321,7 +321,7 @@ private struct ProfilesTab: View {
                     ? {
                         Task {
                             await vm.updateProfileWithWorking(
-                                scope: preview.scope, name: preview.name, client: client
+                                scope: preview.scope, name: preview.name, 
                             )
                             self.preview = nil
                         }
@@ -341,7 +341,7 @@ private struct ProfilesTab: View {
                     ? { exposed in
                         Task {
                             await vm.setExposeAsModel(
-                                name: preview.name, exposed: exposed, client: client
+                                name: preview.name, exposed: exposed, 
                             )
                         }
                     }
@@ -383,7 +383,7 @@ private struct ProfilesTab: View {
                         ? { exposed in
                             Task {
                                 await vm.setExposeAsModel(
-                                    name: name, exposed: exposed, client: client
+                                    name: name, exposed: exposed, 
                                 )
                             }
                         }
@@ -432,13 +432,13 @@ private struct ProfilesTab: View {
         do {
             switch scope {
             case .global:
-                _ = try await client.deleteProfileTemplate(name: name)
+                _ = try await modelManagementService.deleteProfileTemplate(name: name)
             case .model:
-                _ = try await client.deleteModelProfile(id: vm.modelID, name: name)
+                _ = try await modelManagementService.deleteModelProfile(id: vm.modelID, name: name)
             case .preset:
                 return
             }
-            await vm.load(modelID: vm.modelID, client: client)
+            await vm.load(modelID: vm.modelID, modelManagementService: modelManagementService, platformService: platformService)
         } catch {
             // Surfaces via the screen's lastError banner — set on the VM.
             await MainActor.run { vm.lastError = error.omlxDescription }
@@ -496,10 +496,10 @@ private extension ActiveProfileState {
 
 private struct BasicTab: View {
     @Bindable var vm: ModelSettingsScreenVM
-    let client: OMLXClient
+    
 
     var body: some View {
-        BasicEditBanner(vm: vm, client: client)
+        BasicEditBanner(vm: vm, )
         SectionHeader(String(localized: "settings.basic.section",
                              defaultValue: "Basic Settings",
                              comment: "Section header above the Basic tab fields"))
@@ -515,13 +515,13 @@ private struct BasicTab: View {
                                  defaultValue: "Falls back to the model id",
                                  comment: "Sublabel for the model alias field")) {
                 TextInput(text: $vm.alias, placeholder: vm.modelID, mono: true, width: 220)
-                    .onSubmit { Task { await vm.save(.alias, client: client) } }
+                    .onSubmit { Task { await vm.save(.alias, ) } }
             }
             Row(label: String(localized: "settings.basic.model_type.label",
                               defaultValue: "Model Type",
                               comment: "Row label for the model type override popup")) {
                 Popup(
-                    selection: vm.bind($vm.modelTypeOverride, save: { Task { await vm.save(.modelType, client: client) } }),
+                    selection: vm.bind($vm.modelTypeOverride, save: { Task { await vm.save(.modelType, ) } }),
                     width: 170,
                     options: ModelSettingsScreenVM.modelTypeOptions
                 )
@@ -610,7 +610,7 @@ private struct BasicTab: View {
                                               defaultValue: "No TTL",
                                               comment: "Placeholder shown when no TTL is configured"),
                           mono: true, suffix: "s", width: 110)
-                    .onSubmit { Task { await vm.save(.ttl, client: client) } }
+                    .onSubmit { Task { await vm.save(.ttl, ) } }
             }
         }
     }
@@ -622,7 +622,7 @@ private struct BasicTab: View {
 /// do.
 private struct BasicEditBanner: View {
     var vm: ModelSettingsScreenVM
-    let client: OMLXClient
+    
 
     @State private var saveAsScope: ProfileScope = .global
     @State private var saveAsName: String = ""
@@ -641,7 +641,7 @@ private struct BasicEditBanner: View {
                         if case .working(let basedOn) = vm.activeProfileState, let basedOn {
                             Task {
                                 await vm.updateProfileWithWorking(
-                                    scope: basedOn.scope, name: basedOn.name, client: client
+                                    scope: basedOn.scope, name: basedOn.name, 
                                 )
                             }
                         }
@@ -652,7 +652,7 @@ private struct BasicEditBanner: View {
                         saveAsOpen = true
                     },
                     onRevert: {
-                        Task { await vm.revertWorking(client: client) }
+                        Task { await vm.revertWorking() }
                     }
                 )
                 if saveAsOpen {
@@ -662,7 +662,7 @@ private struct BasicEditBanner: View {
                         onCommit: {
                             Task {
                                 await vm.saveWorkingAs(
-                                    scope: saveAsScope, name: saveAsName, client: client
+                                    scope: saveAsScope, name: saveAsName, 
                                 )
                                 saveAsOpen = false
                             }
@@ -679,12 +679,12 @@ private struct BasicEditBanner: View {
 
 private struct AdvancedTab: View {
     @Bindable var vm: ModelSettingsScreenVM
-    let client: OMLXClient
+    
 
     @Environment(\.omlxTheme) private var theme
 
     var body: some View {
-        BasicEditBanner(vm: vm, client: client)
+        BasicEditBanner(vm: vm, )
         SectionHeader(String(localized: "settings.advanced.section",
                              defaultValue: "Advanced Settings",
                              comment: "Section header above the Advanced tab fields"))
@@ -760,7 +760,7 @@ private struct AdvancedTab: View {
                                  defaultValue: "Keep this model resident between requests",
                                  comment: "Sublabel for the pin-in-memory toggle")) {
                 Toggle("", isOn: vm.bind($vm.isPinned, save: {
-                    Task { await vm.save(.isPinned, client: client) }
+                    Task { await vm.save(.isPinned, ) }
                 }))
                 .labelsHidden().toggleStyle(.switch)
             }
@@ -776,7 +776,7 @@ private struct AdvancedTab: View {
                                  comment: "Sublabel describing the security implications of trust-remote-code"),
                 isLast: true) {
                 Toggle("", isOn: vm.bind($vm.trustRemoteCode, save: {
-                    Task { await vm.save(.trustRemoteCode, client: client) }
+                    Task { await vm.save(.trustRemoteCode, ) }
                 }))
                 .labelsHidden().toggleStyle(.switch)
                 .tint(theme.redDot)
@@ -791,7 +791,7 @@ private struct AdvancedTab: View {
                              defaultValue: "Forwarded to the model's chat template. Toggle Force to override per-request values.",
                              comment: "Subtitle for the chat-template kwargs section")
         )
-        ChatTemplateKwargsEditor(vm: vm, client: client)
+        ChatTemplateKwargsEditor(vm: vm, )
 
         if !vm.isDiffusionModel {
             SectionHeader(
@@ -802,7 +802,7 @@ private struct AdvancedTab: View {
                                  defaultValue: "Speculative decoding, KV-cache quantization, and other research features.",
                                  comment: "Subtitle for the Experimental settings section")
             )
-            ExperimentalSection(vm: vm, client: client)
+            ExperimentalSection(vm: vm, )
         }
     }
 }
@@ -811,7 +811,7 @@ private struct AdvancedTab: View {
 
 private struct ChatTemplateKwargsEditor: View {
     var vm: ModelSettingsScreenVM
-    let client: OMLXClient
+    
 
     @Environment(\.omlxTheme) private var theme
 
@@ -837,7 +837,6 @@ private struct ChatTemplateKwargsEditor: View {
                 FreeRow(isLast: isLast) {
                     EntryEditor(
                         vm: vm,
-                        client: client,
                         entryID: entry.id
                     )
                 }
@@ -882,7 +881,7 @@ private struct ChatTemplateKwargsEditor: View {
 
 private struct EntryEditor: View {
     var vm: ModelSettingsScreenVM
-    let client: OMLXClient
+    
     let entryID: UUID
 
     @Environment(\.omlxTheme) private var theme
@@ -1006,7 +1005,7 @@ private struct EntryEditor: View {
 
 private struct ExperimentalSection: View {
     @Bindable var vm: ModelSettingsScreenVM
-    let client: OMLXClient
+    
 
     @Environment(\.omlxTheme) private var theme
 

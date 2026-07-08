@@ -59,9 +59,9 @@ final class PerformanceScreenVM {
             || parsedInitialCacheBlocks != loadedInitialCacheBlocks
     }
 
-    func load(client: OMLXClient) async {
+    func load(platformService: PlatformServiceProtocol) async {
         do {
-            let s = try await client.getGlobalSettings()
+            let s = try await platformService.getGlobalSettings()
             if let sched = s.scheduler {
                 self.maxConcurrentText = String(sched.maxConcurrentRequests)
                 self.loadedMaxConcurrent = sched.maxConcurrentRequests
@@ -110,7 +110,7 @@ final class PerformanceScreenVM {
         }
     }
 
-    func save(client: OMLXClient) async {
+    func save(platformService: PlatformServiceProtocol) async {
         // Validate first so a bad field's error surfaces without sending a
         // partial patch.
         guard let mc = parsedMaxConcurrent, mc > 0 else {
@@ -196,7 +196,7 @@ final class PerformanceScreenVM {
         isSaving = true
         defer { isSaving = false }
         do {
-            _ = try await client.updateGlobalSettings(patch)
+            _ = try await platformService.updateGlobalSettings(patch)
             // Converge baselines on success.
             self.loadedMaxConcurrent = mc
             self.loadedEmbeddingBatchSize = embeddingBatchSize

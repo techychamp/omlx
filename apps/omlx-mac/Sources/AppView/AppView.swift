@@ -16,10 +16,12 @@ struct AppView: View {
 
     @Environment(\.colorScheme) private var scheme
     @Environment(AppServices.self) private var services
+    @EnvironmentObject private var shortcutManager: KeyboardShortcutManager
+    @EnvironmentObject private var windowStateManager: WindowStateManager
 
     var body: some View {
         let theme = scheme == .dark ? OMLXTheme.dark : OMLXTheme.light
-        let section = selectedSection
+        let section = AppSection(rawValue: windowStateManager.selectedWorkspace) ?? .status
 
         NavigationSplitView {
             SettingsSidebar(selection: bindingForSelection())
@@ -65,6 +67,26 @@ struct AppView: View {
             )
                 .environment(\.omlxTheme, theme)
         }
+        .overlay {
+            if shortcutManager.showGlobalSearch {
+                ZStack {
+                    Color.primary.opacity(0.3)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            shortcutManager.showGlobalSearch = false
+                        }
+                    
+                    GlobalSearchView(services: services)
+                }
+            }
+        }
+        .background {
+            Button("") {
+                shortcutManager.showGlobalSearch.toggle()
+            }
+            .keyboardShortcut("k", modifiers: .command)
+            .opacity(0)
+        }
     }
 
     /// Drilling out of ModelSettingsScreen via the sidebar (changing section)
@@ -72,17 +94,17 @@ struct AppView: View {
     /// the detail when the user returns to Models.
     private func bindingForSelection() -> Binding<AppSection?> {
         Binding(
-            get: { selection },
+            get: { AppSection(rawValue: windowStateManager.selectedWorkspace) },
             set: { newValue in
                 guard let newValue else { return }
                 if newValue != .models { services.modelDetailID = nil }
-                selection = newValue
+                windowStateManager.navigate(to: newValue.rawValue)
             }
         )
     }
 
     private var selectedSection: AppSection {
-        selection ?? .status
+        AppSection(rawValue: windowStateManager.selectedWorkspace) ?? .status
     }
 
     private var detailTitle: String? {
@@ -98,6 +120,7 @@ struct AppView: View {
         case .server:       ServerScreen()
         case .network:      NetworkScreen()
         case .performance:  PerformanceScreen()
+        case .diagnostics:  PerformanceDashboardView(diagnosticsService: services.diagnosticsService)
         case .status:       StatusScreen()
         case .logs:         LogsScreen()
         case .models:
@@ -113,6 +136,9 @@ struct AppView: View {
         case .accuracyBench:   AccuracyBenchScreen(vm: services.accuracyBench)
         case .security:     SecurityScreen()
         case .about:        AboutScreen()
+        case .developer:    DeveloperStudioScreen(services: services)
+        case .modelManagement: ModelManagementView(services: services)
+        case .runtimeAdministration: RuntimeAdministrationView(services: services)
         }
     }
 }
@@ -442,7 +468,9 @@ private struct SettingsSidebar: View {
                 SidebarRow(section: .server)
                 SidebarRow(section: .network)
                 SidebarRow(section: .performance)
+                SidebarRow(section: .diagnostics)
                 SidebarRow(section: .logs)
+                SidebarRow(section: .runtimeAdministration)
             } header: {
                 Text(String(localized: "sidebar.group.server",
                             defaultValue: "Server",
@@ -453,6 +481,7 @@ private struct SettingsSidebar: View {
                 SidebarRow(section: .downloads)
                 SidebarRow(section: .integrations)
                 SidebarRow(section: .quantization)
+                SidebarRow(section: .modelManagement)
             } header: {
                 Text(String(localized: "sidebar.group.models",
                             defaultValue: "Models",
@@ -469,6 +498,7 @@ private struct SettingsSidebar: View {
             Section {
                 SidebarRow(section: .security)
                 SidebarRow(section: .about)
+                SidebarRow(section: .developer)
             } header: {
                 Text(String(localized: "sidebar.group.general",
                             defaultValue: "General",

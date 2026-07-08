@@ -27,9 +27,9 @@ final class NetworkScreenVM {
         || trim(caBundle)   != loadedCaBundle
     }
 
-    func load(client: OMLXClient) async {
+    func load(platformService: PlatformServiceProtocol) async {
         do {
-            let settings = try await client.getGlobalSettings()
+            let settings = try await platformService.getGlobalSettings()
             if let net = settings.network {
                 self.httpProxy = net.httpProxy
                 self.httpsProxy = net.httpsProxy
@@ -46,7 +46,7 @@ final class NetworkScreenVM {
         }
     }
 
-    func save(client: OMLXClient) async {
+    func save(platformService: PlatformServiceProtocol) async {
         // Only send fields the user actually changed so we don't clobber
         // values set out-of-band (e.g. CLI or another admin client).
         var patch = GlobalSettingsPatch()
@@ -72,7 +72,7 @@ final class NetworkScreenVM {
         isSaving = true
         defer { isSaving = false }
         do {
-            _ = try await client.updateGlobalSettings(patch)
+            _ = try await platformService.updateGlobalSettings(patch)
             // Converge loaded baselines on success.
             self.loadedHttpProxy  = trim(httpProxy)
             self.loadedHttpsProxy = trim(httpsProxy)

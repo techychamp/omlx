@@ -28,7 +28,11 @@ final class ThroughputBenchScreenVM {
     var lastError: String?
 
     @ObservationIgnored
-    private weak var client: OMLXClient?
+    private var modelManagementService: ModelManagementServiceProtocol?
+    @ObservationIgnored
+    private var platformService: PlatformServiceProtocol?
+    @ObservationIgnored
+    private var diagnosticsService: DiagnosticsServiceProtocol?
     @ObservationIgnored
     private var pollTask: Task<Void, Never>?
     /// Counts poll iterations spent waiting for the upload phase to
@@ -122,8 +126,14 @@ final class ThroughputBenchScreenVM {
     /// navigated away during a run, the same poll task is still alive
     /// updating these observable properties — coming back just
     /// re-subscribes via SwiftUI's diffing.
-    func start(client: OMLXClient) async {
-        self.client = client
+    func start(
+        modelManagementService: ModelManagementServiceProtocol,
+        platformService: PlatformServiceProtocol,
+        diagnosticsService: DiagnosticsServiceProtocol
+    ) async {
+        self.modelManagementService = modelManagementService
+        self.platformService = platformService
+        self.diagnosticsService = diagnosticsService
         await loadModels()
         await loadDevice()
     }
@@ -140,9 +150,9 @@ final class ThroughputBenchScreenVM {
     // MARK: Loaders
 
     private func loadModels() async {
-        guard let client else { return }
+        guard let modelManagementService else { return }
         do {
-            let resp = try await client.listModels()
+            let resp = try await modelManagementService.listModels()
             self.models = resp.models
         } catch {
             // Surface so the user can recover; polling does not depend on this.
@@ -151,9 +161,9 @@ final class ThroughputBenchScreenVM {
     }
 
     private func loadDevice() async {
-        guard let client else { return }
+        guard let platformService else { return }
         do {
-            self.device = try await client.getDeviceInfo()
+            self.device = try await platformService.getDeviceInfo()
         } catch {
             // Device chip is a "nice to have" — hide silently on failure
             // so a missing /api/device-info doesn't block running the bench.
@@ -163,7 +173,7 @@ final class ThroughputBenchScreenVM {
 
     // MARK: Actions
 
-    func runBenchmark(client: OMLXClient) {
+    func runBenchmark() {
         guard canRun else { return }
         let body = BenchStartRequest(
             modelId: selectedModelId,
@@ -182,11 +192,12 @@ final class ThroughputBenchScreenVM {
 
         Task { [weak self] in
             do {
-                let resp = try await client.startThroughputBench(body)
+                guard let diagnosticsService = self?.diagnosticsService else { return }
+                let resp = try await diagnosticsService.startThroughputBench(body)
                 await MainActor.run {
                     guard let self else { return }
                     self.currentBenchId = resp.benchId
-                    self.pollResults(client: client)
+                    self.pollResults()
                 }
             } catch {
                 await MainActor.run {
@@ -198,7 +209,7 @@ final class ThroughputBenchScreenVM {
         }
     }
 
-    func cancelBenchmark(client: OMLXClient) {
+    func cancelBenchmark() {
         guard let benchId = currentBenchId else {
             // Nothing to cancel server-side — flip the UI back regardless
             // so we don't strand the screen in "Running…" forever.
@@ -207,7 +218,8 @@ final class ThroughputBenchScreenVM {
         }
         Task { [weak self] in
             do {
-                _ = try await client.cancelBench(benchId: benchId)
+                guard let diagnosticsService = self?.diagnosticsService else { return }
+                _ = try await diagnosticsService.cancelBench(benchId: benchId)
             } catch {
                 await MainActor.run { self?.lastError = error.omlxDescription }
             }
@@ -224,14 +236,14 @@ final class ThroughputBenchScreenVM {
     /// 1 Hz poll of GET /api/bench/{id}/results while running. Server
     /// returns the full `results` array — we append-dedupe per call so
     /// the in-progress tables don't flicker as new rows arrive.
-    private func pollResults(client: OMLXClient) {
+    private func pollResults() {
         pollTask?.cancel()
         guard let benchId = currentBenchId else { return }
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
-                guard let self else { return }
+                guard let self, let diagnosticsService = self.diagnosticsService else { return }
                 do {
-                    let resp = try await client.getBenchResults(benchId: benchId)
+                    let resp = try await diagnosticsService.getBenchResults(benchId: benchId)
                     await MainActor.run {
                         self.absorb(results: resp.results)
                         if let err = resp.error, !err.isEmpty {

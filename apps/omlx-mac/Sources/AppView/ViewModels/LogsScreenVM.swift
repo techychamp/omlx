@@ -13,7 +13,7 @@ final class LogsScreenVM {
     private(set) var refreshKey: Int = 0
 
     @ObservationIgnored
-    private weak var client: OMLXClient?
+    private var diagnosticsService: DiagnosticsServiceProtocol?
     @ObservationIgnored
     private var pollTask: Task<Void, Never>?
 
@@ -35,8 +35,8 @@ final class LogsScreenVM {
         }
     }
 
-    func start(client: OMLXClient) async {
-        self.client = client
+    func start(diagnosticsService: DiagnosticsServiceProtocol) async {
+        self.diagnosticsService = diagnosticsService
         pollTask?.cancel()
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -67,13 +67,13 @@ final class LogsScreenVM {
     }
 
     private func tick() async {
-        guard let client else { return }
+        guard let diagnosticsService else { return }
         isLoading = true
         defer { isLoading = false }
 
         let file = selectedFile.isEmpty ? nil : selectedFile
         do {
-            let dto = try await client.getLogs(lines: lines, file: file)
+            let dto = try await diagnosticsService.getLogs(lines: lines, file: file)
             self.logText = dto.logs
             self.totalLines = dto.totalLines
             self.availableFiles = dto.availableFiles

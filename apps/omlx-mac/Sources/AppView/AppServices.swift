@@ -38,6 +38,13 @@ final class AppServices: NSObject {
     /// Observation to react to refreshes.
     let presetBundle = PresetBundleStore()
 
+    // Service Layer
+    let generationService: GenerationServiceProtocol
+    let sessionService: SessionServiceProtocol
+    let modelManagementService: ModelManagementServiceProtocol
+    let diagnosticsService: DiagnosticsServiceProtocol
+    let platformService: PlatformServiceProtocol
+
     /// Long-lived view models for the Bench screens. Owned here (not by
     /// screen-local state) so a running benchmark survives
     /// leaving the screen — the server keeps producing results while
@@ -55,6 +62,13 @@ final class AppServices: NSObject {
         self.config = config
         self.client = OMLXClient(host: config.host, port: config.port, apiKey: config.apiKey)
         self.updates = UpdateController()
+        
+        self.generationService = GenerationService(client: self.client)
+        self.sessionService = SessionService(client: self.client)
+        self.modelManagementService = ModelManagementService(client: self.client)
+        self.diagnosticsService = DiagnosticsService(client: self.client)
+        self.platformService = PlatformService(client: self.client)
+        
         super.init()
         self.bind(server: server)
         // Wire Sparkle (or its stub) on the next runloop so any user prefs

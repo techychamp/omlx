@@ -1,0 +1,70 @@
+{
+  "ar_baseline": {
+    "first_token_latency_ms": 28.05297499980952,
+    "compile_latency_ms": 2.5,
+    "tokens_per_sec": 35.64684316037033,
+    "peak_memory_mb": 722.5895233154297
+  },
+  "stress": {
+    "1_sessions": {
+      "latency_ms": 3.608875002100831,
+      "active_mem_mb": 3.0517578125e-05,
+      "leak_detected": false
+    },
+    "10_sessions": {
+      "latency_ms": 6.998292003117967,
+      "active_mem_mb": 0.0001220703125,
+      "leak_detected": false
+    },
+    "50_sessions": {
+      "latency_ms": 28.751042002113536,
+      "active_mem_mb": 0.000202178955078125,
+      "leak_detected": false
+    },
+    "100_sessions": {
+      "latency_ms": 47.78616600015084,
+      "active_mem_mb": 0.000152587890625,
+      "leak_detected": false
+    }
+  },
+  "faults": [
+    [
+      "Model Loading Failure",
+      "\u2705 Verified"
+    ],
+    [
+      "Unsupported Capability",
+      "\u2705 Verified"
+    ],
+    [
+      "Execution Cancellation",
+      "\u2705 Verified"
+    ],
+    [
+      "Backend Failure",
+      "\u2705 Verified"
+    ]
+  ],
+  "capabilities": {
+    "Autoregressive": "\u2705 Native",
+    "Nemotron AR": "\u23f8 MLX Limitation",
+    "Speculation": "\u2705 Native",
+    "Diffusion": "\u23f8 MLX limitation",
+    "MoE": "\u23f8 MLX limitation",
+    "Cache": "\u2705 Verified",
+    "Memory": "\u2705 Verified",
+    "Batch": "\u2705 Verified",
+    "Queue": "\u2705 Verified",
+    "Session": "\u2705 Verified",
+    "Apple Optimization": "\u2705 Verified"
+  },
+  "invariants": {
+    "Runtime performs no planning": "\u2705 Verified",
+    "Compiler performs no execution": "\u2705 Verified",
+    "Scheduler performs no optimization": "\u2705 Verified",
+    "Backend performs no planning": "\u2705 Verified",
+    "Observer remains passive": "\u2705 Verified",
+    "RuntimeSession remains canonical": "\u2705 Verified",
+    "PlanningBundle remains immutable": "\u2705 Verified"
+  }
+}

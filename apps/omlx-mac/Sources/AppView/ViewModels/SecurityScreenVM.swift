@@ -23,9 +23,9 @@ final class SecurityScreenVM {
         )
     }
 
-    func load(client: OMLXClient) async {
+    func load(platformService: PlatformServiceProtocol) async {
         do {
-            let settings = try await client.getGlobalSettings()
+            let settings = try await platformService.getGlobalSettings()
             self.apiKeySet = settings.auth?.apiKeySet ?? false
             self.apiKey = settings.auth?.apiKey
             self.skipApiKeyVerification = settings.auth?.skipApiKeyVerification ?? false
@@ -36,13 +36,13 @@ final class SecurityScreenVM {
         }
     }
 
-    func setupApiKey(key: String, confirm: String, client: OMLXClient) async -> Bool {
+    func setupApiKey(key: String, confirm: String, platformService: PlatformServiceProtocol) async -> Bool {
         do {
-            _ = try await client.setupApiKey(key, confirm: confirm)
+            _ = try await platformService.setupApiKey(key, confirm: confirm)
             // Re-bootstrap the client so subsequent /admin/api/* calls auth
             // with the new key.
-            client.configure(host: client.host, port: client.port, apiKey: key)
-            await load(client: client)
+            await platformService.updateClientAuth(apiKey: key)
+            await load(platformService: platformService)
             return true
         } catch {
             self.lastError = error.omlxDescription
@@ -53,14 +53,14 @@ final class SecurityScreenVM {
     /// Unified write path for the editor row. Routes through /setup-api-key
     /// for first-time setup (server rejects the PATCH path when no key is
     /// configured) and through PATCH /global-settings for updates.
-    func applyApiKey(_ key: String, client: OMLXClient) async -> Bool {
+    func applyApiKey(_ key: String, platformService: PlatformServiceProtocol) async -> Bool {
         if apiKeySet {
             do {
-                _ = try await client.updateGlobalSettings(
+                _ = try await platformService.updateGlobalSettings(
                     GlobalSettingsPatch(apiKey: key)
                 )
-                client.configure(host: client.host, port: client.port, apiKey: key)
-                await load(client: client)
+                await platformService.updateClientAuth(apiKey: key)
+                await load(platformService: platformService)
                 return true
             } catch {
                 self.lastError = error.omlxDescription
@@ -72,13 +72,13 @@ final class SecurityScreenVM {
             // mirror the draft as the confirm so the server-side equality
             // check passes — typo protection lives in the field's own
             // show/copy affordances now, not in a duplicate input.
-            return await setupApiKey(key: key, confirm: key, client: client)
+            return await setupApiKey(key: key, confirm: key, platformService: platformService)
         }
     }
 
-    func saveSkipApiKeyVerification(client: OMLXClient) async {
+    func saveSkipApiKeyVerification(platformService: PlatformServiceProtocol) async {
         do {
-            _ = try await client.updateGlobalSettings(
+            _ = try await platformService.updateGlobalSettings(
                 GlobalSettingsPatch(skipApiKeyVerification: skipApiKeyVerification)
             )
             self.lastError = nil
@@ -87,10 +87,10 @@ final class SecurityScreenVM {
         }
     }
 
-    func createSubKey(key: String, name: String, client: OMLXClient) async -> Bool {
+    func createSubKey(key: String, name: String, platformService: PlatformServiceProtocol) async -> Bool {
         do {
-            _ = try await client.createSubKey(key: key, name: name)
-            await load(client: client)
+            _ = try await platformService.createSubKey(key: key, name: name)
+            await load(platformService: platformService)
             return true
         } catch {
             self.lastError = error.omlxDescription
@@ -98,10 +98,10 @@ final class SecurityScreenVM {
         }
     }
 
-    func deleteSubKey(key: String, client: OMLXClient) async {
+    func deleteSubKey(key: String, platformService: PlatformServiceProtocol) async {
         do {
-            _ = try await client.deleteSubKey(key: key)
-            await load(client: client)
+            _ = try await platformService.deleteSubKey(key: key)
+            await load(platformService: platformService)
         } catch {
             self.lastError = error.omlxDescription
         }

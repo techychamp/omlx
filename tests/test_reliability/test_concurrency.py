@@ -37,7 +37,7 @@ async def test_planner_concurrency():
 
     async def plan_task():
         await asyncio.sleep(0)
-        plan = planner.plan(desc)
+        plan = planner.plan(desc).execution_plan
         assert plan.execution_family == ExecutionFamily.AUTOREGRESSIVE
 
     tasks = [plan_task() for _ in range(1000)]

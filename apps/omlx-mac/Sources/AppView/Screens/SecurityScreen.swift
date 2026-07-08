@@ -23,9 +23,9 @@ struct SecurityScreen: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            APIKeySection(vm: vm, client: services.client)
-            AuthenticationSection(vm: vm, client: services.client)
-            SubKeysSection(vm: vm, client: services.client)
+            APIKeySection(vm: vm, platformService: services.platformService)
+            AuthenticationSection(vm: vm, platformService: services.platformService)
+            SubKeysSection(vm: vm, platformService: services.platformService)
 
             if let error = vm.lastError {
                 Text(error)
@@ -35,7 +35,7 @@ struct SecurityScreen: View {
                     .padding(.top, 8)
             }
         }
-        .task { await vm.load(client: services.client) }
+        .task { await vm.load(platformService: services.platformService) }
     }
 }
 
@@ -43,7 +43,7 @@ struct SecurityScreen: View {
 
 private struct APIKeySection: View {
     var vm: SecurityScreenVM
-    let client: OMLXClient
+    let platformService: PlatformServiceProtocol
 
     var body: some View {
         SectionHeader(
@@ -56,14 +56,14 @@ private struct APIKeySection: View {
         )
 
         ListGroup {
-            APIKeyEditorRow(vm: vm, client: client)
+            APIKeyEditorRow(vm: vm, platformService: platformService)
         }
     }
 }
 
 private struct APIKeyEditorRow: View {
     var vm: SecurityScreenVM
-    let client: OMLXClient
+    let platformService: PlatformServiceProtocol
 
     @State private var draft: String = ""
     @State private var showKey: Bool = false
@@ -184,7 +184,7 @@ private struct APIKeyEditorRow: View {
         saving = true
         defer { saving = false }
         let next = trimmed
-        let ok = await vm.applyApiKey(next, client: client)
+        let ok = await vm.applyApiKey(next, platformService: platformService)
         if ok {
             // Drop focus so the next `.task(id:)` mirror picks up the fresh
             // loaded value without fighting an in-progress edit.
@@ -198,8 +198,8 @@ private struct APIKeyEditorRow: View {
 // MARK: - Authentication
 
 private struct AuthenticationSection: View {
-    @Bindable var vm: SecurityScreenVM
-    let client: OMLXClient
+    var vm: SecurityScreenVM
+    let platformService: PlatformServiceProtocol
 
     var body: some View {
         SectionHeader(String(localized: "security.section.authentication",
@@ -216,9 +216,13 @@ private struct AuthenticationSection: View {
                                  comment: "Sublabel for the disable API key verification toggle"),
                 isLast: true
             ) {
-                Toggle("", isOn: vm.bind($vm.skipApiKeyVerification, save: {
-                    Task { await vm.saveSkipApiKeyVerification(client: client) }
-                }))
+                Toggle("", isOn: Binding(
+                    get: { vm.skipApiKeyVerification },
+                    set: { newValue in
+                        vm.skipApiKeyVerification = newValue
+                        Task { await vm.saveSkipApiKeyVerification(platformService: platformService) }
+                    }
+                ))
                 .labelsHidden().toggleStyle(.switch)
             }
         }
@@ -229,7 +233,7 @@ private struct AuthenticationSection: View {
 
 private struct SubKeysSection: View {
     var vm: SecurityScreenVM
-    let client: OMLXClient
+    let platformService: PlatformServiceProtocol
 
     @State private var newName: String = ""
     @State private var newKey: String = ""
@@ -297,7 +301,7 @@ private struct SubKeysSection: View {
                                       comment: "Common create button label")) {
                             Task {
                                 let ok = await vm.createSubKey(
-                                    key: newKey, name: newName, client: client
+                                    key: newKey, name: newName, platformService: platformService
                                 )
                                 if ok {
                                     showCreate = false
@@ -343,7 +347,7 @@ private struct SubKeysSection: View {
                             CodeChip(value: sub.key, maxWidth: 220)
                             Button {
                                 Task {
-                                    await vm.deleteSubKey(key: sub.key, client: client)
+                                    await vm.deleteSubKey(key: sub.key, platformService: platformService)
                                 }
                             } label: {
                                 Image(systemName: "trash")

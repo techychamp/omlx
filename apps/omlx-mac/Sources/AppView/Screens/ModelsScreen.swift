@@ -20,15 +20,15 @@ struct ModelsScreen: View {
         VStack(alignment: .leading, spacing: 0) {
             ActiveModelsSection(
                 models: vm.activeModels,
-                onUnload: { id in vm.unload(id: id, client: services.client) }
+                onUnload: { id in vm.unload(id: id) }
             )
 
             LibrarySection(
                 models: vm.libraryModels,
                 isModelLoaded: { id in vm.activeModels.contains(where: { $0.id == id }) },
                 deletingID: vm.deletingID,
-                onLoad: { id in vm.load(id: id, client: services.client) },
-                onUnload: { id in vm.unload(id: id, client: services.client) },
+                onLoad: { id in vm.load(id: id) },
+                onUnload: { id in vm.unload(id: id) },
                 onOpenSettings: { id in services.modelDetailID = id },
                 onRequestRemove: { id in vm.pendingRemoveID = id }
             )
@@ -41,7 +41,7 @@ struct ModelsScreen: View {
                     .padding(.top, 8)
             }
         }
-        .task { await vm.start(client: services.client) }
+        .task { await vm.start(modelManagementService: services.modelManagementService) }
         .onDisappear { vm.stop() }
         .confirmationDialog(
             String(localized: "models.delete.confirm_title",
@@ -58,7 +58,7 @@ struct ModelsScreen: View {
                           defaultValue: "Delete \(id)",
                           comment: "Destructive button label inside the delete-model confirmation dialog; placeholder is the model id"),
                    role: .destructive) {
-                vm.remove(id: id, client: services.client)
+                vm.remove(id: id)
             }
             Button(String(localized: "common.cancel",
                           defaultValue: "Cancel",

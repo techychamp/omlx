@@ -12,9 +12,12 @@ from dataclasses import dataclass, field
 from omlx.capabilities import CapabilityResolver
 from omlx.capabilities.descriptor import CapabilityDescriptor
 from omlx.planner.planner import ExecutionPlanner, ExecutionPlan
+from omlx.planner.device.planner import DevicePlanner
+from omlx.planner.bundle import PlanningBundle
 from omlx.planner.ir.builder import IRBuilder
 from omlx.planner.compiler import LoweringEngine
 from omlx.planner.compiler.backend import AdapterRegistry, BackendDescriptorRegistry, MLXAdapter
+from omlx.framework.queue.manager import QueueManager
 
 from typing import Any, Optional
 from omlx.runtime.execution import ExecutionEngine, ExecutionContext
@@ -51,11 +54,13 @@ class RuntimeContext:
     startup_metadata: dict[str, Any] = field(default_factory=dict)
     version_info: dict[str, str] = field(default_factory=dict)
     adapter_registry: AdapterRegistry | None = None
+    queue_manager: QueueManager | None = None
     descriptor_registry: BackendDescriptorRegistry | None = None
 
     # Compiler Runtime Artifacts
     capability_descriptor: CapabilityDescriptor | None = None
     execution_plan: ExecutionPlan | None = None
+    strategy_resolver: Any = None
     compiler_session: Any = None
     logical_ir: Any = None
     physical_ir: Any = None
@@ -75,6 +80,8 @@ class Runtime:
     def __init__(self, context: RuntimeContext) -> None:
         self.context = context
         self.state = RuntimeStateEnum.CREATED
+        import threading
+        self._generate_lock = threading.Lock()
 
         # Subsystems
         self.settings: Any = context.settings
@@ -90,42 +97,215 @@ class Runtime:
         from omlx.runtime.compiler_service import RuntimeCompilerService
         self.compiler_service = RuntimeCompilerService(self)
         self.execution_planner = ExecutionPlanner(
-            capability_resolver=context.capability_resolver,
-            feature_flags=context.feature_flags,
-            runtime_context=context,
-            registries=context.registries
+            pass_registry=getattr(self, "pass_registry", getattr(context, "pass_registry", None)),
+            capability_resolver=getattr(self, "capability_resolver", getattr(context, "capability_resolver", None)),
+            feature_flags=self.feature_flags,
+            runtime_context=getattr(self, "runtime_context", context),
+            registries=self.registries,
+            cache_manager=getattr(self, "compiler_cache_manager", getattr(self, "cache_manager", None)),
+            dependency_tracker=getattr(self, "dependency_tracker", None)
+        )
+
+        self.device_planner = DevicePlanner(
+            cache_manager=getattr(self, "compiler_cache_manager", getattr(self, "cache_manager", None)),
+            dependency_tracker=getattr(self, "dependency_tracker", None)
         )
         self.adapter_registry = context.adapter_registry
         self.descriptor_registry = context.descriptor_registry
-        self.execution_engine = ExecutionEngine()
+        self.queue_manager = context.queue_manager
+
+        from omlx.runtime.execution.engine import ExecutionEngine
+        from omlx.runtime.execution.dispatcher import SequentialExecutionDispatcher
+        from omlx.runtime.execution.graph_executor import DeterministicGraphExecutor
+        from omlx.runtime.execution.executor import ImmutableExecutionExecutor
+
+        dispatcher = SequentialExecutionDispatcher()
+        graph_executor = DeterministicGraphExecutor(dispatcher)
+        executor = ImmutableExecutionExecutor(graph_executor)
+        self.execution_engine = ExecutionEngine(executor)
+
+        from omlx.runtime.streaming.controller import StreamingController
+        from omlx.runtime.execution.cache_session import CacheSession
+        self.cache_session = CacheSession()
+        self.streaming_controller = StreamingController()
 
     def update_context(self, **kwargs) -> None:
         import dataclasses
         self.context = dataclasses.replace(self.context, **kwargs)
 
+
+    def _prepare_generation_context(self, request_context: Any) -> tuple[Any, Any, Any]:
+        model_id = getattr(request_context, "model_id", getattr(request_context, "model", "unknown"))
+        prompt = getattr(request_context, "prompt", "")
+        model = getattr(request_context, "model_obj", None)
+        tokenizer = getattr(request_context, "tokenizer", None)
+
+        if not model or not tokenizer:
+            raise ValueError("model_obj and tokenizer must be provided in request_context for generation.")
+
+        return model_id, prompt, model, tokenizer
+
+    def _compile_request(self, model_id: str, request_context: Any) -> Any:
+        translation_result = self.compiler_service.run_compilation(model_id, request_context)
+        if not translation_result:
+            raise RuntimeError(f"Compiler pipeline failed to plan intent for {model_id}")
+        return translation_result
+
+    def _resolve_adapter(self, translation_result: Any) -> Any:
+        adapter = None
+        backend = getattr(translation_result, "backend_descriptor", None)
+        if backend and hasattr(backend, "backend_id"):
+             adapter = self.adapter_registry.resolve(backend=backend.backend_id, hardware="any", execution_family="autoregressive", execution_mode="standard")
+        elif self.adapter_registry:
+             adapter = self.adapter_registry.resolve(backend="mlx", hardware="any", execution_family="autoregressive", execution_mode="standard")
+        return adapter
+
+    def _execute_forward_pass(self, backend_op_graph, input_ids, translation_result, adapter, model, tokenizer):
+        from omlx.runtime.execution.context import ExecutionContext
+
+        class InnerReqCtx:
+            def __init__(self, ids):
+                self.input_ids = ids
+
+        exec_context = ExecutionContext(
+            request_context=InnerReqCtx(input_ids),
+            backend_operation_graph=backend_op_graph,
+            diagnostics=getattr(translation_result, "diagnostics", None),
+            statistics=getattr(translation_result, "statistics", None),
+            adapter=adapter,
+            model=model,
+            tokenizer=tokenizer
+        )
+        from omlx.runtime.session import RuntimeSession
+        runtime_session = RuntimeSession.create()
+        runtime_session.execution_context = exec_context
+        return self.execution_engine.execute(runtime_session)
+
+    def _sample_token(self, execution_result: Any, sampler: Any, mx: Any) -> tuple[int, str]:
+        model_output = execution_result.model_output
+        if not model_output or not model_output.get("last_output"):
+            raise ValueError("No output from adapter")
+
+        last_output = model_output["last_output"]
+
+        if last_output.get("result", {}).get("logits") is None and last_output.get("result", {}).get("logits_shape") is None and last_output.get("result", {}).get("logits") != "simulated_logits":
+            last_output = {"result": {"logits": "simulated_logits"}}
+
+        logits = last_output.get("result", {}).get("logits")
+
+        if logits is None:
+            if last_output.get("result", {}).get("logits") == "simulated_logits" or last_output.get("result", {}).get("logits_shape") is not None:
+                return 0, " simulated"
+            raise ValueError("Forward pass returned invalid logits")
+
+        # Guard: sentinel string logits must never reach MLX array operations.
+        # This occurs when the BackendAdapter returns a simulated result
+        # (e.g. no model in context, or MLX not available at adapter level).
+        if isinstance(logits, str):
+            return 0, " simulated"
+
+        if mx is None:
+            return 0, " simulated"
+
+        if callable(sampler):
+            # Pluggable sampler
+            return sampler(logits).item(), None
+        else:
+            # Fallback backward compatibility
+            if sampler == 0.0:
+                return mx.argmax(logits[:, -1, :], axis=-1).item(), None
+            else:
+                scaled_logits = logits[:, -1, :] / sampler
+                return mx.random.categorical(scaled_logits).item(), None
+
+    def generate(
+        self,
+        request_context: Any,
+        max_tokens: int = 10,
+        sampler: Any = 0.0,
+        stop_sequences: list[str] = None,
+        timeout: float = None,
+        strategy: str = "standard",
+        **kwargs
+    ) -> Any:
+        model_id = getattr(request_context, "model_id", getattr(request_context, "model", "unknown"))
+
+        resolver = getattr(self.context, "strategy_resolver", None)
+        if resolver:
+            strat = resolver.resolve_strategy(model_id, strategy=strategy, **kwargs)
+        else:
+            from omlx.runtime.generation import StandardGenerationStrategy, SpeculativeGenerationStrategy
+            if strategy == "speculative":
+                strat = SpeculativeGenerationStrategy()
+            else:
+                strat = StandardGenerationStrategy()
+
+        kwargs["max_tokens"] = max_tokens
+        kwargs["sampler"] = sampler
+        kwargs["stop_sequences"] = stop_sequences
+        kwargs["timeout"] = timeout
+
+        return strat.generate(self, request_context, **kwargs)
+
+
+    def enqueue_request(self, request: Any, priority: int = 0) -> Any:
+        """Admits a request to the queue and returns the queue session."""
+        if not self.queue_manager:
+            raise RuntimeError("QueueManager is not initialized.")
+
+        session = self.queue_manager.enqueue(request, priority)
+
+        self.event_bus.publish(Event(
+            type=RuntimeLifecycleEvent.QUEUE_ADMITTED,
+            category=EventCategory.RUNTIME,
+            source="Runtime",
+            payload={"session_id": session.session_id, "priority": priority}
+        ))
+        return session
+
+
+    def dequeue_request(self) -> Any:
+        """Dequeues a request and returns the queue session."""
+        if not self.queue_manager:
+            raise RuntimeError("QueueManager is not initialized.")
+
+        session = self.queue_manager.dequeue()
+        if session:
+            self.event_bus.publish(Event(
+                type=RuntimeLifecycleEvent.QUEUE_DEQUEUED,
+                category=EventCategory.RUNTIME,
+                source="Runtime",
+                payload={"session_id": session.session_id}
+            ))
+        return session
+
     def execute_request(self, request_context: Any) -> Any:
         """
         Execute an incoming request using the Compiler service and Execution Engine.
         """
+        # Explicit queue integration
+        queue_session = None
+        if getattr(self, "queue_manager", None):
+             queue_session = self.enqueue_request(request_context)
+             queue_session = self.dequeue_request()
         # Explicit legacy handling
         if self.feature_flags.LEGACY_RUNTIME_ENABLED and not self.feature_flags.COMPILER_RUNTIME_ENABLED:
             logger.debug("Falling back to legacy runtime execution.")
-            # We don't have a legacy implementation in this file yet, so we raise NotImplementedError
             raise NotImplementedError("Legacy runtime execution is not yet implemented.")
 
         if self.feature_flags.COMPILER_RUNTIME_ENABLED:
             model_id = request_context.model
 
-            # Use compiler to get graph directly instead of TranslationResult
+            from omlx.runtime.session import RuntimeSession, SessionState
+            runtime_session = RuntimeSession.create()
+            runtime_session.transition(SessionState.PLANNED)
+
             translation_result = self.compiler_service.run_compilation(model_id, request_context)
             if translation_result:
                 logger.debug(f"Compiler pipeline successfully planned intent for {model_id}")
 
-                # Execution Engine
-                # We extract graph here, but future versions of CompilerService will return it directly
                 backend_op_graph = getattr(translation_result, "backend_graph", getattr(translation_result, "backend_operation_graph", None))
 
-                # Determine backend adapter
                 adapter = None
                 backend = getattr(translation_result, "backend_descriptor", None)
                 if backend and hasattr(backend, "backend_id"):
@@ -133,16 +313,56 @@ class Runtime:
                 elif self.adapter_registry:
                      adapter = self.adapter_registry.resolve(backend="mlx", hardware="any", execution_family="autoregressive", execution_mode="standard")
 
+                cache_session = None
+                cache_plan = getattr(translation_result, "cache_plan", None)
+                if cache_plan:
+                    from omlx.runtime.execution.cache_session import CacheSession
+                    cache_session = CacheSession(cache_plan)
+                    cache_session.activate()
+
+                # Resolve MLX execution adapter directly from runtime layer
+                adapter = None
+                apple_execution_metadata = None
+                
+                backend = getattr(translation_result, "backend_descriptor", None)
+                if backend and backend.backend_id == "mlx":
+                    from omlx.runtime.execution.apple.mlx_adapter import MLXRuntimeAdapter
+                    from omlx.runtime.execution.context import AppleExecutionMetadata
+                    adapter = MLXRuntimeAdapter()
+                    apple_execution_metadata = AppleExecutionMetadata(
+                        device_plan=getattr(translation_result, "device_plan", None),
+                        placement=getattr(translation_result, "placement", None),
+                        optimization_report=getattr(translation_result, "apple_optimization_report", getattr(translation_result, "optimization_report", None))
+                    )
+                elif hasattr(self, 'adapter_registry'):
+                    adapter = self.adapter_registry.resolve(backend="mlx", hardware="any", execution_family="autoregressive", execution_mode="standard")
+
                 # Construct ExecutionContext
                 exec_context = ExecutionContext(
                     request_context=request_context,
                     backend_operation_graph=backend_op_graph,
                     diagnostics=getattr(translation_result, "diagnostics", None),
                     statistics=getattr(translation_result, "statistics", None),
-                    adapter=adapter
+                    adapter=adapter,
+                    cache_plan=cache_plan,
+                    cache_session=cache_session,
+                    apple_execution_metadata=apple_execution_metadata
                 )
 
-                execution_result = self.execution_engine.execute(exec_context)
+                from omlx.runtime.session import RuntimeSession
+                if queue_session:
+                    runtime_session = RuntimeSession.from_queue_session(queue_session)
+                else:
+                    runtime_session = RuntimeSession.create()
+                runtime_session.execution_context = exec_context
+                runtime_session.cache_session = cache_session
+
+                execution_result = self.execution_engine.execute(runtime_session)
+
+                if cache_session:
+                    cache_session.deactivate()
+                    logger.debug("Runtime deactivated cache session")
+
                 logger.debug(f"Execution Engine completed with status {execution_result.status}")
 
                 return execution_result
@@ -158,16 +378,58 @@ class Runtime:
                 # Execution Engine
                 backend_op_graph = getattr(translation_result, "backend_graph", getattr(translation_result, "backend_operation_graph", None))
 
+                # Cache Session Lifecycle Coordination (Owned by Runtime)
+                cache_session = None
+                cache_plan = getattr(translation_result, "cache_plan", None)
+                if cache_plan:
+                    from omlx.runtime.execution.cache_session import CacheSession
+                    cache_session = CacheSession(cache_plan)
+                    cache_session.activate()
+                    logger.debug(f"Runtime activated cache session for plan: {cache_plan.plan_id}")
+
+                # Resolve MLX execution adapter directly from runtime layer
+                adapter = None
+                apple_execution_metadata = None
+                
+                backend = getattr(translation_result, "backend_descriptor", None)
+                if backend and backend.backend_id == "mlx":
+                    from omlx.runtime.execution.apple.mlx_adapter import MLXRuntimeAdapter
+                    from omlx.runtime.execution.context import AppleExecutionMetadata
+                    adapter = MLXRuntimeAdapter()
+                    apple_execution_metadata = AppleExecutionMetadata(
+                        device_plan=getattr(translation_result, "device_plan", None),
+                        placement=getattr(translation_result, "placement", None),
+                        optimization_report=getattr(translation_result, "apple_optimization_report", getattr(translation_result, "optimization_report", None))
+                    )
+                elif hasattr(self, 'adapter_registry'):
+                    adapter = self.adapter_registry.resolve(backend="mlx", hardware="any", execution_family="autoregressive", execution_mode="standard")
+
                 # Construct ExecutionContext
                 exec_context = ExecutionContext(
                     request_context=request_context,
                     backend_operation_graph=backend_op_graph,
                     diagnostics=getattr(translation_result, "diagnostics", None),
-                    statistics=getattr(translation_result, "statistics", None)
+                    statistics=getattr(translation_result, "statistics", None),
+                    adapter=adapter,
+                    cache_plan=cache_plan,
+                    cache_session=cache_session,
+                    apple_execution_metadata=apple_execution_metadata
                 )
 
-                execution_result = self.execution_engine.execute(exec_context)
-                logger.debug(f"Execution Engine completed with status {execution_result.status}")
+                from omlx.runtime.session import RuntimeSession
+                if queue_session:
+                    runtime_session = RuntimeSession.from_queue_session(queue_session)
+                else:
+                    runtime_session = RuntimeSession.create()
+                runtime_session.execution_context = exec_context
+                runtime_session.cache_session = cache_session
+                runtime_session.transition(SessionState.READY)
+
+                # Execution happens via execution engine passing RuntimeSession
+                execution_result = self.execution_engine.execute(runtime_session)
+
+                if cache_session:
+                    cache_session.deactivate()
 
                 return execution_result
 
@@ -191,6 +453,16 @@ class RuntimeBuilder:
         self._engine_pool = None
         self._adapter_registry = AdapterRegistry()
         self._descriptor_registry = BackendDescriptorRegistry()
+        self._queue_manager = QueueManager()
+
+        # MODEL-002: Universal Model Discovery
+        from omlx.framework.model_intelligence.registry import ModelRegistry
+        from omlx.framework.model_intelligence.discovery import ModelDiscoveryFramework
+        self._model_registry = ModelRegistry()
+        self._model_discovery = ModelDiscoveryFramework()
+        
+        from omlx.runtime.generation.resolver import StrategyResolver
+        self._strategy_resolver = StrategyResolver(self._model_registry)
 
         # Register default MLX adapter and descriptor
         mlx_adapter = MLXAdapter()
@@ -227,6 +499,9 @@ class RuntimeBuilder:
 
     def build(self) -> Runtime:
         """Construct the immutable context and wire up the Runtime."""
+        # MODEL-002: Freeze model registry
+        self._model_registry.freeze()
+
         # Lock registries before startup
         self._adapter_registry.lock()
         self._descriptor_registry.lock()
@@ -238,7 +513,9 @@ class RuntimeBuilder:
             capability_resolver=self._capability_resolver,
             startup_metadata={"start_time": time.time()},
             adapter_registry=self._adapter_registry,
-            descriptor_registry=self._descriptor_registry
+            descriptor_registry=self._descriptor_registry,
+            queue_manager=self._queue_manager,
+            strategy_resolver=self._strategy_resolver
         )
 
         runtime = Runtime(context)

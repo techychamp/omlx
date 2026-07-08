@@ -1,0 +1,19 @@
+{
+  "execution_status": "completed",
+  "execution_statistics": {
+    "executed_operations": 5,
+    "backend_invocations": 5,
+    "execution_duration_ms": 0.6232261657714844,
+    "graph_depth": 5,
+    "execution_groups": 5,
+    "dispatcher_calls": 5,
+    "adapter_calls": 5,
+    "compiler_execution_count": 1,
+    "legacy_fallback_count": 0
+  },
+  "model_output_keys": [
+    "status",
+    "operations",
+    "last_output"
+  ]
+}

@@ -51,15 +51,15 @@ struct DownloadsScreen: View {
                     searchResults: vm.searchResults,
                     searchLoading: vm.searchLoading,
                     searchDismissed: vm.searchDismissed,
-                    onSubmit: { vm.startDownload(client: services.client) },
-                    onSaveMirror: { vm.saveMirror(client: services.client) },
-                    onResetMirror: { vm.resetMirror(client: services.client) },
+                    onSubmit: { vm.startDownload() },
+                    onSaveMirror: { vm.saveMirror() },
+                    onResetMirror: { vm.resetMirror() },
                     onPickResult: { vm.pickSearchResult($0) },
                     onDismissSearch: { vm.dismissSearch() },
                     onShowCard: { repo in vm.showModelCard(repoId: repo) }
                 )
                 .onChange(of: vm.repoText) { _, newValue in
-                    vm.updateSearch(query: newValue, client: services.client)
+                    vm.updateSearch(query: newValue)
                 }
             } else {
                 AddFromMSSection(
@@ -73,28 +73,28 @@ struct DownloadsScreen: View {
                     searchResults: vm.msSearchResults,
                     searchLoading: vm.msSearchLoading,
                     searchDismissed: vm.msSearchDismissed,
-                    onSubmit: { vm.startDownload(client: services.client) },
-                    onSaveMirror: { vm.saveMsMirror(client: services.client) },
-                    onResetMirror: { vm.resetMsMirror(client: services.client) },
+                    onSubmit: { vm.startDownload() },
+                    onSaveMirror: { vm.saveMsMirror() },
+                    onResetMirror: { vm.resetMsMirror() },
                     onPickResult: { vm.pickMsSearchResult($0) },
                     onDismissSearch: { vm.dismissMsSearch() },
                     onShowCard: { repo in vm.showModelCard(repoId: repo) }
                 )
                 .onChange(of: vm.msRepoText) { _, newValue in
-                    vm.updateMsSearch(query: newValue, client: services.client)
+                    vm.updateMsSearch(query: newValue)
                 }
             }
 
             ActiveDownloadsSection(
                 tasks: vm.activeTasks,
-                onCancel: { id in vm.cancel(taskId: id, client: services.client) },
-                onRemove: { id in vm.remove(taskId: id, client: services.client) }
+                onCancel: { id in vm.cancel(taskId: id) },
+                onRemove: { id in vm.remove(taskId: id) }
             )
 
             CompletedTasksSection(
                 tasks: vm.terminalTasks,
-                onRetry: { id in vm.retry(taskId: id, client: services.client) },
-                onRemove: { id in vm.remove(taskId: id, client: services.client) },
+                onRetry: { id in vm.retry(taskId: id) },
+                onRemove: { id in vm.remove(taskId: id) },
                 onShowCard: { repo in vm.showModelCard(repoId: repo) }
             )
 
@@ -102,8 +102,8 @@ struct DownloadsScreen: View {
                 models: vm.sortedRecommended,
                 sort: $vm.recommendedSort,
                 isLoading: vm.recommendedLoading,
-                onGet: { repo in vm.startDownload(repo: repo, client: services.client) },
-                onRefresh: { Task { await vm.loadRecommended(client: services.client) } },
+                onGet: { repo in vm.startDownload(repo: repo) },
+                onRefresh: { Task { await vm.loadRecommended() } },
                 onShowCard: { repo in vm.showModelCard(repoId: repo) }
             )
 
@@ -115,17 +115,17 @@ struct DownloadsScreen: View {
                     .padding(.top, 8)
             }
         }
-        .task { await vm.start(client: services.client) }
+        .task { await vm.start(modelManagementService: services.modelManagementService, platformService: services.platformService) }
         .onDisappear { vm.stop() }
         .sheet(item: $vm.modelCardTarget) { target in
             ModelCardSheet(
                 target: target,
-                client: services.client,
+                modelManagementService: services.modelManagementService,
                 onDownload: { repo in
                     // Sheet dismisses itself before this fires; the
                     // download lands in the Active section under
                     // whichever source the sheet was opened from.
-                    vm.startDownload(repo: repo, client: services.client)
+                    vm.startDownload(repo: repo)
                 }
             )
         }

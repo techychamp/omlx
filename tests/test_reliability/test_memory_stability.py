@@ -19,7 +19,7 @@ def test_memory_stability():
             "execution_hints": {"iteration": str(i)}
         })
         desc = resolver.resolve(additional_sources=[source])
-        plan = planner.plan(desc)
+        plan = planner.plan(desc).execution_plan
 
     gc.collect()
     final_objects = len(gc.get_objects())

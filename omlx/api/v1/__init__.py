@@ -1,6 +1,12 @@
-from .runtime import RuntimeBuilder, Runtime, RuntimeConfig
-from .compiler import CompilerRequestBuilder, Compiler, CompilerRequest, CompilerResult, CompilerArtifactSummary
-from .planning import PlanningRequestBuilder, Planner, PlanningRequest, PlanningResult, PlanningStageSummary
+from .model import ModelDescriptor, ModelInfo, ModelLoadBuilder, ModelService
+from .generation import GenerateRequest, GenerateResponse, StreamRequest, StreamResponse, GenerateRequestBuilder, StreamRequestBuilder, GenerationService
+from .streaming import StreamingService
+from .observation import ObservationSummary, ObservationQueryBuilder, ObservationService
+from .quantization import QuantizationInfo, QuantizationService
+from .capability import CapabilityInfo, CapabilityService
+from .runtime import RuntimeBuilder, RuntimeService, RuntimeConfig
+from .compiler import CompilerRequestBuilder, CompilerService, CompilerRequest, CompilerResult, CompilerArtifactSummary
+from .planning import PlanningClient, PlanningRequest
 from .backend import BackendRequestBuilder, BackendManager, BackendRequest, BackendSelectionResult, HardwareConstraint
 from .inspection import Inspector, InspectionResult, HealthMetric
 from .verification import VerificationRequestBuilder, Verifier, VerificationRequest, VerificationResult, VerificationMetric
@@ -10,16 +16,30 @@ from .diagnostics import DiagnosticsRunner, DiagnosticsResult, DiagnosticIssue
 from .tooling import ToolingManager, ToolingResult, ReplayResult, ReplayEvent, ToolOutput
 from .compatibility import CompatibilityReport, check_api_compatibility
 from .exceptions import (
+    OMLXRuntimeError,
     OmlxError, CompilerError, PlanningError, BackendError,
     VerificationError, PluginError, ConfigurationError,
     ValidationError, DiagnosticsError
 )
 
 __all__ = [
+
+    # Model
+    "ModelDescriptor", "ModelInfo", "ModelLoadBuilder", "ModelService",
+    # Generation
+    "GenerateRequest", "GenerateResponse", "StreamRequest", "StreamResponse", "GenerateRequestBuilder", "StreamRequestBuilder", "GenerationService",
+    # Streaming
+    "StreamingService",
+    # Observation
+    "ObservationSummary", "ObservationQueryBuilder", "ObservationService",
+    # Quantization
+    "QuantizationInfo", "QuantizationService",
+    # Capability
+    "CapabilityInfo", "CapabilityService",
     # Runtime
-    "RuntimeBuilder", "Runtime", "RuntimeConfig",
+    "RuntimeBuilder", "RuntimeService", "RuntimeConfig",
     # Compiler
-    "CompilerRequestBuilder", "Compiler", "CompilerRequest", "CompilerResult", "CompilerArtifactSummary",
+    "CompilerRequestBuilder", "CompilerService", "CompilerRequest", "CompilerResult", "CompilerArtifactSummary",
     # Planning
     "PlanningRequestBuilder", "Planner", "PlanningRequest", "PlanningResult", "PlanningStageSummary",
     # Backend
@@ -41,5 +61,6 @@ __all__ = [
     # Exceptions
     "OmlxError", "CompilerError", "PlanningError", "BackendError",
     "VerificationError", "PluginError", "ConfigurationError",
-    "ValidationError", "DiagnosticsError"
+    "ValidationError", "DiagnosticsError", "OMLXRuntimeError", "OMLXClient", "SessionDescriptor"
 ]
+from .client import OMLXClient, SessionDescriptor

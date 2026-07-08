@@ -184,7 +184,7 @@ struct ServerScreen: View {
             // view is mounted, so .onChange never fires for the initial value —
             // mirror it explicitly on first appearance.
             vm.applyConfig(services.config)
-            await vm.load(client: services.client)
+            await vm.load(platformService: services.platformService)
         }
         .onChange(of: services.config) { _, _ in
             vm.applyConfig(services.config)
@@ -192,7 +192,7 @@ struct ServerScreen: View {
         .onChange(of: services.serverState) { _, _ in
             // After a restart triggered by saving host/port, reload to pick
             // up the new effective values.
-            Task { await vm.load(client: services.client) }
+            Task { await vm.load(platformService: services.platformService) }
         }
     }
 }

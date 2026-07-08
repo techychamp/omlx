@@ -16,6 +16,8 @@ class PhysicalOperationType(str, enum.Enum):
     CACHE_UPDATE = "cache_update"
     SYNCHRONIZATION = "synchronization"
     NOOP = "noop"
+    ALLOCATION = "allocation"
+    RELEASE = "release"
 
 @dataclass(frozen=True)
 class PhysicalOperation:

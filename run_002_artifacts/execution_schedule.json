@@ -1,0 +1,148 @@
+{
+  "ordered_operations": [
+    "node_prefill",
+    "node_sample",
+    "node_forward",
+    "node_verify",
+    "node_emit"
+  ],
+  "dependency_levels": {
+    "node_prefill": 0,
+    "node_sample": 1,
+    "node_forward": 2,
+    "node_verify": 3,
+    "node_emit": 4
+  },
+  "execution_groups": [
+    {
+      "group_id": "group_0",
+      "operations": [
+        "node_prefill"
+      ],
+      "dependency_level": 0,
+      "estimated_cost": 0.0,
+      "estimated_memory": 0.0,
+      "parallelizable": false,
+      "priority": 0
+    },
+    {
+      "group_id": "group_1",
+      "operations": [
+        "node_sample"
+      ],
+      "dependency_level": 1,
+      "estimated_cost": 0.0,
+      "estimated_memory": 0.0,
+      "parallelizable": false,
+      "priority": 0
+    },
+    {
+      "group_id": "group_2",
+      "operations": [
+        "node_forward"
+      ],
+      "dependency_level": 2,
+      "estimated_cost": 0.0,
+      "estimated_memory": 0.0,
+      "parallelizable": false,
+      "priority": 0
+    },
+    {
+      "group_id": "group_3",
+      "operations": [
+        "node_verify"
+      ],
+      "dependency_level": 3,
+      "estimated_cost": 0.0,
+      "estimated_memory": 0.0,
+      "parallelizable": false,
+      "priority": 0
+    },
+    {
+      "group_id": "group_4",
+      "operations": [
+        "node_emit"
+      ],
+      "dependency_level": 4,
+      "estimated_cost": 0.0,
+      "estimated_memory": 0.0,
+      "parallelizable": false,
+      "priority": 0
+    }
+  ],
+  "critical_path": [
+    "node_prefill",
+    "node_sample",
+    "node_forward",
+    "node_verify",
+    "node_emit"
+  ],
+  "ready_queues": {
+    "0": [
+      "node_prefill"
+    ],
+    "1": [
+      "node_sample"
+    ],
+    "2": [
+      "node_forward"
+    ],
+    "3": [
+      "node_verify"
+    ],
+    "4": [
+      "node_emit"
+    ]
+  },
+  "metadata": {
+    "policy": "dependency_driven"
+  },
+  "diagnostics": {
+    "scheduling_report": {
+      "status": "success",
+      "policy": "dependency_driven"
+    },
+    "dependency_report": {
+      "roots": [
+        "node_prefill"
+      ],
+      "leaves": [
+        "node_emit"
+      ],
+      "is_cyclic": false
+    },
+    "critical_path_report": {
+      "path": [
+        "node_prefill",
+        "node_sample",
+        "node_forward",
+        "node_verify",
+        "node_emit"
+      ],
+      "length": 5
+    },
+    "execution_group_report": {
+      "groups_count": 5
+    },
+    "parallelism_report": {
+      "estimated": 1.0
+    },
+    "policy_report": {
+      "active_policy": "dependency_driven"
+    },
+    "execution_ordering_report": {
+      "operations_count": 5
+    }
+  },
+  "statistics": {
+    "graph_depth": 5,
+    "graph_width": 1,
+    "critical_path_length": 5,
+    "dependency_fan_in": 0.8,
+    "dependency_fan_out": 0.8,
+    "parallel_groups": 0,
+    "execution_levels": 5,
+    "estimated_parallelism": 1.0,
+    "schedule_generation_time_ms": 0.046253204345703125
+  }
+}

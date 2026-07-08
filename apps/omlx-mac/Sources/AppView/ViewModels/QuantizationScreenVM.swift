@@ -40,7 +40,7 @@ final class QuantizationScreenVM {
     var lastSuccess: String?
 
     @ObservationIgnored
-    private weak var client: OMLXClient?
+    private var modelManagementService: ModelManagementServiceProtocol?
     @ObservationIgnored
     private var pollTask: Task<Void, Never>?
     @ObservationIgnored
@@ -103,8 +103,8 @@ final class QuantizationScreenVM {
 
     // MARK: Lifecycle
 
-    func start(client: OMLXClient) async {
-        self.client = client
+    func start(modelManagementService: ModelManagementServiceProtocol) async {
+        self.modelManagementService = modelManagementService
         // Hydrate the HF token from Keychain. Silent on miss — the sheet
         // shows an empty SecureField and the user can paste a new token.
         if let stored = Keychain.read(), !stored.isEmpty {
@@ -126,9 +126,9 @@ final class QuantizationScreenVM {
     // MARK: Loaders
 
     private func loadModels() async {
-        guard let client else { return }
+        guard let modelManagementService else { return }
         do {
-            let resp = try await client.listOQModels()
+            let resp = try await modelManagementService.listOQModels()
             self.models = resp.models
             self.allModels = resp.allModels
             self.modelsLoaded = true
@@ -141,9 +141,9 @@ final class QuantizationScreenVM {
     }
 
     private func loadTasks() async {
-        guard let client else { return }
+        guard let modelManagementService else { return }
         do {
-            let resp = try await client.listOQTasks()
+            let resp = try await modelManagementService.listOQTasks()
             // If a task just transitioned from active → completed, refresh
             // the model list (so the new quantized model shows up as a
             // sensitivity candidate) and the upload candidate list (so the
@@ -166,9 +166,9 @@ final class QuantizationScreenVM {
     /// (matching the HTML panel's `oq_models` slot) so the dropdown stays
     /// short.
     func loadUploadCandidates() async {
-        guard let client else { return }
+        guard let modelManagementService else { return }
         do {
-            let resp = try await client.listHFUploadModels()
+            let resp = try await modelManagementService.listHFUploadModels()
             self.uploadCandidateModels = resp.oqModels
         } catch {
             // Soft-fail — the auto-generate path still works without
@@ -177,9 +177,9 @@ final class QuantizationScreenVM {
     }
 
     private func loadUploadTasks() async {
-        guard let client else { return }
+        guard let modelManagementService else { return }
         do {
-            let resp = try await client.listHFUploadTasks()
+            let resp = try await modelManagementService.listHFUploadTasks()
             self.uploadTasks = resp.tasks
         } catch {
             // Polling failure: stay quiet (same rationale as loadTasks).
@@ -218,7 +218,7 @@ final class QuantizationScreenVM {
     /// Schedules a 300 ms debounced fetch — matches the JS dashboard. Each
     /// call cancels the previous timer so rapid changes (typing in a select,
     /// keyboard arrows) collapse to a single network round-trip.
-    func scheduleEstimateRefresh(client: OMLXClient) {
+    func scheduleEstimateRefresh(modelManagementService: ModelManagementServiceProtocol) {
         estimateDebounceTask?.cancel()
         if selectedModelPath.isEmpty {
             estimate = nil
@@ -231,7 +231,7 @@ final class QuantizationScreenVM {
             try? await Task.sleep(for: .milliseconds(300))
             if Task.isCancelled { return }
             do {
-                let est = try await client.estimateOQ(
+                let est = try await modelManagementService.estimateOQ(
                     modelPath: path,
                     oqLevel: level,
                     preserveMtp: preserve
@@ -251,7 +251,7 @@ final class QuantizationScreenVM {
 
     // MARK: Actions
 
-    func startQuantization(client: OMLXClient) {
+    func startQuantization(modelManagementService: ModelManagementServiceProtocol) {
         guard !selectedModelPath.isEmpty, !isStarting else { return }
         isStarting = true
         lastError = nil
@@ -272,7 +272,7 @@ final class QuantizationScreenVM {
         Task { [weak self] in
             defer { Task { @MainActor [weak self] in self?.isStarting = false } }
             do {
-                let resp = try await client.startOQQuantization(body)
+                let resp = try await modelManagementService.startOQQuantization(body)
                 await MainActor.run {
                     guard let self else { return }
                     if resp.success {
@@ -297,10 +297,10 @@ final class QuantizationScreenVM {
         }
     }
 
-    func cancelTask(taskId: String, client: OMLXClient) {
+    func cancelTask(taskId: String, modelManagementService: ModelManagementServiceProtocol) {
         Task { [weak self] in
             do {
-                _ = try await client.cancelOQTask(taskId: taskId)
+                _ = try await modelManagementService.cancelOQTask(taskId: taskId)
                 await self?.loadTasks()
             } catch {
                 await MainActor.run {
@@ -312,10 +312,10 @@ final class QuantizationScreenVM {
         }
     }
 
-    func removeTask(taskId: String, client: OMLXClient) {
+    func removeTask(taskId: String, modelManagementService: ModelManagementServiceProtocol) {
         Task { [weak self] in
             do {
-                _ = try await client.removeOQTask(taskId: taskId)
+                _ = try await modelManagementService.removeOQTask(taskId: taskId)
                 await self?.loadTasks()
             } catch {
                 await MainActor.run {
@@ -342,7 +342,7 @@ final class QuantizationScreenVM {
     /// On success the token is persisted to the Keychain so the next session
     /// skips this round-trip, and the namespace defaults to the returned
     /// username (with orgs available via the Popup in the sheet).
-    func validateUploadToken(client: OMLXClient) async {
+    func validateUploadToken(modelManagementService: ModelManagementServiceProtocol) async {
         let token = uploadToken.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !token.isEmpty else {
             lastUploadError = String(localized: "quant.upload.error.empty_token",
@@ -354,7 +354,7 @@ final class QuantizationScreenVM {
         lastUploadError = nil
         defer { isValidatingToken = false }
         do {
-            let resp = try await client.validateHFUploadToken(hfToken: token)
+            let resp = try await modelManagementService.validateHFUploadToken(hfToken: token)
             self.uploadValidatedUsername = resp.username
             self.uploadOrgs = resp.orgs
             self.uploadNamespace = resp.username
@@ -373,10 +373,10 @@ final class QuantizationScreenVM {
     /// `uploadTarget` on success; on failure we surface the message via
     /// `lastUploadError` and leave the sheet open so the user can correct
     /// the body and retry without losing their inputs.
-    func startUpload(body: HFUploadStartRequest, client: OMLXClient) async {
+    func startUpload(body: HFUploadStartRequest, modelManagementService: ModelManagementServiceProtocol) async {
         lastUploadError = nil
         do {
-            let resp = try await client.startHFUpload(body)
+            let resp = try await modelManagementService.startHFUpload(body)
             if resp.success == false {
                 lastUploadError = String(localized: "quant.upload.error.server_refused",
                                          defaultValue: "Server refused the request",
@@ -393,10 +393,10 @@ final class QuantizationScreenVM {
         }
     }
 
-    func cancelUpload(taskId: String, client: OMLXClient) {
+    func cancelUpload(taskId: String, modelManagementService: ModelManagementServiceProtocol) {
         Task { [weak self] in
             do {
-                _ = try await client.cancelHFUploadTask(taskId: taskId)
+                _ = try await modelManagementService.cancelHFUploadTask(taskId: taskId)
                 await self?.loadUploadTasks()
             } catch {
                 await MainActor.run {
@@ -408,10 +408,10 @@ final class QuantizationScreenVM {
         }
     }
 
-    func removeUpload(taskId: String, client: OMLXClient) {
+    func removeUpload(taskId: String, modelManagementService: ModelManagementServiceProtocol) {
         Task { [weak self] in
             do {
-                _ = try await client.removeHFUploadTask(taskId: taskId)
+                _ = try await modelManagementService.removeHFUploadTask(taskId: taskId)
                 await self?.loadUploadTasks()
             } catch {
                 await MainActor.run {

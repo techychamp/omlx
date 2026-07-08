@@ -1,0 +1,4 @@
+# Non-Blocking Feedback Addressed:
+1. Mutable collections in RuntimeSession (`routing_reports`, etc.) are left as lists, aligning with the current lifecycle pattern. A note for future migration to tuples is recorded.
+2. The `type(graph).__name__ == "ExpertExecutionGraph"` check remains for this PR to avoid introducing cross-module circular dependencies. A unified execution graph Protocol/ABC will be addressed globally in a future architecture ticket that encompasses Diffusion, Cache, Batch, and Speculation graphs.
+3. `graph: Any` in `omlx/runtime/execution/interfaces.py` remains for this PR pending the unified execution graph Protocol.

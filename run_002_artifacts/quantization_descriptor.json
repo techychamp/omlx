@@ -1,0 +1,71 @@
+{
+  "quantization_descriptor": {
+    "quantization_family": "Unknown",
+    "storage_precision": "unknown",
+    "compute_precision": "unknown",
+    "weight_precision": "unknown",
+    "activation_precision": "unknown",
+    "kv_cache_precision": "unknown",
+    "group_size": null,
+    "block_size": null,
+    "mixed_precision": false,
+    "dynamic_quantization": false,
+    "static_quantization": false,
+    "per_channel": false,
+    "per_group": false,
+    "supports_streaming": true,
+    "supports_batching": true,
+    "supports_speculative_decoding": false,
+    "supported_backends": [],
+    "supported_model_families": [],
+    "packing_information": null,
+    "layout_information": null,
+    "alignment_information": null,
+    "compression_metadata": {},
+    "compression_ratio": null,
+    "estimated_memory_usage": null,
+    "estimated_bandwidth_usage": null,
+    "required_kernels": [],
+    "hardware_requirements": [],
+    "recommended_backend": null,
+    "recommended_hardware": [],
+    "conversion_compatibility": [],
+    "performance_class": "UNKNOWN",
+    "validation_status": "UNKNOWN",
+    "metadata": {
+      "model_id": "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit",
+      "quantization": "4bit",
+      "precision": "fp16",
+      "bits": 4,
+      "group_size": 128
+    },
+    "planner_metadata": {},
+    "compiler_metadata": {},
+    "backend_metadata": {}
+  },
+  "quantization_class": "UNKNOWN",
+  "compatibility": {
+    "model_compatible": true,
+    "backend_compatible": true,
+    "hardware_suitability": [],
+    "quantization_family": "Unknown"
+  },
+  "statistics": {
+    "family_distribution": {
+      "Unknown": 1
+    },
+    "precision_distribution": {
+      "unknown": 1
+    },
+    "total_count": 1
+  },
+  "conversion_plan": {
+    "source_family": "Unknown",
+    "target_family": "FP16",
+    "is_feasible": false,
+    "estimated_memory_cost": null,
+    "estimated_time_cost": "UNKNOWN",
+    "required_tools": [],
+    "warnings": []
+  }
+}

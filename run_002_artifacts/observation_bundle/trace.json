@@ -1,0 +1,16 @@
+{
+  "events": [
+    {
+      "id": "3de0a1be-c0e9-4f52-a78f-6f10408cc0bd",
+      "timestamp": 1783360613.397799,
+      "phase": "Test",
+      "component": "Phase7",
+      "operation": "validate",
+      "duration_sec": 0.0012569427490234375,
+      "parent_id": null,
+      "children_ids": [],
+      "status": "success",
+      "metadata": {}
+    }
+  ]
+}

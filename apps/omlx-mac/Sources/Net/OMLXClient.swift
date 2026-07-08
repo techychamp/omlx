@@ -478,32 +478,32 @@ final class OMLXClient: ObservableObject {
 
     // MARK: - Core request
 
-    private func get<T: Decodable>(_ path: String, query: [URLQueryItem] = []) async throws -> T {
+    func get<T: Decodable>(_ path: String, query: [URLQueryItem] = []) async throws -> T {
         try await request("GET", path: path, query: query, body: nil)
     }
 
-    private func post<U: Encodable, T: Decodable>(_ path: String, body: U) async throws -> T {
+    func post<U: Encodable, T: Decodable>(_ path: String, body: U) async throws -> T {
         let data = try encoder.encode(body)
         return try await request("POST", path: path, body: data)
     }
 
-    private func put<U: Encodable, T: Decodable>(_ path: String, body: U) async throws -> T {
+    func put<U: Encodable, T: Decodable>(_ path: String, body: U) async throws -> T {
         let data = try encoder.encode(body)
         return try await request("PUT", path: path, body: data)
     }
 
-    private func postEmpty<T: Decodable>(_ path: String) async throws -> T {
+    func postEmpty<T: Decodable>(_ path: String) async throws -> T {
         try await request("POST", path: path, body: nil)
     }
 
-    private func delete<T: Decodable>(_ path: String) async throws -> T {
+    func delete<T: Decodable>(_ path: String) async throws -> T {
         try await request("DELETE", path: path, body: nil)
     }
 
     /// DELETE with a JSON body. The /admin/api/sub-keys endpoint is the
     /// only caller — the server reads `key` from the request body rather
     /// than the URL.
-    private func deleteWithBody<U: Encodable, T: Decodable>(_ path: String, body: U) async throws -> T {
+    func deleteWithBody<U: Encodable, T: Decodable>(_ path: String, body: U) async throws -> T {
         let data = try encoder.encode(body)
         return try await request("DELETE", path: path, body: data)
     }
@@ -572,6 +572,68 @@ final class OMLXClient: ObservableObject {
         guard 200..<300 ~= http.statusCode else {
             let bodyStr = String(data: data, encoding: .utf8)
             throw OMLXClientError.http(status: http.statusCode, body: bodyStr)
+        }
+    }
+
+    func stream<T: Decodable & Sendable>(
+        method: String,
+        path: String,
+        query: [URLQueryItem] = [],
+        body: Data?
+    ) -> AsyncThrowingStream<T, Error> {
+        return AsyncThrowingStream { continuation in
+            Task {
+                var components = URLComponents()
+                components.scheme = "http"
+                components.host = host
+                components.port = port
+                components.path = path
+                if !query.isEmpty { components.queryItems = query }
+                guard let url = components.url else {
+                    continuation.finish(throwing: OMLXClientError.invalidURL)
+                    return
+                }
+
+                var req = URLRequest(url: url)
+                req.httpMethod = method
+                req.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+                if let body = body {
+                    req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                    req.httpBody = body
+                }
+
+                do {
+                    let (byteStream, response) = try await session.bytes(for: req)
+                    guard let http = response as? HTTPURLResponse else {
+                        throw OMLXClientError.invalidResponse
+                    }
+                    guard 200..<300 ~= http.statusCode else {
+                        throw OMLXClientError.http(status: http.statusCode, body: nil)
+                    }
+
+                    for try await line in byteStream.lines {
+                        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if trimmed.hasPrefix("data: ") {
+                            let dataStr = String(trimmed.dropFirst(6))
+                            if dataStr == "[DONE]" {
+                                break
+                            }
+                            if let data = dataStr.data(using: .utf8) {
+                                do {
+                                    let decoded = try decoder.decode(T.self, from: data)
+                                    continuation.yield(decoded)
+                                } catch {
+                                    // Ignore JSON parse errors for incomplete chunks
+                                    print("Failed to decode SSE chunk: \(error)")
+                                }
+                            }
+                        }
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
         }
     }
 }

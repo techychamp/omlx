@@ -22,6 +22,7 @@ class CompilerSession:
     start_time: float
     end_time: Optional[float] = None
     translation_result: Optional[TranslationResult] = None
+    cache_plan: Optional[Any] = None
     diagnostics: list[str] = None
     status: str = "active"
 

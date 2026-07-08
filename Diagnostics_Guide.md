@@ -1,2 +1,1 @@
-# Diagnostics Guide
-Completed as part of PERF-004.
+# Diagnostics Guide\nCompleted as part of PERF-004.
