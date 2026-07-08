@@ -98,6 +98,7 @@ struct AppView: View {
         case .server:       ServerScreen()
         case .network:      NetworkScreen()
         case .performance:  PerformanceScreen()
+        case .diagnostics:  PerformanceDashboardView(diagnosticsService: services.diagnosticsService)
         case .status:       StatusScreen()
         case .logs:         LogsScreen()
         case .models:
@@ -442,6 +443,7 @@ private struct SettingsSidebar: View {
                 SidebarRow(section: .server)
                 SidebarRow(section: .network)
                 SidebarRow(section: .performance)
+                SidebarRow(section: .diagnostics)
                 SidebarRow(section: .logs)
             } header: {
                 Text(String(localized: "sidebar.group.server",
