@@ -13,6 +13,7 @@ enum AppSection: String, Hashable, CaseIterable, Identifiable, Sendable {
     case models, downloads, integrations, quantization
     case throughputBench, accuracyBench
     case security, about, developer
+    case modelManagement, runtimeAdministration
 
     var id: String { rawValue }
 
@@ -78,6 +79,14 @@ enum AppSection: String, Hashable, CaseIterable, Identifiable, Sendable {
             return String(localized: "sidebar.developer",
                           defaultValue: "Developer Studio",
                           comment: "Sidebar row label / navigation title for the Developer Studio section")
+        case .modelManagement:
+            return String(localized: "sidebar.modelManagement",
+                          defaultValue: "Model Management",
+                          comment: "Sidebar row label / navigation title for the Model Management section")
+        case .runtimeAdministration:
+            return String(localized: "sidebar.runtimeAdministration",
+                          defaultValue: "Runtime Administration",
+                          comment: "Sidebar row label / navigation title for the Runtime Administration section")
         }
     }
 
@@ -98,6 +107,8 @@ enum AppSection: String, Hashable, CaseIterable, Identifiable, Sendable {
         case .security:        return "lock"
         case .about:           return "info.circle"
         case .developer:       return "hammer.fill"
+        case .modelManagement: return "cube.box"
+        case .runtimeAdministration: return "gearshape.2"
         }
     }
 
