@@ -113,6 +113,7 @@ struct AppView: View {
         case .accuracyBench:   AccuracyBenchScreen(vm: services.accuracyBench)
         case .security:     SecurityScreen()
         case .about:        AboutScreen()
+        case .developer:    DeveloperStudioScreen(services: services)
         }
     }
 }
@@ -469,6 +470,7 @@ private struct SettingsSidebar: View {
             Section {
                 SidebarRow(section: .security)
                 SidebarRow(section: .about)
+                SidebarRow(section: .developer)
             } header: {
                 Text(String(localized: "sidebar.group.general",
                             defaultValue: "General",
