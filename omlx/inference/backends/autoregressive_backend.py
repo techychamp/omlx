@@ -49,12 +49,7 @@ class ForwardStage(ExecutionStage):
             raise TypeError("Expected TransformerExecutionEngine")
         
         responses = engine.forward(inputs)
-        if responses:
-            try:
-                return next(responses)
-            except StopIteration:
-                pass
-        return inputs
+        return responses if responses is not None else inputs
 
 
 class SampleStage(ExecutionStage):

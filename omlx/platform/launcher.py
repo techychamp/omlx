@@ -97,6 +97,11 @@ class Launcher:
             logger.info("Starting service: %s", s.__class__.__name__)
             s.start()
 
+        # Healthy
+        for s in self.services:
+            logger.info("Service healthy check-in: %s", s.__class__.__name__)
+            s.healthy()
+
         self.running = True
         self.event_bus.publish(PlatformEvent("BootstrapCompleted", data={}))
         logger.info("Platform Control Plane successfully bootstrapped.")
@@ -105,6 +110,7 @@ class Launcher:
         if not self.running:
             return
         logger.info("Shutting down Platform Control Plane...")
+        
         # Stop in reverse topological order
         for s in reversed(self.services):
             logger.info("Stopping service: %s", s.__class__.__name__)
@@ -112,6 +118,15 @@ class Launcher:
                 s.stop()
             except Exception as e:
                 logger.error("Error stopping service %s: %s", s.__class__.__name__, e)
+                
+        # Shutdown in reverse topological order
+        for s in reversed(self.services):
+            logger.info("Shutting down service: %s", s.__class__.__name__)
+            try:
+                s.shutdown()
+            except Exception as e:
+                logger.error("Error shutting down service %s: %s", s.__class__.__name__, e)
+                
         self.running = False
         logger.info("Platform Control Plane shut down complete.")
 

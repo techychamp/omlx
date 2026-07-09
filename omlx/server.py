@@ -594,6 +594,7 @@ set_admin_getters(
 app.include_router(admin_router)
 
 
+
 @app.exception_handler(_RedirectToLogin)
 async def redirect_to_login_handler(request, exc):
     """Redirect unauthenticated browser requests to the admin login page."""
@@ -1686,12 +1687,20 @@ def validate_context_window(
         )
 
 
+_server_initialized = False
+
+
 def init_server(
     model_dirs: str | list[str],
     scheduler_config=None,
     api_key: str | None = None,
     global_settings: object | None = None,
+    force: bool = False,
 ):
+    global _server_initialized
+    if _server_initialized and not force:
+        logger.info("Server already initialized, skipping init_server")
+        return
     """
     Initialize server with model directories for multi-model serving.
 
@@ -1908,6 +1917,7 @@ def init_server(
     )
     set_hf_uploader(_server_state.hf_uploader)
     logger.info("HF Uploader initialized")
+    _server_initialized = True
 
 
 _KEEPALIVE_SENTINEL = object()
@@ -6850,6 +6860,44 @@ def main():
     finally:
         for sock in serve_sockets:
             sock.close()
+
+
+# Auto-initialize server state on module import (e.g. uvicorn workers), except during unit tests
+import sys
+is_testing = "pytest" in sys.modules or any("pytest" in arg for arg in sys.argv)
+if not is_testing:
+    try:
+        import argparse
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--model-dir", type=str, default=None)
+        parser.add_argument("--mcp-config", type=str, default=None)
+        parser.add_argument("--host", type=str, default="127.0.0.1")
+        parser.add_argument("--port", type=int, default=8000)
+        args, _ = parser.parse_known_args()
+
+        from .settings import GlobalSettings
+        settings = GlobalSettings.load(cli_args=args)
+        settings.ensure_directories()
+        
+        scheduler_config = settings.to_scheduler_config()
+        paged_ssd_cache_dir = str(settings.cache.get_ssd_cache_dir(settings.base_path)) if settings.cache.enabled else None
+        scheduler_config.paged_ssd_cache_dir = paged_ssd_cache_dir
+        if paged_ssd_cache_dir:
+            cache_max_size_bytes = settings.cache.get_ssd_cache_max_size_bytes(settings.base_path)
+            scheduler_config.paged_ssd_cache_max_size = cache_max_size_bytes
+            scheduler_config.hot_cache_max_size = settings.cache.get_hot_cache_max_size_bytes()
+        else:
+            scheduler_config.paged_ssd_cache_max_size = 0
+            scheduler_config.hot_cache_max_size = 0
+
+        init_server(
+            model_dirs=[args.model_dir or str(settings.base_path / "models")],
+            scheduler_config=scheduler_config,
+            api_key=settings.auth.api_key,
+            global_settings=settings,
+        )
+    except Exception as e:
+        logger.error("Auto-initialization at module import failed: %s", e)
 
 
 if __name__ == "__main__":

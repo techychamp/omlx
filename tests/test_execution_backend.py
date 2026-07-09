@@ -31,6 +31,7 @@ def test_autoregressive_backend_execute_cycle():
     engine = TransformerExecutionEngine(batch_generator=mock_bg)
     backend = AutoregressiveBackend(engine)
     
-    res = backend.execute_cycle(inputs=None)
+    res = list(backend.execute_cycle(inputs=None))
     assert res is not None
-    assert res.token == 100
+    assert len(res) > 0
+    assert res[0].token == 100

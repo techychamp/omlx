@@ -40,10 +40,16 @@ class StateAggregator(PlatformService):
 
         services = self.context.registry.services
         healths = {}
-        capabilities = []
+        capabilities = {}
         for s_name, s_info in services.items():
             healths[s_name] = s_info.get("health", "healthy")
-            capabilities.extend(s_info.get("capabilities", []))
+            svc_caps = s_info.get("capabilities", {})
+            if isinstance(svc_caps, dict):
+                for cap_name, cap_info in svc_caps.items():
+                    capabilities[cap_name] = cap_info
+            elif isinstance(svc_caps, list):
+                for cap_name in svc_caps:
+                    capabilities[cap_name] = {"enabled": True}
         
         # Get launcher services state mapping
         launcher_states = {}
@@ -70,10 +76,11 @@ class StateAggregator(PlatformService):
         feature_flags = getattr(sys_config, "feature_flags", {}) if sys_config else {}
 
         manifest = {
+            "manifest_version": 1,
             "platform_version": "1.0.0",
             "compatibility_version": "1.0.0",
             "services": services,
-            "capabilities": list(set(capabilities)),
+            "capabilities": capabilities,
             "running_processes": running_proc_info,
             "configuration_version": getattr(self.context.config, "version", "1.0.0"),
             "feature_flags": feature_flags,

@@ -3,89 +3,76 @@ import sys
 import unittest.mock as mock
 import pytest
 
-mock_mlx = mock.MagicMock()
-mock_mlx.__version__ = "0.15.0"
-sys.modules['mlx'] = mock_mlx
-sys.modules['mlx.core'] = mock_mlx
-sys.modules['mlx.core.metal'] = mock_mlx
-sys.modules['mlx.nn'] = mock_mlx
-sys.modules['mlx.utils'] = mock_mlx
+# Save original modules to prevent leakage
+_mocked_keys = [
+    'mlx', 'mlx.core', 'mlx.core.metal', 'mlx.nn', 'mlx.utils',
+    'mlx_lm', 'mlx_lm.generate', 'mlx_lm.models', 'mlx_lm.models.cache', 'mlx_lm.sample_utils',
+    'mlx_vlm', 'mlx_vlm.speculative', 'mlx_vlm.speculative.utils',
+    'numpy', 'pydantic', 'fastapi', 'fastapi.security', 'fastapi.responses',
+    'sse_starlette', 'sse_starlette.sse', 'starlette', 'starlette.background',
+    'regex', 'jsonschema', 'openai_harmony', 'PIL', 'itsdangerous', 'requests',
+    'fastapi.templating', 'huggingface_hub'
+]
 
-mock_mlx_lm = mock.MagicMock()
-sys.modules['mlx_lm'] = mock_mlx_lm
-sys.modules['mlx_lm.generate'] = mock_mlx_lm
-sys.modules['mlx_lm.models'] = mock_mlx_lm
-sys.modules['mlx_lm.models.cache'] = mock_mlx_lm
-sys.modules['mlx_lm.sample_utils'] = mock_mlx_lm
-sys.modules['mlx_vlm'] = mock_mlx_lm
-sys.modules['mlx_vlm.speculative'] = mock_mlx_lm
-sys.modules['mlx_vlm.speculative.utils'] = mock_mlx_lm
+@pytest.fixture(scope="module", autouse=True)
+def cleanup_sys_modules():
+    # Save original modules
+    orig_modules = {k: sys.modules.get(k) for k in _mocked_keys if k in sys.modules}
 
-sys.modules['numpy'] = mock.MagicMock()
-class MockBaseModel:
-    pass
-class MockPydantic(mock.MagicMock):
-    __path__ = []
-    BaseModel = MockBaseModel
-    Field = lambda *args, **kwargs: None
-sys.modules['pydantic'] = MockPydantic()
-sys.modules['fastapi'] = mock.MagicMock()
-sys.modules['fastapi.security'] = mock.MagicMock()
-sys.modules['fastapi.responses'] = mock.MagicMock()
-sys.modules['sse_starlette'] = mock.MagicMock()
-sys.modules['sse_starlette.sse'] = mock.MagicMock()
-sys.modules['starlette'] = mock.MagicMock()
-sys.modules['starlette.background'] = mock.MagicMock()
-sys.modules['regex'] = mock.MagicMock()
-sys.modules['jsonschema'] = mock.MagicMock()
-sys.modules['openai_harmony'] = mock.MagicMock()
-sys.modules['PIL'] = mock.MagicMock()
-sys.modules['itsdangerous'] = mock.MagicMock()
-sys.modules['requests'] = mock.MagicMock()
-sys.modules['fastapi.templating'] = mock.MagicMock()
-class MockBaseModel:
-    pass
-class MockPydantic(mock.MagicMock):
-    __path__ = []
-    BaseModel = MockBaseModel
-    Field = lambda *args, **kwargs: None
-sys.modules['pydantic'] = MockPydantic()
-sys.modules['fastapi'] = mock.MagicMock()
-sys.modules['fastapi.security'] = mock.MagicMock()
-sys.modules['fastapi.responses'] = mock.MagicMock()
-sys.modules['sse_starlette'] = mock.MagicMock()
-sys.modules['sse_starlette.sse'] = mock.MagicMock()
-sys.modules['starlette'] = mock.MagicMock()
-sys.modules['starlette.background'] = mock.MagicMock()
-sys.modules['regex'] = mock.MagicMock()
-sys.modules['jsonschema'] = mock.MagicMock()
-sys.modules['openai_harmony'] = mock.MagicMock()
-sys.modules['PIL'] = mock.MagicMock()
-sys.modules['itsdangerous'] = mock.MagicMock()
-sys.modules['requests'] = mock.MagicMock()
-sys.modules['fastapi.templating'] = mock.MagicMock()
-class MockBaseModel:
-    pass
-class MockPydantic(mock.MagicMock):
-    __path__ = []
-    BaseModel = MockBaseModel
-    Field = lambda *args, **kwargs: None
-sys.modules['pydantic'] = MockPydantic()
-sys.modules['fastapi'] = mock.MagicMock()
-sys.modules['fastapi.security'] = mock.MagicMock()
-sys.modules['fastapi.responses'] = mock.MagicMock()
-sys.modules['sse_starlette'] = mock.MagicMock()
-sys.modules['sse_starlette.sse'] = mock.MagicMock()
-sys.modules['starlette'] = mock.MagicMock()
-sys.modules['starlette.background'] = mock.MagicMock()
-sys.modules['regex'] = mock.MagicMock()
-sys.modules['jsonschema'] = mock.MagicMock()
-sys.modules['openai_harmony'] = mock.MagicMock()
-sys.modules['PIL'] = mock.MagicMock()
-sys.modules['itsdangerous'] = mock.MagicMock()
-sys.modules['requests'] = mock.MagicMock()
-sys.modules['fastapi.templating'] = mock.MagicMock()
-sys.modules['huggingface_hub'] = mock.MagicMock()
+    # Set up mocks
+    mock_mlx = mock.MagicMock()
+    mock_mlx.__version__ = "0.15.0"
+    sys.modules['mlx'] = mock_mlx
+    sys.modules['mlx.core'] = mock_mlx
+    sys.modules['mlx.core.metal'] = mock_mlx
+    sys.modules['mlx.nn'] = mock_mlx
+    sys.modules['mlx.utils'] = mock_mlx
+
+    mock_mlx_lm = mock.MagicMock()
+    sys.modules['mlx_lm'] = mock_mlx_lm
+    sys.modules['mlx_lm.generate'] = mock_mlx_lm
+    sys.modules['mlx_lm.models'] = mock_mlx_lm
+    sys.modules['mlx_lm.models.cache'] = mock_mlx_lm
+    sys.modules['mlx_lm.sample_utils'] = mock_mlx_lm
+    sys.modules['mlx_vlm'] = mock_mlx_lm
+    sys.modules['mlx_vlm.speculative'] = mock_mlx_lm
+    sys.modules['mlx_vlm.speculative.utils'] = mock_mlx_lm
+
+    sys.modules['numpy'] = mock.MagicMock()
+
+    class MockBaseModel:
+        pass
+    class MockPydantic(mock.MagicMock):
+        __path__ = []
+        BaseModel = MockBaseModel
+        Field = lambda *args, **kwargs: None
+
+    sys.modules['pydantic'] = MockPydantic()
+    sys.modules['fastapi'] = mock.MagicMock()
+    sys.modules['fastapi.security'] = mock.MagicMock()
+    sys.modules['fastapi.responses'] = mock.MagicMock()
+    sys.modules['sse_starlette'] = mock.MagicMock()
+    sys.modules['sse_starlette.sse'] = mock.MagicMock()
+    sys.modules['starlette'] = mock.MagicMock()
+    sys.modules['starlette.background'] = mock.MagicMock()
+    sys.modules['regex'] = mock.MagicMock()
+    sys.modules['jsonschema'] = mock.MagicMock()
+    sys.modules['openai_harmony'] = mock.MagicMock()
+    sys.modules['PIL'] = mock.MagicMock()
+    sys.modules['itsdangerous'] = mock.MagicMock()
+    sys.modules['requests'] = mock.MagicMock()
+    sys.modules['fastapi.templating'] = mock.MagicMock()
+    sys.modules['huggingface_hub'] = mock.MagicMock()
+
+    yield
+
+    # Restore original modules
+    for k in _mocked_keys:
+        if k in orig_modules:
+            sys.modules[k] = orig_modules[k]
+        elif k in sys.modules:
+            del sys.modules[k]
+
 
 from omlx.runtime.feature_flags import FeatureFlags
 from omlx.runtime.builder import RuntimeBuilder, RuntimeStateEnum

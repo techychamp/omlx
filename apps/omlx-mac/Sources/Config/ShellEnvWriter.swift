@@ -52,6 +52,21 @@ enum ShellEnvWriter {
             .appendingPathComponent("Contents", isDirectory: true)
             .appendingPathComponent("MacOS", isDirectory: true)
             .appendingPathComponent("one-cli")
+        if !FileManager.default.isExecutableFile(atPath: bundleCLI.path) {
+            let homeDir = FileManager.default.homeDirectoryForCurrentUser
+            let venvPython = homeDir.appendingPathComponent("dev/repo/omlx/.venv/bin/python").path
+            let debugScript = """
+            #!/bin/sh
+            if [ -x "\(venvPython)" ]; then
+                exec "\(venvPython)" -m omlx.cli "$@"
+            else
+                echo "oMLX: Workspace python not found at \(venvPython)."
+                exit 1
+            fi
+            """
+            try? debugScript.write(to: bundleCLI, atomically: true, encoding: .utf8)
+            try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: bundleCLI.path)
+        }
         guard FileManager.default.isExecutableFile(atPath: bundleCLI.path) else {
             throw WriterError.cliWrapperNotExecutable(bundleCLI.path)
         }

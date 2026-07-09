@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 from ..base import PlatformService, PlatformContext
-from ..event_bus import PlatformEvent
+from ..event_bus import PlatformEvent, PlatformCommand
 import subprocess
 import sys
 import os
@@ -122,6 +122,12 @@ class ProcessManager(PlatformService):
         self.context = context
         context.process_manager = self
         
+        # Register command handlers on the bus!
+        from ..event_bus import PlatformCommand
+        context.event_bus.register_command("RestartProcess", self.handle_restart_command)
+        context.event_bus.register_command("MarkProcessDegraded", self.handle_mark_degraded_command)
+        context.event_bus.register_command("MarkProcessHealthy", self.handle_mark_healthy_command)
+
         # Discover subclasses of ManagedProcess dynamically
         for cls in ManagedProcess.__subclasses__():
             proc = cls()
@@ -131,15 +137,35 @@ class ProcessManager(PlatformService):
         event_bus.subscribe("ConfigChanged", self.handle_config_change)
         event_bus.subscribe("RuntimeReady", self.handle_runtime_ready)
 
-    def handle_config_change(self, event: PlatformEvent) -> None:
-        self.context.logger.info("ConfigChanged event received. Restarting Runtime process...")
-        runtime_proc = self.processes.get("runtime")
-        if runtime_proc:
+    def handle_restart_command(self, cmd: PlatformCommand) -> None:
+        proc_name = cmd.data.get("process_name")
+        self.context.logger.info(f"Command RestartProcess received for {proc_name}")
+        proc = self.processes.get(proc_name)
+        if proc:
             try:
-                runtime_proc.stop(self.context)
-                runtime_proc.start(self.context)
+                proc.stop(self.context)
+                proc.start(self.context)
             except Exception as e:
-                self.context.logger.error("Failed to restart Runtime process on config change: %s", e)
+                self.context.logger.error(f"Failed to restart process {proc_name}: {e}")
+
+    def handle_mark_degraded_command(self, cmd: PlatformCommand) -> None:
+        proc_name = cmd.data.get("process_name")
+        proc = self.processes.get(proc_name)
+        if proc and proc.state == "Healthy":
+            proc.set_state("Degraded", self.context)
+
+    def handle_mark_healthy_command(self, cmd: PlatformCommand) -> None:
+        proc_name = cmd.data.get("process_name")
+        proc = self.processes.get(proc_name)
+        if proc and proc.state == "Degraded":
+            proc.set_state("Healthy", self.context)
+
+    def handle_config_change(self, event: PlatformEvent) -> None:
+        self.context.logger.info("ConfigChanged event received. Triggering RestartProcess command...")
+        from ..event_bus import PlatformCommand
+        self.context.event_bus.send_command(
+            PlatformCommand("RestartProcess", data={"process_name": "runtime"})
+        )
 
     def handle_runtime_ready(self, event: PlatformEvent) -> None:
         runtime_proc = self.processes.get("runtime")

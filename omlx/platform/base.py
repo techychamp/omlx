@@ -44,8 +44,16 @@ class PlatformService:
         """Start the service execution, spawn background workers or threads if needed."""
         pass
 
+    def healthy(self) -> None:
+        """Called when all services have been started and the platform is healthy."""
+        pass
+
     def stop(self) -> None:
-        """Gracefully shut down the service and clean up resources."""
+        """Gracefully instruct the service to stop accepting work."""
+        pass
+
+    def shutdown(self) -> None:
+        """Gracefully shut down the service and clean up resources completely."""
         pass
 
     def health(self) -> dict:
@@ -57,5 +65,5 @@ class PlatformService:
         return {}
 
     def subscribe_events(self, event_bus: Any) -> None:
-        """Register listeners for relevant platform events."""
+        """Register listeners for platform messages."""
         pass

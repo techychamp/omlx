@@ -38,6 +38,10 @@ class EngineCapabilities:
     supports_shared_cache: bool = False
     supports_flash_attention: bool = False
     supports_streaming: bool = True
+    supports_continuous_batching: bool = False
+    supports_chunked_prefill: bool = False
+    supports_paged_attention: bool = False
+    supports_vision: bool = False
 
 
 @dataclass

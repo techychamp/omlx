@@ -3,7 +3,7 @@ from ..base import PlatformService, PlatformContext
 from ..event_bus import PlatformEvent
 import time
 import threading
-from typing import List
+from typing import List, Dict
 
 class RecoveryPolicy:
     def match(self, process_name: str, exit_code: int) -> bool:
@@ -45,6 +45,22 @@ class DefaultRecoveryPolicy(RecoveryPolicy):
             "policy": "restart_with_backoff"
         }
 
+class RecoveryPolicyResolver:
+    def __init__(self, context: PlatformContext) -> None:
+        self.context = context
+        self.process_policies: Dict[str, List[RecoveryPolicy]] = {}
+
+    def register_policies(self, process_name: str, policies: List[RecoveryPolicy]) -> None:
+        self.process_policies[process_name] = policies
+
+    def resolve_policies(self, process_name: str) -> List[RecoveryPolicy]:
+        return self.process_policies.get(process_name, [
+            ConfigErrorRecoveryPolicy(),
+            OOMRecoveryPolicy(),
+            SegfaultRecoveryPolicy(),
+            DefaultRecoveryPolicy()
+        ])
+
 class RecoveryService(PlatformService):
     name = "recovery"
     version = "1.0.0"
@@ -56,16 +72,11 @@ class RecoveryService(PlatformService):
         self.context: PlatformContext | None = None
         self.restart_counts = {}
         self.last_recovery = None
-        self.policies: List[RecoveryPolicy] = []
+        self.resolver = None
 
     def initialize(self, context: PlatformContext) -> None:
         self.context = context
-        self.policies = [
-            ConfigErrorRecoveryPolicy(),
-            OOMRecoveryPolicy(),
-            SegfaultRecoveryPolicy(),
-            DefaultRecoveryPolicy()
-        ]
+        self.resolver = RecoveryPolicyResolver(context)
 
     def subscribe_events(self, event_bus) -> None:
         event_bus.subscribe("ProcessCrashed", self.handle_crash)
@@ -76,8 +87,9 @@ class RecoveryService(PlatformService):
         self.context.logger.warning(f"RecoveryService handling crash of process {process_name} with exit code {exit_code}")
         
         # Match policy
+        policies = self.resolver.resolve_policies(process_name)
         matched_policy = None
-        for p in self.policies:
+        for p in policies:
             if p.match(process_name, exit_code):
                 matched_policy = p
                 break
@@ -109,9 +121,7 @@ class RecoveryService(PlatformService):
             self.context.event_bus.publish(
                 PlatformEvent("PlatformNotification", data={"type": "warning", "message": action.get("notify")})
             )
-            # Apply temporary config cache ceiling
             if self.context.config and hasattr(self.context.config, "server"):
-                # Simulating cache reduction in local settings
                 self.context.logger.info("Applying lower memory cache settings for next launch.")
 
         # Determine wait time based on policy type
@@ -134,8 +144,10 @@ class RecoveryService(PlatformService):
         if pm and process_name in pm.processes:
             self.context.logger.info(f"Restarting process {process_name} (attempt {count + 1})")
             try:
-                proc = pm.processes[process_name]
-                proc.start(self.context)
+                from ..event_bus import PlatformCommand
+                self.context.event_bus.send_command(
+                    PlatformCommand("RestartProcess", data={"process_name": process_name})
+                )
             except Exception as e:
                 self.context.logger.error(f"Failed to restart process {process_name}: {e}")
 

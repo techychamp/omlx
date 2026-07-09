@@ -344,9 +344,15 @@ struct AppConfig: Sendable, Equatable, Codable {
     /// other key in the file (cache, claude_code, integrations, …).
     func save() throws {
         let url = AppConfig.settingsURL(basePath: basePath)
+        let baseDir = URL(fileURLWithPath: basePath, isDirectory: true)
+        let configDir = baseDir.appendingPathComponent("config", isDirectory: true)
 
         try FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(
+            at: configDir,
             withIntermediateDirectories: true
         )
 
@@ -369,8 +375,6 @@ struct AppConfig: Sendable, Equatable, Codable {
         json["auth"] = auth
 
         var model = (json["model"] as? [String: Any]) ?? [:]
-        // `modelDirs` is always persisted as the canonical ordered list, with
-        // `model_dir` kept in sync for older server/app builds.
         let dirs = effectiveModelDirs
         model["model_dirs"] = dirs
         model["model_dir"] = dirs[0]
@@ -382,11 +386,37 @@ struct AppConfig: Sendable, Equatable, Codable {
 
         if json["version"] == nil { json["version"] = "1.0" }
 
+        // Write legacy settings.json
         let out = try JSONSerialization.data(
             withJSONObject: json,
             options: [.prettyPrinted]
         )
         try out.write(to: url, options: [.atomic])
+
+        // Write segmented server.json
+        let serverData = try JSONSerialization.data(withJSONObject: ["server": server], options: [.prettyPrinted])
+        try serverData.write(to: configDir.appendingPathComponent("server.json"), options: [.atomic])
+
+        // Write segmented auth.json
+        let authData = try JSONSerialization.data(withJSONObject: ["auth": auth], options: [.prettyPrinted])
+        try authData.write(to: configDir.appendingPathComponent("auth.json"), options: [.atomic])
+
+        // Write segmented models.json
+        let modelsData = try JSONSerialization.data(withJSONObject: ["model": model], options: [.prettyPrinted])
+        try modelsData.write(to: configDir.appendingPathComponent("models.json"), options: [.atomic])
+
+        // Write segmented system.json
+        let systemUrl = configDir.appendingPathComponent("system.json")
+        var systemJson: [String: Any] = [:]
+        if FileManager.default.fileExists(atPath: systemUrl.path),
+           let data = try? Data(contentsOf: systemUrl),
+           let existing = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            systemJson = existing
+        }
+        systemJson["huggingface"] = hf
+        if systemJson["version"] == nil { systemJson["version"] = "1.0.0" }
+        let systemData = try JSONSerialization.data(withJSONObject: systemJson, options: [.prettyPrinted])
+        try systemData.write(to: systemUrl, options: [.atomic])
     }
 
     // MARK: - Internal
@@ -407,6 +437,53 @@ struct AppConfig: Sendable, Equatable, Codable {
     }
 
     private static func readSettings(basePath: String) throws -> ServerSettingsSlice {
+        let baseDir = URL(fileURLWithPath: basePath, isDirectory: true)
+        let configDir = baseDir.appendingPathComponent("config", isDirectory: true)
+        
+        let serverJsonURL = configDir.appendingPathComponent("server.json")
+        let authJsonURL = configDir.appendingPathComponent("auth.json")
+        let modelsJsonURL = configDir.appendingPathComponent("models.json")
+        let systemJsonURL = configDir.appendingPathComponent("system.json")
+        
+        if FileManager.default.fileExists(atPath: serverJsonURL.path) ||
+           FileManager.default.fileExists(atPath: authJsonURL.path) ||
+           FileManager.default.fileExists(atPath: modelsJsonURL.path) {
+            
+            var server: [String: Any]? = nil
+            var auth: [String: Any]? = nil
+            var model: [String: Any]? = nil
+            var hf: [String: Any]? = nil
+            
+            if let data = try? Data(contentsOf: serverJsonURL),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                server = json["server"] as? [String: Any]
+            }
+            if let data = try? Data(contentsOf: authJsonURL),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                auth = json["auth"] as? [String: Any]
+            }
+            if let data = try? Data(contentsOf: modelsJsonURL),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                model = json["model"] as? [String: Any]
+            }
+            if let data = try? Data(contentsOf: systemJsonURL),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                hf = json["huggingface"] as? [String: Any]
+            }
+            
+            let bindAddr = server?["host"] as? String
+                ?? server?["bind_address"] as? String
+            return ServerSettingsSlice(
+                bindAddress: bindAddr,
+                port: server?["port"] as? Int,
+                autoStartOnLaunch: server?["auto_start_on_launch"] as? Bool,
+                apiKey: auth?["api_key"] as? String,
+                modelDirs: model?["model_dirs"] as? [String],
+                modelDir: model?["model_dir"] as? String,
+                hfEndpoint: hf?["endpoint"] as? String
+            )
+        }
+
         let url = settingsURL(basePath: basePath)
         guard FileManager.default.fileExists(atPath: url.path) else {
             return ServerSettingsSlice()

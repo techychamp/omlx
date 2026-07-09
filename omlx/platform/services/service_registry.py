@@ -20,7 +20,7 @@ class ServiceRegistry(PlatformService):
         service_name = event.data.get("service_name", "unknown")
         self.services[service_name] = {
             "endpoint": event.data.get("endpoint"),
-            "capabilities": event.data.get("capabilities", []),
+            "capabilities": event.data.get("capabilities", {}),
             "pid": event.data.get("pid"),
             "health": event.data.get("health", "healthy")
         }
