@@ -68,8 +68,7 @@ class DevicePlanner:
         plan = DevicePlan(
             placement=placement,
             affinity=affinity,
-
-            planner_metadata=metadata
+            metadata=metadata
         )
 
         if self.cache_manager:

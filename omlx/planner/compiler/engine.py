@@ -13,7 +13,13 @@ from omlx.planner.ir.physical.graph import PhysicalIR
 from .passes import LogicalPassRegistry, PhysicalPassRegistry
 from .lowering import LoweringEngine
 from .cache.manager import CompilerCacheManager
-from .optimization_pipeline import OptimizationPipeline
+from omlx.optimization.pipeline import OptimizationPipeline
+from omlx.optimization.manager import PassManager
+from omlx.optimization.passes import CompilerStage, OptimizationContext
+from omlx.optimization.intelligence.planner import OptimizationPlanner
+from omlx.optimization.intelligence.policies import AdaptiveOptimizationPolicy
+from omlx.optimization.intelligence.cost_cache import CostCache
+from omlx.optimization.intelligence.statistics import IntelligenceStatisticsTracker
 from .dependency_tracker import DependencyTracker
 from .backend.adapter import BaseBackendAdapter
 from .backend.registry import AdapterRegistry
@@ -45,11 +51,20 @@ class CompilerEngine:
         self.cache_manager = cache_manager
         self.dependency_tracker = dependency_tracker or DependencyTracker()
         self.lowering_engine = lowering_engine or LoweringEngine(cache_manager=cache_manager, dependency_tracker=self.dependency_tracker)
-        self.optimization_pipeline = OptimizationPipeline(self.logical_registry, self.physical_registry)
+        self.optimization_planner = OptimizationPlanner(AdaptiveOptimizationPolicy(), CostCache(), IntelligenceStatisticsTracker())
 
     def compile(self, logical_ir: ExecutionIR, planning_bundle: Optional['PlanningBundle'] = None) -> PhysicalIR:
         """Runs the full compiler pipeline: Planning -> IR -> Logical Passes -> Lowering -> Physical Passes."""
         with get_observer().observe_phase("Compilation", "Compiler", "compile"):
+
+            if planning_bundle:
+                from omlx.optimization.apple import AppleDeviceOptimizationPass
+                apple_pm = PassManager()
+                apple_pm.register(AppleDeviceOptimizationPass())
+                planning_bundle = OptimizationPipeline(CompilerStage.EXECUTION_PLAN, apple_pm).execute(
+                    planning_bundle, OptimizationContext(tracker=get_observer())
+                )
+
 
             # Conditionally inject Cache realization pass if plan is provided
 
@@ -112,9 +127,16 @@ class CompilerEngine:
                  if batch_pass.report:
                      get_observer().track_artifact("BatchTransformationReport", batch_pass.report)
 
-            # 1. Logical Optimization
+                        # 1. Logical Optimization
             logger.debug("Applying logical passes")
-            optimized_logical_ir = self.optimization_pipeline.optimize_logical(logical_ir)
+            logical_passes = self.logical_registry.get_passes()
+            selected_logical_passes, _ = self.optimization_planner.select_passes(logical_passes, logical_ir)
+            logical_pass_manager = PassManager()
+            for p in selected_logical_passes:
+                logical_pass_manager.register(p)
+            optimized_logical_ir = OptimizationPipeline(CompilerStage.LOGICAL_IR, logical_pass_manager).execute(
+                logical_ir, OptimizationContext(tracker=get_observer(), stats=None, analysis_cache=None)
+            )
             get_observer().track_artifact("LogicalIR", optimized_logical_ir)
 
             # Run Graph Analysis
@@ -131,9 +153,16 @@ class CompilerEngine:
             logger.debug("Lowering Logical IR to Physical IR")
             physical_ir = self.lowering_engine.lower(optimized_logical_ir)
 
-            # 3. Physical Optimization
+                        # 3. Physical Optimization
             logger.debug("Applying physical passes")
-            optimized_physical_ir = self.optimization_pipeline.optimize_physical(physical_ir)
+            physical_passes = self.physical_registry.get_passes()
+            selected_physical_passes, _ = self.optimization_planner.select_passes(physical_passes, physical_ir)
+            physical_pass_manager = PassManager()
+            for p in selected_physical_passes:
+                physical_pass_manager.register(p)
+            optimized_physical_ir = OptimizationPipeline(CompilerStage.PHYSICAL_IR, physical_pass_manager).execute(
+                physical_ir, OptimizationContext(tracker=get_observer(), stats=None, analysis_cache=None)
+            )
 
             if diffusion_execution_graph:
                 import dataclasses

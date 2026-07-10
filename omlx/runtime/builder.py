@@ -13,7 +13,7 @@ from omlx.capabilities import CapabilityResolver
 from omlx.capabilities.descriptor import CapabilityDescriptor
 from omlx.planner.planner import ExecutionPlanner, ExecutionPlan
 from omlx.planner.device.planner import DevicePlanner
-from omlx.planner.bundle import PlanningBundle
+from omlx.planner.domains.bundle import PlanningBundle
 from omlx.planner.ir.builder import IRBuilder
 from omlx.planner.compiler import LoweringEngine
 from omlx.planner.compiler.backend import AdapterRegistry, BackendDescriptorRegistry, MLXAdapter

@@ -2,7 +2,7 @@ import pytest
 from omlx.runtime.scheduling.artifacts import DependencyGraph, ExecutionPhase, DependencyBarrier, SynchronizationPoint
 from omlx.runtime.scheduling.scheduler import GraphScheduler
 from omlx.runtime.scheduling.policies import SchedulingPolicy
-from omlx.planner.bundle import PlanningBundle, MemoryPlan, CachePlan, VerificationPlan
+from omlx.planner.domains.bundle import PlanningBundle, MemoryPlan, CachePlan, VerificationPlan
 
 def extract_dependency_graph(bundle: PlanningBundle) -> DependencyGraph:
     # Build phases based on plans

@@ -10,6 +10,7 @@ from .validation import PassValidationError, validate_artifact_immutability
 from .manager import PassManager
 from .diagnostics import DiagnosticLevel
 
+
 T = TypeVar("T")
 
 class OptimizationPipeline:
@@ -49,22 +50,21 @@ class OptimizationPipeline:
             success = False
             result_art = art
             if ctx.tracker:
-                 ctx.tracker.add_diagnostic(
-                     DiagnosticLevel.INFO,
-                     f"Executing pass '{p.name}'.",
-                     pass_name=p.name
-                 )
+                 ctx.tracker.add_diagnostic(f"Executing pass '{p.name}'.")
             try:
                 result_art = p.apply(art, ctx)
                 success = True
             except Exception as e:
                 if ctx.tracker:
-                    ctx.tracker.add_diagnostic(
-                        DiagnosticLevel.ERROR,
-                        f"Pass '{p.name}' failed with exception: {e}",
-                        pass_name=p.name
-                    )
-                raise e # Fail-fast for now
+                    ctx.tracker.add_diagnostic(f"Pass '{p.name}' failed with exception: {e}")
+                from omlx.api.v1.exceptions import CompilerError
+                raise CompilerError(
+                    message=f"Pass {p.name} failed: {e}",
+                    code="PASS_FAILED",
+                    details={"pass_name": p.name, "error": str(e)},
+                    diagnostics={"reason": "Unexpected failure during optimization pass execution"},
+                    recommendation="Verify pass logic or report bug"
+                ) from e
             finally:
                 duration_ms = (time.perf_counter() - start_time) * 1000
                 if ctx.stats:

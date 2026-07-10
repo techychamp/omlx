@@ -307,7 +307,7 @@ class EngineCore:
             if flags.EXECUTION_PLAN_RUNTIME_ENABLED or flags.EXECUTION_PLAN_VALIDATION_ENABLED:
                 from omlx.planner.planner import ExecutionPlanner
                 from omlx.planner.device.planner import DevicePlanner
-                from omlx.planner.bundle import PlanningBundle
+                from omlx.planner.domains.bundle import PlanningBundle
                 from omlx.planner.compatibility import ExecutionProfileAdapter
                 from omlx.capabilities.descriptor import CapabilityDescriptor, ExecutionFamily
 

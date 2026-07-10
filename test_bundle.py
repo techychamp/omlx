@@ -1,5 +1,5 @@
 import pytest
-from omlx.planner.bundle import PlanningBundle
+from omlx.planner.domains.bundle import PlanningBundle
 from omlx.planner.plan import ExecutionPlan
 from omlx.planner.domains.batch import BatchPlanner
 from omlx.capabilities.descriptor import ExecutionFamily, CacheLayoutType

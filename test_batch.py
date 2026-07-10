@@ -1,6 +1,6 @@
 import pytest
 from omlx.planner.domains.batch import BatchPlanner
-from omlx.planner.bundle import PlanningBundle
+from omlx.planner.domains.bundle import PlanningBundle
 from omlx.planner.plan import ExecutionPlan
 from omlx.runtime.generation.batch import BatchGenerationStrategy
 

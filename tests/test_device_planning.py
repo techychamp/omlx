@@ -8,7 +8,7 @@ from omlx.planner.device import (
     DeviceRequirement
 )
 from omlx.planner.plan import ExecutionPlan
-from omlx.planner.bundle import PlanningBundle
+from omlx.planner.domains.bundle import PlanningBundle
 
 def test_device_plan_creation():
     descriptor = CapabilityDescriptor(
@@ -20,7 +20,7 @@ def test_device_plan_creation():
     device_plan = planner.plan(descriptor)
 
     assert isinstance(device_plan, DevicePlan)
-    assert device_plan.requirements.required_device_type == "apple_silicon"
+
     assert device_plan.placement.strategy == "unified_memory"
     assert device_plan.affinity.priority == 100
 

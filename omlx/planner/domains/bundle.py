@@ -6,6 +6,11 @@ from omlx.framework.cache.plan import CachePlan
 from .fusion.artifacts import FusionPlan
 from .diffusion.artifacts import DiffusionPlan
 from .moe.artifacts import MoEPlan
+from .batch.artifacts import BatchPlan
+from omlx.planner.plan import ExecutionPlan
+class VerificationPlan:
+    pass
+
 from .speculation.artifacts import SpeculativeExecutionDescriptor, SpeculativeExecutionGraph
 
 from omlx.planner.device.artifacts import DevicePlan
@@ -16,13 +21,14 @@ class PlanningBundle:
     Immutable composition of all planning artifacts from different Planning Domains.
     Runtime consumes this bundle.
     """
-    execution_plan: Optional[Any] = None # Will be properly typed when ExecutionPlan is moved
+    execution_plan: Optional['ExecutionPlan'] = None
     memory_plan: Optional[MemoryPlan] = None
     cache_plan: Optional[CachePlan] = None
-    verification_plan: Optional[Any] = None # Placeholder for future VerificationPlan
+    verification_plan: Optional['VerificationPlan'] = None
     fusion_plan: Optional[FusionPlan] = None
     diffusion_plan: Optional[DiffusionPlan] = None
     moe_plan: Optional[MoEPlan] = None
+    batch_plan: Optional[BatchPlan] = None
     device_plan: Optional[DevicePlan] = None
     speculation_plan: Optional[SpeculativeExecutionDescriptor] = None
     speculative_graph: Optional[SpeculativeExecutionGraph] = None

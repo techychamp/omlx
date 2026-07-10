@@ -3,7 +3,7 @@ from typing import Optional, Dict, Any, List
 
 from omlx.planner.planner import ExecutionPlanner
 from omlx.planner.plan import ExecutionPlan
-from omlx.planner.bundle import PlanningBundle, MemoryPlan, CachePlan, VerificationPlan
+from omlx.planner.domains.bundle import PlanningBundle, MemoryPlan, CachePlan, VerificationPlan
 from omlx.planner.device.artifacts import DevicePlan
 from omlx.planner.domains.moe.artifacts import MoEPlan, RoutingCompatibilityReport, RoutingValidationReport, RoutingStatistics
 from omlx.planner.domains.cache.artifacts import CacheRealizationReport, CacheRealizationStatistics
