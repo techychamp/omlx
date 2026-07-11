@@ -555,7 +555,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="oMLX API",
+    title="One API",
     description="LLM inference, optimized for your Mac",
     version=__version__,
     lifespan=lifespan,
@@ -741,7 +741,7 @@ async def scheduler_queue_full_handler(
 
 def _prefill_memory_error_detail(exc: PrefillMemoryExceededError) -> str:
     return (
-        "oMLX prefill memory guard rejected this prompt: "
+        "One prefill memory guard rejected this prompt: "
         f"{str(exc)} "
         "To continue, set Memory Guard to aggressive, raise the custom "
         "memory guard ceiling, free system memory, or compact/reduce context."
@@ -6994,22 +6994,6 @@ async def init_mcp(config_path: str):
 
 
 def main():
-    """Run the server (use omlx CLI instead)."""
-    parser = argparse.ArgumentParser(
-        description="oMLX multi-model serving for Apple Silicon",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-    # Multi-model serving
-    python -m omlx.server --model-dir /path/to/models
-
-    # With MCP tools
-    python -m omlx.server --model-dir /path/to/models --mcp-config mcp.json
-
-Note: Use the omlx CLI for full feature support.
-        """,
-    )
-def main():
     import argparse
     import logging
     import os
@@ -7019,7 +7003,7 @@ def main():
     import mlx.core as mx
 
     parser = argparse.ArgumentParser(
-        description="omlx: Data Plane Inference Server"
+        description="one: Data Plane Inference Server"
     )
     parser.add_argument(
         "--model-dir",

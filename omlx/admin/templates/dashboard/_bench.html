@@ -42,7 +42,7 @@
                             </div>
                             <a x-show="benchDeviceInfo?.owner_hash"
                                x-cloak
-                               :href="'https://omlx.ai/my/' + benchDeviceInfo.owner_hash"
+                               :href="'https://omlx.ai/my/' + (benchDeviceInfo?.owner_hash || '')"
                                target="_blank"
                                class="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-fg-secondary bg-surface-2 rounded-lg hover:bg-surface-3 hover:text-fg-title transition-all">
                                 <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
@@ -387,7 +387,7 @@
                                    :href="'https://omlx.ai/my/' + benchUploadDone?.owner_hash"
                                    target="_blank"
                                    class="flex items-center gap-1.5 text-sm font-medium text-fg-secondary hover:text-fg-title transition-colors">
-                                    Manage on omlx.ai
+                                     Manage on One
                                     <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
                                 </a>
                             </div>

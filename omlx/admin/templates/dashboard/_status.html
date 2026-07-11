@@ -10,12 +10,12 @@
                             <!-- Scope toggle -->
                             <div class="flex rounded-lg border border-line overflow-hidden">
                                 <button @click="statsScope = 'session'; showClearStatsConfirm = false; showClearAlltimeConfirm = false"
-                                        :class="statsScope === 'session' ? 'bg-accent-runtime text-white' : 'bg-surface-0 text-fg-tertiary hover:bg-surface-1'"
+                                        :class="statsScope === 'session' ? 'bg-accent-runtime text-inverse font-semibold' : 'bg-surface-0 text-fg-tertiary hover:text-accent-planning hover:bg-surface-1'"
                                         class="px-3 py-1.5 text-xs font-medium transition-all">
                                     {{ t('status.scope_session') }}
                                 </button>
                                 <button @click="statsScope = 'alltime'; showClearStatsConfirm = false; showClearAlltimeConfirm = false"
-                                        :class="statsScope === 'alltime' ? 'bg-accent-runtime text-white' : 'bg-surface-0 text-fg-tertiary hover:bg-surface-1'"
+                                        :class="statsScope === 'alltime' ? 'bg-accent-runtime text-inverse font-semibold' : 'bg-surface-0 text-fg-tertiary hover:text-accent-planning hover:bg-surface-1'"
                                         class="px-3 py-1.5 text-xs font-medium transition-all border-l border-line">
                                     {{ t('status.scope_alltime') }}
                                 </button>
@@ -24,7 +24,7 @@
                             <div class="flex items-center gap-1.5">
                                 <button x-show="(statsScope === 'session' && !showClearStatsConfirm) || (statsScope === 'alltime' && !showClearAlltimeConfirm)"
                                         @click="statsScope === 'session' ? showClearStatsConfirm = true : showClearAlltimeConfirm = true"
-                                        class="px-3 py-1.5 text-xs font-medium text-fg-tertiary hover:text-fg hover:bg-surface-2 rounded-lg transition-all flex items-center gap-1.5"
+                                        class="px-3 py-1.5 text-xs font-medium text-fg-tertiary hover:text-accent-planning hover:bg-surface-2 rounded-lg transition-all flex items-center gap-1.5"
                                         :title="statsScope === 'session' ? window.t('status.clear_tooltip') : window.t('status.clear_alltime_tooltip')">
                                     <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
                                     {{ t('status.clear') }}
@@ -44,7 +44,7 @@
                             </div>
                             <select x-model="selectedStatsModel"
                                     @change="loadStats()"
-                                    class="px-3 py-1.5 text-xs font-medium border border-line rounded-lg bg-surface-0 focus:ring-2 focus:ring-accent-runtime focus:border-accent-runtime transition-all">
+                                    class="one-input text-xs font-medium">
                                 <option value="">{{ t('status.filter_all_models') }}</option>
                                 <template x-for="m in llmModels" :key="m.id">
                                     <option :value="m.id" x-text="m.id"></option>
@@ -56,52 +56,52 @@
                     <!-- Three Stat Cards -->
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-8">
                         <!-- Total Prefill Tokens -->
-                        <div class="bg-surface-0 rounded-2xl border border-line p-5 sm:p-8 text-center">
+                        <div class="one-card p-5 sm:p-8 text-center">
                             <p class="text-xs font-bold uppercase tracking-widest text-fg-muted mb-3">{{ t('status.stat.total_tokens') }}</p>
-                            <p class="font-bold tracking-tight text-fg-title transition-all"
+                            <p class="font-bold tracking-tight text-fg-title transition-all font-tabular"
                                :class="getStatFontClass((statsScope === 'alltime' ? alltimeStats : stats).total_prompt_tokens)"
                                x-text="formatNumber((statsScope === 'alltime' ? alltimeStats : stats).total_prompt_tokens)"></p>
                         </div>
 
                         <!-- Cached Tokens Served -->
-                        <div class="bg-surface-0 rounded-2xl border border-line p-5 sm:p-8 text-center">
+                        <div class="one-card p-5 sm:p-8 text-center">
                             <p class="text-xs font-bold uppercase tracking-widest text-fg-muted mb-3">{{ t('status.stat.cached_tokens') }}</p>
-                            <p class="font-bold tracking-tight text-fg-title transition-all"
+                            <p class="font-bold tracking-tight text-fg-title transition-all font-tabular"
                                :class="getStatFontClass((statsScope === 'alltime' ? alltimeStats : stats).total_cached_tokens)"
                                x-text="formatNumber((statsScope === 'alltime' ? alltimeStats : stats).total_cached_tokens)"></p>
                         </div>
 
                         <!-- Cache Efficiency -->
-                        <div class="bg-surface-0 rounded-2xl border border-line p-5 sm:p-8 text-center">
+                        <div class="one-card p-5 sm:p-8 text-center">
                             <p class="text-xs font-bold uppercase tracking-widest text-fg-muted mb-3">{{ t('status.stat.cache_efficiency') }}</p>
-                            <p class="font-bold tracking-tight text-fg-title transition-all"
+                            <p class="font-bold tracking-tight text-fg-title transition-all font-tabular"
                                :class="getStatFontClass((statsScope === 'alltime' ? alltimeStats : stats).cache_efficiency)"
                                x-text="(statsScope === 'alltime' ? alltimeStats : stats).cache_efficiency.toFixed(1) + '%'"></p>
                         </div>
                     </div>
 
                     <!-- Speed Stats -->
-                    <div class="bg-surface-0 rounded-2xl border border-line overflow-hidden mb-8">
+                    <div class="one-card overflow-hidden mb-8">
                         <div class="flex items-center justify-between px-6 py-4 bg-surface-2 border-b border-line">
                             <div class="flex items-center gap-3">
                                 <i data-lucide="gauge" class="w-4 h-4 text-fg-tertiary"></i>
                                 <span class="text-xs font-bold uppercase tracking-wider text-fg-secondary">{{ t('status.speed.section_label') }}</span>
                             </div>
                         </div>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 sm:divide-x divide-neutral-100">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 sm:divide-x divide-neutral-100 dark:divide-neutral-800">
                             <div class="p-6">
                                 <p class="text-xs text-fg-tertiary mb-1">{{ t('status.speed.prompt_processing') }} <span class="text-fg-muted">{{ t('status.speed.prompt_processing_note') }}</span></p>
-                                <p class="text-2xl font-bold text-fg-title" x-text="(statsScope === 'alltime' ? alltimeStats : stats).avg_prefill_tps.toFixed(1) + ' tok/s'"></p>
+                                <p class="text-2xl font-bold text-fg-title font-tabular" x-text="(statsScope === 'alltime' ? alltimeStats : stats).avg_prefill_tps.toFixed(1) + ' tok/s'"></p>
                             </div>
                             <div class="p-6">
                                 <p class="text-xs text-fg-tertiary mb-1">{{ t('status.speed.token_generation') }}</p>
-                                <p class="text-2xl font-bold text-fg-title" x-text="(statsScope === 'alltime' ? alltimeStats : stats).avg_generation_tps.toFixed(1) + ' tok/s'"></p>
+                                <p class="text-2xl font-bold text-fg-title font-tabular" x-text="(statsScope === 'alltime' ? alltimeStats : stats).avg_generation_tps.toFixed(1) + ' tok/s'"></p>
                             </div>
                         </div>
                     </div>
 
                     <!-- Active Models -->
-                    <div class="bg-surface-0 rounded-2xl border border-line mb-8">
+                    <div class="one-card mb-8">
                         <div class="lg:hidden flex flex-col gap-2 px-4 py-4 bg-surface-2 border-b border-line rounded-t-2xl">
                             <div class="flex items-center gap-3">
                                 <i data-lucide="activity" class="w-4 h-4 text-fg-tertiary"></i>

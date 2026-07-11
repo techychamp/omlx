@@ -49,7 +49,7 @@ class TestAutoLogin:
             assert result.headers["location"] == "/admin/dashboard"
             # Check that session cookie is set
             cookie_header = result.headers.get("set-cookie", "")
-            assert "omlx_admin_session" in cookie_header
+            assert "one_admin_session" in cookie_header
         finally:
             _restore_getter(original)
 
@@ -77,7 +77,7 @@ class TestAutoLogin:
             assert result.status_code == 302
             assert result.headers["location"] == "/admin"
             cookie_header = result.headers.get("set-cookie", "")
-            assert "omlx_admin_session" not in cookie_header
+            assert "one_admin_session" not in cookie_header
         finally:
             _restore_getter(original)
 

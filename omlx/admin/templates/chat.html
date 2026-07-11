@@ -23,43 +23,24 @@
 <script defer src="/admin/static/js/katex-auto-render.min.js"></script>
 
 <style>
-    /* CSS Variables for theming */
+    /* CSS Variables mapped to One Design System Tokens */
     :root {
-        --bg-primary: #ffffff;
-        --bg-secondary: #f8fafc;
-        --bg-tertiary: #f1f5f9;
-        --text-primary: #0f172a;
-        --text-secondary: #475569;
-        --text-tertiary: #64748b;
-        --text-muted: #94a3b8;
-        --border-faint: #e2e8f0;
-        --border-normal: #cbd5e1;
-        --code-bg: #f3f4f6;
-        --btn-primary: #171717;
-        --btn-primary-hover: #27272a;
-        --btn-primary-text: #ffffff;
-        --text-danger: #ef4444;
-        --bg-danger-hover: rgba(239, 68, 68, 0.1);
-        --timeline-accent: #3b82f6;
-    }
-
-    [data-theme="dark"] {
-        --bg-primary: #1d1d20;
-        --bg-secondary: #252529;
-        --bg-tertiary: #2d2d32;
-        --text-primary: #efefef;
-        --text-secondary: #a1a1aa;
-        --text-tertiary: #71717a;
-        --text-muted: #52525b;
-        --border-faint: #3f3f46;
-        --border-normal: #52525b;
-        --code-bg: #27272a;
-        --btn-primary: #e5e5e5;
-        --btn-primary-hover: #d4d4d4;
-        --btn-primary-text: #18181b;
-        --text-danger: #f87171;
-        --bg-danger-hover: rgba(239, 68, 68, 0.2);
-        --timeline-accent: #60a5fa;
+        --bg-primary: var(--surface-0);
+        --bg-secondary: var(--surface-1);
+        --bg-tertiary: var(--surface-2);
+        --text-primary: var(--text-display);
+        --text-secondary: var(--text-secondary);
+        --text-tertiary: var(--text-tertiary);
+        --text-muted: var(--text-muted);
+        --border-faint: var(--border-faint);
+        --border-normal: var(--border-normal);
+        --code-bg: var(--surface-3);
+        --btn-primary: var(--accent-execution);
+        --btn-primary-hover: var(--accent-execution);
+        --btn-primary-text: var(--text-inverse);
+        --text-danger: var(--accent-error);
+        --bg-danger-hover: rgba(239, 68, 68, 0.15);
+        --timeline-accent: var(--accent-runtime);
     }
 
     body {
@@ -232,10 +213,16 @@
     }
 
     .assistant-message {
-        background: var(--bg-primary);
+        background: var(--surface-1);
         border: 1px solid var(--border-faint);
-        border-radius: 16px;
+        border-radius: 20px;
         max-width: 768px;
+        box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.03);
+    }
+    [data-theme="dark"] .assistant-message {
+        background: var(--surface-1) !important;
+        border: 1px solid var(--border-faint) !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25) !important;
     }
 
     .message-header {
@@ -272,16 +259,24 @@
     }
 
     .user-message-bubble {
-        background: var(--bg-secondary);
-        border-radius: 24px;
-        padding: 8px 16px;
+        background: var(--surface-2);
+        border: 1px solid var(--border-faint);
+        border-radius: 20px;
+        padding: 10px 16px;
         font-size: 14px;
         line-height: 1.6;
-        color: var(--text-primary);
+        color: var(--text-display);
         max-width: 100%;
         min-width: 0;
         overflow-wrap: anywhere;
         word-break: break-word;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+    }
+    [data-theme="dark"] .user-message-bubble {
+        background: #0B0C10 !important;
+        border: 1px solid var(--accent-execution) !important;
+        color: var(--text-display) !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 0 8px rgba(226, 181, 62, 0.15) !important;
     }
 
     .user-message-bubble p {
@@ -747,14 +742,16 @@
 
     /* Input area */
     .input-container {
-        border: 1px solid var(--border-normal);
-        border-radius: 1.5rem;
-        background: var(--bg-primary);
-        transition: border-color 0.2s;
+        border: 1px solid var(--border-faint);
+        border-radius: 1rem;
+        background: var(--surface-1);
+        transition: all 0.2s ease-in-out;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
     }
 
     .input-container:focus-within {
-        border-color: var(--text-tertiary);
+        border-color: var(--accent-runtime) !important;
+        box-shadow: 0 0 0 2px var(--accent-runtime) !important;
     }
 
     .input-container textarea {
@@ -989,8 +986,18 @@
     })();
 </script>
 <div class="chat-shell flex overflow-hidden" x-data="chatApp()" x-init="init()">
-    <!-- API Key Modal -->
-    <div class="api-key-modal fixed inset-0 bg-black/50 flex items-center justify-center z-[1000]"
+    <!-- Left System Sidebar -->
+    {% include "dashboard/_sidebar.html" %}
+
+    <!-- Right Side Content Area -->
+    <div class="flex-grow flex flex-col min-w-0 h-full overflow-hidden relative">
+        <!-- Top Navigation Bar -->
+        {% include "dashboard/_navbar.html" %}
+
+        <!-- Original Chat Workspace layout -->
+        <div class="flex-grow flex overflow-hidden relative w-full">
+            <!-- API Key Modal -->
+            <div class="api-key-modal fixed inset-0 bg-black/50 flex items-center justify-center z-[1000]"
         :class="{ 'hidden': apiKeySet }" x-cloak>
         <div class="bg-surface rounded-2xl p-8 max-w-[400px] w-[90%] shadow-2xl">
             <h2 class="text-xl font-bold mb-2">{{ t('login.login.label_api_key') }}</h2>
@@ -1018,14 +1025,12 @@
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <a href="/admin/dashboard">
-                        <img x-show="activeTheme === 'light'" src="/admin/static/navbar-logo-light.svg" alt="One"
-                            class="w-[30px] h-[30px]">
-                        <img x-show="activeTheme === 'dark'" src="/admin/static/navbar-logo-dark.svg" alt="One"
-                            class="w-[30px] h-[30px]" x-cloak>
+                        <img src="/admin/static/img/logo.jpg" alt="One"
+                            class="w-8 h-8 rounded-lg object-cover shadow-sm border border-line">
                     </a>
                     <div class="flex flex-col gap-0">
                         <a href="/admin/dashboard" class="font-semibold leading-tight">{{ t('chat.brand') }}</a>
-                        <a :href="updateAvailable && releaseUrl ? releaseUrl : 'https://github.com/jundot/omlx'" target="_blank"
+                        <a :href="updateAvailable && releaseUrl ? releaseUrl : 'https://github.com/jundot/one'" target="_blank"
                            class="relative text-[10px] leading-none hover:opacity-80 transition-opacity"
                            style="color: var(--text-muted);"
                            @mouseenter="versionHover = true" @mouseleave="versionHover = false">
@@ -2022,7 +2027,9 @@
         <img :src="imageModal.src" @click.stop alt="Preview" x-show="imageModal.src">
     </div>
 
-</div>
+        </div> <!-- End original chat workspace layout -->
+    </div> <!-- End right side content area -->
+</div> <!-- End chat-shell -->
 {% endblock %}
 
 {% block scripts %}
@@ -2059,6 +2066,10 @@
 
     function chatApp() {
         return {
+            mainTab: 'chat',
+            activeTab: '',
+            modelsTab: '',
+
             // API Key
             apiKeySet: false,
             apiKeyInput: '',

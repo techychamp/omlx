@@ -865,7 +865,7 @@ class TestServeCommandFunctions:
         monkeypatch.setattr("omlx.settings.GlobalSettings.load", lambda *args, **kwargs: settings)
         monkeypatch.setattr(
             "omlx.logging_config.configure_file_logging",
-            lambda **kwargs: None,
+            lambda *args, **kwargs: None,
         )
         monkeypatch.setattr("faulthandler.enable", lambda *args, **kwargs: None)
         monkeypatch.setattr("uvicorn.Config.bind_socket", tracking_bind_socket)
@@ -924,7 +924,7 @@ class TestServeCommandFunctions:
         monkeypatch.setattr("omlx.settings.GlobalSettings.load", lambda *args, **kwargs: settings)
         monkeypatch.setattr(
             "omlx.logging_config.configure_file_logging",
-            lambda **kwargs: None,
+            lambda *args, **kwargs: None,
         )
         monkeypatch.setattr("faulthandler.enable", lambda *args, **kwargs: None)
         captured = {}

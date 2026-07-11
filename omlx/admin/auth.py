@@ -15,7 +15,7 @@ from fastapi.responses import RedirectResponse
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 # Session configuration
-SESSION_COOKIE_NAME = "omlx_admin_session"
+SESSION_COOKIE_NAME = "one_admin_session"
 SESSION_MAX_AGE = 86400  # 24 hours in seconds
 REMEMBER_ME_MAX_AGE = 2592000  # 30 days in seconds
 

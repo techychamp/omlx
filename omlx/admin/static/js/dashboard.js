@@ -69,7 +69,7 @@
     function dashboard() {
         return {
             // Theme
-            theme: localStorage.getItem('omlx-chat-theme') || 'auto',
+            theme: localStorage.getItem('one-chat-theme') || localStorage.getItem('omlx-chat-theme') || 'auto',
             activeTheme: 'light', // Will be updated by applyTheme
             systemThemeListener: null,
 
@@ -406,7 +406,7 @@
             oqPreserveMtp: false,
 
             // oQ Uploader state
-            uploadHfToken: localStorage.getItem('omlx-hf-upload-token') || '',
+            uploadHfToken: localStorage.getItem('one-hf-upload-token') || localStorage.getItem('omlx-hf-upload-token') || '',
             uploadHfUsername: '',
             uploadHfOrgs: [],
             uploadHfNamespace: '',
@@ -908,7 +908,7 @@
                 const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
                 const rand = Array.from(crypto.getRandomValues(new Uint8Array(16)))
                     .map(b => chars[b % chars.length]).join('');
-                this.newSubKeyValue = 'omlx-' + rand;
+                this.newSubKeyValue = 'one-' + rand;
                 this.showNewSubKey = true;
             },
 
@@ -1244,7 +1244,7 @@
 
             async loadPresets() {
                 // Use localStorage cache if present, otherwise fall back to the bundled file.
-                const cached = localStorage.getItem('omlx_preset_cache');
+                const cached = localStorage.getItem('one_preset_cache') || localStorage.getItem('omlx_preset_cache');
                 if (cached) {
                     try {
                         const parsed = JSON.parse(cached);
@@ -1253,7 +1253,7 @@
                     } catch (e) { /* corrupted, fall through */ }
                 }
                 try {
-                    const r = await fetch('/admin/static/omlx_preset.json');
+                    const r = await fetch('/admin/static/one_preset.json');
                     if (r.ok) {
                         const data = await r.json();
                         this.presets = data.presets || [];
@@ -1271,7 +1271,7 @@
                     if (r.ok) {
                         const data = await r.json();
                         this.presets = data.presets || [];
-                        localStorage.setItem('omlx_preset_cache', JSON.stringify(data));
+                        localStorage.setItem('one_preset_cache', JSON.stringify(data));
                     } else if (r.status === 401) {
                         window.location.href = '/admin';
                     }
@@ -1542,7 +1542,7 @@
 
             setScope(scope) {
                 this.profileScope = scope;
-                try { localStorage.setItem('omlx_profile_scope', scope); } catch (e) {}
+                try { localStorage.setItem('one_profile_scope', scope); } catch (e) {}
             },
 
             isValidProfileName(name) {
@@ -1855,7 +1855,7 @@
                     this.profilesDrift = false;
                 } else {
                     try {
-                        const saved = localStorage.getItem('omlx_profile_scope');
+                        const saved = localStorage.getItem('one_profile_scope') || localStorage.getItem('omlx_profile_scope');
                         if (saved === 'preset' || saved === 'global' || saved === 'model') {
                             this.profileScope = saved;
                         }
@@ -2388,8 +2388,8 @@
             },
 
             _launchCmd(tool) {
-                const raw = this.stats.cli_prefix || 'omlx';
-                const cli = raw === 'omlx' ? raw : this.shellQuote(raw);
+                const raw = this.stats.cli_prefix || 'one';
+                const cli = raw === 'one' ? raw : this.shellQuote(raw);
                 return `${cli} launch ${tool}`;
             },
 
@@ -2971,8 +2971,8 @@
                 const rpad = (s, w) => s.toString().padEnd(w);
                 let lines = [];
 
-                lines.push('oMLX - LLM inference, optimized for your Mac');
-                lines.push('https://github.com/jundot/omlx');
+                lines.push('One - LLM inference, optimized for your Mac');
+                lines.push('https://github.com/jundot/one');
                 lines.push(`Benchmark Model: ${this.benchModelId}`);
                 lines.push(`Engine: ${this.benchForceLmEngine ? 'Force mlx-lm' : 'Auto'}`);
                 lines.push('='.repeat(80));
@@ -3996,7 +3996,7 @@
             // Theme select
             setTheme(theme) {
                 this.theme = theme;
-                localStorage.setItem('omlx-chat-theme', this.theme);
+                localStorage.setItem('one-chat-theme', this.theme);
                 this.applyTheme();
             },
 
@@ -4458,7 +4458,7 @@
                         this.uploadHfOrgs = data.orgs || [];
                         this.uploadHfNamespace = this.uploadHfUsername;
                         this.uploadTokenValidated = true;
-                        localStorage.setItem('omlx-hf-upload-token', this.uploadHfToken);
+                        localStorage.setItem('one-hf-upload-token', this.uploadHfToken);
                         this.loadUploadOqModels();
                     } else {
                         this.uploadError = data.detail || window.t('models.uploader.invalid_token');

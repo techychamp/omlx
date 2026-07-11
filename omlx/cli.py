@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
 """
-CLI for oMLX.
+CLI for One.
 
 Commands:
-    omlx serve --model-dir /path/to/models    Start multi-model server
+    one serve --model-dir /path/to/models    Start multi-model server
 
 Usage:
     # Multi-model serving
-    omlx serve --model-dir /path/to/models
+    one serve --model-dir /path/to/models
 """
 
 import argparse
@@ -69,7 +69,7 @@ def _has_cli_overrides(args) -> bool:
 
 
 def serve_command(args):
-    """Start the oMLX platform launcher and bootstrap all services."""
+    """Start the One platform launcher and bootstrap all services."""
     import time
     from .platform.launcher import Launcher
 
@@ -84,7 +84,7 @@ def serve_command(args):
 
 
 def launch_command(args, extra_args: list[str] | None = None):
-    """Launch an external tool integrated with oMLX.
+    """Launch an external tool integrated with One.
 
     extra_args are unknown CLI tokens forwarded to the underlying tool binary
     (e.g. ``-r`` / ``--resume <id>`` for Claude Code).
@@ -123,7 +123,7 @@ def launch_command(args, extra_args: list[str] | None = None):
     first_bind = [h.strip() for h in host.split(",") if h.strip()][0] if host else ""
     connect_host = first_bind if first_bind not in ("", "0.0.0.0", "::") else "127.0.0.1"
 
-    # Check if oMLX server is running
+    # Check if One server is running
     base_url = f"http://{connect_host}:{port}"
     try:
         resp = requests.get(f"{base_url}/health", timeout=3)
@@ -377,14 +377,14 @@ def lifecycle_command(args) -> int:
 
     if command == "start":
         print("Background start is available for the macOS app and Homebrew installs.")
-        print("For this install, run foreground server mode with: omlx serve")
+        print("For this install, run foreground server mode with: one serve")
     else:
         print("Background stop/restart requires the macOS app or Homebrew service.")
     return 1
 
 
 def diagnose_menubar() -> int:
-    """Diagnose why the oMLX menubar icon might be missing.
+    """Diagnose why the One menubar icon might be missing.
 
     Reports macOS version, app install path, running menubar process, and the
     most recent visibility warning from the log. Prints manual recovery steps
@@ -472,7 +472,7 @@ def diagnose_menubar() -> int:
 
 
 def diagnose_command(args) -> int:
-    """Dispatch 'omlx diagnose <target>' to the appropriate subcommand."""
+    """Dispatch 'one diagnose <target>' to the appropriate subcommand."""
     target = getattr(args, "target", None)
     if target == "menubar":
         return diagnose_menubar()
@@ -483,12 +483,12 @@ def diagnose_command(args) -> int:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="omlx: Production-ready LLM server for Apple Silicon",
+        description="one: Production-ready LLM server for Apple Silicon",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  omlx serve mlx-community/Llama-3.2-3B-Instruct-4bit --port 8000
-  omlx launch codex --model qwen3.5
+  one serve mlx-community/Llama-3.2-3B-Instruct-4bit --port 8000
+  one launch codex --model qwen3.5
         """,
     )
     parser.add_argument(
@@ -595,7 +595,7 @@ Example directory structure:
         type=str,
         choices=["safe", "balanced", "aggressive"],
         default=None,
-        help="Memory guard tier. safe reserves more system memory; aggressive allows more oMLX memory use. (default: balanced)",
+        help="Memory guard tier. safe reserves more system memory; aggressive allows more One memory use. (default: balanced)",
     )
     serve_parser.add_argument(
         "--memory-guard-gb",
@@ -609,7 +609,7 @@ Example directory structure:
         "--paged-ssd-cache-dir",
         type=str,
         default=None,
-        help="Directory for paged SSD cache storage (enables oMLX prefix cache)",
+        help="Directory for paged SSD cache storage (enables One prefix cache)",
     )
     serve_parser.add_argument(
         "--paged-ssd-cache-max-size",
@@ -626,7 +626,7 @@ Example directory structure:
     serve_parser.add_argument(
         "--no-cache",
         action="store_true",
-        help="Disable oMLX paged SSD cache. mlx-lm BatchGenerator still manages KV states internally.",
+        help="Disable One paged SSD cache. mlx-lm BatchGenerator still manages KV states internally.",
     )
     serve_parser.add_argument(
         "--initial-cache-blocks",
@@ -710,11 +710,11 @@ Example directory structure:
     # Launch command
     launch_parser = subparsers.add_parser(
         "launch",
-        help="Launch an external tool with oMLX integration",
+        help="Launch an external tool with One integration",
         description=(
             "Configure and launch external coding tools (Claude Code, Copilot, "
             "Codex, Codex App, OpenCode, OpenClaw, Hermes Agent, Pi) to use "
-            "the running oMLX server."
+            "the running One server."
         ),
     )
     launch_parser.add_argument(
@@ -735,19 +735,19 @@ Example directory structure:
         "--host",
         type=str,
         default=None,
-        help="oMLX server host (default: from settings or 127.0.0.1)",
+        help="One server host (default: from settings or 127.0.0.1)",
     )
     launch_parser.add_argument(
         "--port",
         type=int,
         default=None,
-        help="oMLX server port (default: from settings or 8000)",
+        help="One server port (default: from settings or 8000)",
     )
     launch_parser.add_argument(
         "--api-key",
         type=str,
         default=None,
-        help="API key for oMLX server authentication",
+        help="API key for One server authentication",
     )
     launch_parser.add_argument(
         "--tools-profile",
@@ -791,7 +791,7 @@ Example directory structure:
         help="What to diagnose. 'menubar' checks Tahoe ControlCenter visibility.",
     )
 
-    # Use parse_known_args so `omlx launch <tool> -- ...` can forward unknown
+    # Use parse_known_args so `one launch <tool> -- ...` can forward unknown
     # tokens (e.g. `-r`, `--resume <id>`) to the underlying tool binary.
     # Non-launch commands keep the previous strictness by rejecting unknowns.
     args, extra_args = parser.parse_known_args()

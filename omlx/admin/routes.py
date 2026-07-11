@@ -36,6 +36,7 @@ from ..settings import BURST_DECODE_MODES, SubKeyEntry, burst_decode_env
 from ..utils.release_check import normalize_update_channel, select_latest_release
 from .auth import (
     REMEMBER_ME_MAX_AGE,
+    SESSION_COOKIE_NAME,
     SESSION_MAX_AGE,
     compare_keys,
     create_session_token,
@@ -1473,7 +1474,7 @@ async def login(request: LoginRequest, response: Response):
     token = create_session_token(remember=request.remember)
     cookie_max_age = REMEMBER_ME_MAX_AGE if request.remember else SESSION_MAX_AGE
     response.set_cookie(
-        key="omlx_admin_session",
+        key=SESSION_COOKIE_NAME,
         value=token,
         httponly=True,
         samesite="lax",
@@ -1538,7 +1539,7 @@ async def setup_api_key(request: SetupApiKeyRequest, response: Response):
     # Create session token and set cookie (auto-login after setup)
     token = create_session_token()
     response.set_cookie(
-        key="omlx_admin_session",
+        key=SESSION_COOKIE_NAME,
         value=token,
         httponly=True,
         samesite="lax",
@@ -1559,7 +1560,7 @@ async def logout(response: Response):
     Returns:
         JSON response with success status.
     """
-    response.delete_cookie(key="omlx_admin_session")
+    response.delete_cookie(key=SESSION_COOKIE_NAME)
     return {"success": True}
 
 
@@ -1591,7 +1592,7 @@ async def auto_login(key: str = "", redirect: str = "/admin/dashboard"):
     token = create_session_token()
     response = RedirectResponse(url=redirect, status_code=302)
     response.set_cookie(
-        key="omlx_admin_session",
+        key=SESSION_COOKIE_NAME,
         value=token,
         httponly=True,
         samesite="lax",
