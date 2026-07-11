@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-    <title>{% block title %}oMLX Admin{% endblock %}</title>
+    <title>{% block title %}One Admin{% endblock %}</title>
     <link rel="icon" type="image/svg+xml" href="/admin/static/favicon.svg">
 
     <!-- Inter Font (self-hosted, Latin) -->
@@ -32,7 +32,7 @@
     <script>
         // Apply theme immediately to prevent flash of wrong theme
         (function() {
-            var stored = localStorage.getItem('omlx-chat-theme');
+            var stored = localStorage.getItem('one-chat-theme');
             var theme = stored || 'auto';
             if (theme === 'auto') {
                 theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -119,7 +119,7 @@
 
     {% block head %}{% endblock %}
 </head>
-<body class="font-sans bg-white text-neutral-900 antialiased selection:bg-neutral-900 selection:text-white">
+<body class="font-sans bg-surface-0 text-fg-title antialiased selection:bg-accent-runtime selection:text-white">
     {% block content %}{% endblock %}
 
     <script>

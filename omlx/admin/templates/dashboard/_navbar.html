@@ -1,15 +1,15 @@
-    <nav class="w-full py-5 px-6 md:px-12 border-b border-neutral-100 bg-white sticky top-0 z-50">
+    <nav class="w-full py-5 px-6 md:px-12 border-b border-line bg-surface-0 sticky top-0 z-50">
         <div class="max-w-7xl mx-auto flex items-center relative">
             <!-- Logo -->
             <div class="flex items-center gap-2">
                 <a href="/admin/dashboard" class="flex items-center gap-2">
-                    <img x-show="activeTheme === 'light'" src="/admin/static/navbar-logo-light.svg" alt="oMLX" class="w-9 h-9">
-                    <img x-show="activeTheme === 'dark'" src="/admin/static/navbar-logo-dark.svg" alt="oMLX" class="w-9 h-9" x-cloak>
+                    <img x-show="activeTheme === 'light'" src="/admin/static/navbar-logo-light.svg" alt="One" class="w-9 h-9">
+                    <img x-show="activeTheme === 'dark'" src="/admin/static/navbar-logo-dark.svg" alt="One" class="w-9 h-9" x-cloak>
                 </a>
                 <div class="flex flex-col gap-0">
-                    <a href="/admin/dashboard" class="font-bold tracking-tight text-xl leading-none">oMLX</a>
+                    <a href="/admin/dashboard" class="font-bold tracking-tight text-xl leading-none">One</a>
                     <a :href="updateAvailable && releaseUrl ? releaseUrl : 'https://github.com/jundot/omlx'" target="_blank"
-                       class="relative text-[10px] text-neutral-500 dark:text-neutral-400 leading-none hover:text-neutral-700 dark:hover:text-neutral-300"
+                       class="relative text-[10px] text-fg-tertiary dark:text-fg-muted leading-none hover:text-fg dark:hover:text-fg-muted"
                        @mouseenter="versionHover = true" @mouseleave="versionHover = false">
                         v{{ version }}
                         <span x-show="updateAvailable" x-cloak
@@ -25,18 +25,18 @@
 
             <!-- Mobile hamburger button -->
             <button @click="mobileMenuOpen = !mobileMenuOpen"
-                    class="lg:hidden ml-auto p-2 rounded-lg text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 transition-all">
+                    class="lg:hidden ml-auto p-2 rounded-lg text-fg-secondary hover:text-fg-title hover:bg-surface-2 transition-all">
                 <i x-show="!mobileMenuOpen" data-lucide="menu" class="w-5 h-5"></i>
                 <i x-show="mobileMenuOpen" data-lucide="x" class="w-5 h-5" x-cloak></i>
             </button>
 
             <!-- Center Navigation -->
-            <div class="hidden lg:flex items-center gap-1 bg-neutral-100 rounded-full p-1 absolute left-1/2 -translate-x-1/2">
+            <div class="hidden lg:flex items-center gap-1 bg-surface-2 rounded-full p-1 absolute left-1/2 -translate-x-1/2">
                 <button
                     @click="setMainTab('status')"
                     :class="mainTab === 'status'
-                        ? 'bg-white text-neutral-900 shadow-sm'
-                        : 'text-neutral-600 hover:text-neutral-900'"
+                        ? 'bg-surface-0 text-fg-title shadow-sm'
+                        : 'text-fg-secondary hover:text-fg-title'"
                     class="px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-1.5"
                 >
                     <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
@@ -46,8 +46,8 @@
                     <button
                         @click="setMainTab('models')"
                         :class="mainTab === 'models'
-                            ? 'bg-white text-neutral-900 shadow-sm'
-                            : 'text-neutral-600 hover:text-neutral-900'"
+                            ? 'bg-surface-0 text-fg-title shadow-sm'
+                            : 'text-fg-secondary hover:text-fg-title'"
                         class="px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-1.5"
                     >
                         <i data-lucide="hard-drive-download" class="w-4 h-4"></i>
@@ -67,15 +67,15 @@
                         x-transition:leave="transition ease-in duration-100"
                         x-transition:leave-start="opacity-100 translate-y-0"
                         x-transition:leave-end="opacity-0 translate-y-1"
-                        class="absolute left-1/2 -translate-x-1/2 mt-1.5 w-44 bg-white rounded-xl shadow-lg border border-neutral-200 py-1.5 z-[60]"
+                        class="absolute left-1/2 -translate-x-1/2 mt-1.5 w-44 bg-surface-0 rounded-xl shadow-lg border border-line py-1.5 z-[60]"
                         x-cloak
                     >
                         <button
                             @click="setModelsTab('manager'); modelsDropdown = false;"
                             class="w-full px-4 py-2 text-left text-sm font-medium transition-colors duration-150 flex items-center gap-2 rounded-lg mx-auto"
                             :class="mainTab === 'models' && modelsTab === 'manager'
-                                ? 'text-neutral-900 bg-neutral-100'
-                                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'"
+                                ? 'text-fg-title bg-surface-2'
+                                : 'text-fg-secondary hover:text-fg-title hover:bg-surface-1'"
                         >
                             <i data-lucide="hard-drive" class="w-3.5 h-3.5"></i>
                             {{ t('navbar.dropdown.manager') }}
@@ -84,8 +84,8 @@
                             @click="setModelsTab('downloader'); modelsDropdown = false;"
                             class="w-full px-4 py-2 text-left text-sm font-medium transition-colors duration-150 flex items-center gap-2 rounded-lg mx-auto"
                             :class="mainTab === 'models' && modelsTab === 'downloader'
-                                ? 'text-neutral-900 bg-neutral-100'
-                                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'"
+                                ? 'text-fg-title bg-surface-2'
+                                : 'text-fg-secondary hover:text-fg-title hover:bg-surface-1'"
                         >
                             <i data-lucide="cloud-download" class="w-3.5 h-3.5"></i>
                             {{ t('navbar.dropdown.downloader') }}
@@ -94,8 +94,8 @@
                             @click="setModelsTab('quantizer'); modelsDropdown = false;"
                             class="w-full px-4 py-2 text-left text-sm font-medium transition-colors duration-150 flex items-center gap-2 rounded-lg mx-auto"
                             :class="mainTab === 'models' && modelsTab === 'quantizer'
-                                ? 'text-neutral-900 bg-neutral-100'
-                                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'"
+                                ? 'text-fg-title bg-surface-2'
+                                : 'text-fg-secondary hover:text-fg-title hover:bg-surface-1'"
                         >
                             <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
                             {{ t('navbar.dropdown.quantizer') }}
@@ -104,8 +104,8 @@
                             @click="setModelsTab('uploader'); modelsDropdown = false;"
                             class="w-full px-4 py-2 text-left text-sm font-medium transition-colors duration-150 flex items-center gap-2 rounded-lg mx-auto"
                             :class="mainTab === 'models' && modelsTab === 'uploader'
-                                ? 'text-neutral-900 bg-neutral-100'
-                                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'"
+                                ? 'text-fg-title bg-surface-2'
+                                : 'text-fg-secondary hover:text-fg-title hover:bg-surface-1'"
                         >
                             <i data-lucide="cloud-upload" class="w-3.5 h-3.5"></i>
                             {{ t('navbar.dropdown.uploader') }}
@@ -116,8 +116,8 @@
                     <button
                         @click="setMainTab('settings')"
                         :class="mainTab === 'settings'
-                            ? 'bg-white text-neutral-900 shadow-sm'
-                            : 'text-neutral-600 hover:text-neutral-900'"
+                            ? 'bg-surface-0 text-fg-title shadow-sm'
+                            : 'text-fg-secondary hover:text-fg-title'"
                         class="px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-1.5"
                     >
                         <i data-lucide="settings" class="w-4 h-4"></i>
@@ -132,15 +132,15 @@
                         x-transition:leave="transition ease-in duration-100"
                         x-transition:leave-start="opacity-100 translate-y-0"
                         x-transition:leave-end="opacity-0 translate-y-1"
-                        class="absolute left-1/2 -translate-x-1/2 mt-1.5 w-52 bg-white rounded-xl shadow-lg border border-neutral-200 py-1.5 z-[60]"
+                        class="absolute left-1/2 -translate-x-1/2 mt-1.5 w-52 bg-surface-0 rounded-xl shadow-lg border border-line py-1.5 z-[60]"
                         x-cloak
                     >
                         <button
                             @click="setSettingsTab('global'); settingsDropdown = false"
                             class="w-full px-4 py-2 text-left text-sm font-medium transition-colors duration-150 flex items-center gap-2 rounded-lg mx-auto"
                             :class="mainTab === 'settings' && activeTab === 'global'
-                                ? 'text-neutral-900 bg-neutral-100'
-                                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'"
+                                ? 'text-fg-title bg-surface-2'
+                                : 'text-fg-secondary hover:text-fg-title hover:bg-surface-1'"
                         >
                             <i data-lucide="globe" class="w-3.5 h-3.5"></i>
                             {{ t('navbar.dropdown.global_settings') }}
@@ -149,8 +149,8 @@
                             @click="setSettingsTab('models'); settingsDropdown = false"
                             class="w-full px-4 py-2 text-left text-sm font-medium transition-colors duration-150 flex items-center gap-2 rounded-lg mx-auto"
                             :class="mainTab === 'settings' && activeTab === 'models'
-                                ? 'text-neutral-900 bg-neutral-100'
-                                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'"
+                                ? 'text-fg-title bg-surface-2'
+                                : 'text-fg-secondary hover:text-fg-title hover:bg-surface-1'"
                         >
                             <i data-lucide="cpu" class="w-3.5 h-3.5"></i>
                             {{ t('navbar.dropdown.model_settings') }}
@@ -159,8 +159,8 @@
                             @click="setSettingsTab('integrations'); settingsDropdown = false"
                             class="w-full px-4 py-2 text-left text-sm font-medium transition-colors duration-150 flex items-center gap-2 rounded-lg mx-auto"
                             :class="mainTab === 'settings' && activeTab === 'integrations'
-                                ? 'text-neutral-900 bg-neutral-100'
-                                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'"
+                                ? 'text-fg-title bg-surface-2'
+                                : 'text-fg-secondary hover:text-fg-title hover:bg-surface-1'"
                         >
                             <i data-lucide="plug" class="w-3.5 h-3.5"></i>
                             {{ t('navbar.dropdown.integration_settings') }}
@@ -170,8 +170,8 @@
                 <button
                     @click="setMainTab('logs')"
                     :class="mainTab === 'logs'
-                        ? 'bg-white text-neutral-900 shadow-sm'
-                        : 'text-neutral-600 hover:text-neutral-900'"
+                        ? 'bg-surface-0 text-fg-title shadow-sm'
+                        : 'text-fg-secondary hover:text-fg-title'"
                     class="px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-1.5"
                 >
                     <i data-lucide="scroll-text" class="w-4 h-4"></i>
@@ -181,8 +181,8 @@
                     <button
                         @click="setMainTab('bench')"
                         :class="mainTab === 'bench'
-                            ? 'bg-white text-neutral-900 shadow-sm'
-                            : 'text-neutral-600 hover:text-neutral-900'"
+                            ? 'bg-surface-0 text-fg-title shadow-sm'
+                            : 'text-fg-secondary hover:text-fg-title'"
                         class="px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-1.5"
                     >
                         <i data-lucide="gauge" class="w-4 h-4"></i>
@@ -196,15 +196,15 @@
                         x-transition:leave="transition ease-in duration-100"
                         x-transition:leave-start="opacity-100 translate-y-0"
                         x-transition:leave-end="opacity-0 translate-y-1"
-                        class="absolute left-1/2 -translate-x-1/2 mt-1.5 w-44 bg-white rounded-xl shadow-lg border border-neutral-200 py-1.5 z-[60]"
+                        class="absolute left-1/2 -translate-x-1/2 mt-1.5 w-44 bg-surface-0 rounded-xl shadow-lg border border-line py-1.5 z-[60]"
                         x-cloak
                     >
                         <button
                             @click="setBenchTab('throughput'); benchDropdown = false;"
                             class="w-full px-4 py-2 text-left text-sm font-medium transition-colors duration-150 flex items-center gap-2 rounded-lg mx-auto"
                             :class="mainTab === 'bench' && benchTab === 'throughput'
-                                ? 'text-neutral-900 bg-neutral-100'
-                                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'"
+                                ? 'text-fg-title bg-surface-2'
+                                : 'text-fg-secondary hover:text-fg-title hover:bg-surface-1'"
                         >
                             <i data-lucide="zap" class="w-3.5 h-3.5"></i>
                             {{ t('navbar.dropdown.performance') }}
@@ -213,8 +213,8 @@
                             @click="setBenchTab('accuracy'); benchDropdown = false;"
                             class="w-full px-4 py-2 text-left text-sm font-medium transition-colors duration-150 flex items-center gap-2 rounded-lg mx-auto"
                             :class="mainTab === 'bench' && benchTab === 'accuracy'
-                                ? 'text-neutral-900 bg-neutral-100'
-                                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'"
+                                ? 'text-fg-title bg-surface-2'
+                                : 'text-fg-secondary hover:text-fg-title hover:bg-surface-1'"
                         >
                             <i data-lucide="target" class="w-3.5 h-3.5"></i>
                             {{ t('navbar.dropdown.accuracy') }}
@@ -223,7 +223,7 @@
                 </div>
                 <a
                     href="/admin/chat"
-                    class="px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-1.5 text-neutral-600 hover:text-neutral-900"
+                    class="px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-1.5 text-fg-secondary hover:text-fg-title"
                 >
                     <i data-lucide="message-circle" class="w-4 h-4"></i>
                     {{ t('navbar.tab.chat') }}
@@ -237,7 +237,7 @@
                     <button class="p-2 rounded-full transition-all duration-200 cursor-pointer"
                             :class="activeTheme === 'dark'
                                 ? 'text-amber-400 hover:bg-neutral-700'
-                                : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100'"
+                                : 'text-fg-tertiary hover:text-fg-title hover:bg-surface-2'"
                             :title="theme === 'auto' ? window.t('navbar.theme.auto') : theme === 'light' ? window.t('navbar.theme.light_mode') : window.t('navbar.theme.dark_mode')">
                         <i data-lucide="sun-moon" class="w-4 h-4" x-show="theme === 'auto'"></i>
                         <i data-lucide="sun" class="w-4 h-4" x-show="theme === 'light'"></i>
@@ -251,15 +251,15 @@
                         x-transition:leave="transition ease-in duration-100"
                         x-transition:leave-start="opacity-100 translate-y-0"
                         x-transition:leave-end="opacity-0 translate-y-1"
-                        class="absolute right-0 mt-1.5 w-40 bg-white rounded-xl shadow-lg border border-neutral-200 py-1.5 z-[60]"
+                        class="absolute right-0 mt-1.5 w-40 bg-surface-0 rounded-xl shadow-lg border border-line py-1.5 z-[60]"
                         x-cloak
                     >
                         <button
                             @click="setTheme('auto'); themeDropdown = false"
                             class="w-full px-4 py-2 text-left text-sm font-medium transition-colors duration-150 flex items-center gap-2 rounded-lg mx-auto"
                             :class="theme === 'auto'
-                                ? 'text-neutral-900 bg-neutral-100'
-                                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'"
+                                ? 'text-fg-title bg-surface-2'
+                                : 'text-fg-secondary hover:text-fg-title hover:bg-surface-1'"
                         >
                             <i data-lucide="sun-moon" class="w-3.5 h-3.5"></i>
                             {{ t('navbar.theme.auto') }}
@@ -268,8 +268,8 @@
                             @click="setTheme('light'); themeDropdown = false"
                             class="w-full px-4 py-2 text-left text-sm font-medium transition-colors duration-150 flex items-center gap-2 rounded-lg mx-auto"
                             :class="theme === 'light'
-                                ? 'text-neutral-900 bg-neutral-100'
-                                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'"
+                                ? 'text-fg-title bg-surface-2'
+                                : 'text-fg-secondary hover:text-fg-title hover:bg-surface-1'"
                         >
                             <i data-lucide="sun" class="w-3.5 h-3.5"></i>
                             {{ t('navbar.theme.light_mode') }}
@@ -278,8 +278,8 @@
                             @click="setTheme('dark'); themeDropdown = false"
                             class="w-full px-4 py-2 text-left text-sm font-medium transition-colors duration-150 flex items-center gap-2 rounded-lg mx-auto"
                             :class="theme === 'dark'
-                                ? 'text-neutral-900 bg-neutral-100'
-                                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'"
+                                ? 'text-fg-title bg-surface-2'
+                                : 'text-fg-secondary hover:text-fg-title hover:bg-surface-1'"
                         >
                             <i data-lucide="moon" class="w-3.5 h-3.5"></i>
                             {{ t('navbar.theme.dark_mode') }}
@@ -290,8 +290,8 @@
                 <!-- Logout Button -->
                 <button
                     @click="logout"
-                    class="inline-flex items-center px-4 py-2 text-sm font-medium text-neutral-600
-                           hover:text-neutral-900 hover:bg-neutral-100 rounded-full transition-all duration-200"
+                    class="inline-flex items-center px-4 py-2 text-sm font-medium text-fg-secondary
+                           hover:text-fg-title hover:bg-surface-2 rounded-full transition-all duration-200"
                 >
                     <i data-lucide="log-out" class="w-4 h-4 mr-2"></i>
                     {{ t('navbar.logout') }}
@@ -307,16 +307,16 @@
              x-transition:leave="transition ease-in duration-150"
              x-transition:leave-start="opacity-100 translate-y-0"
              x-transition:leave-end="opacity-0 -translate-y-2"
-             class="lg:hidden border-t border-neutral-100 px-4 pt-3 pb-2">
+             class="lg:hidden border-t border-line px-4 pt-3 pb-2">
             <div class="max-w-7xl mx-auto space-y-1">
                 <button @click="setMainTab('status'); mobileMenuOpen = false"
-                        :class="mainTab === 'status' ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-600'"
+                        :class="mainTab === 'status' ? 'bg-surface-2 text-fg-title' : 'text-fg-secondary'"
                         class="w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2">
                     <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
                     {{ t('navbar.tab.status') }}
                 </button>
                 <button @click="setMainTab('models'); mobileMenuOpen = false"
-                        :class="mainTab === 'models' ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-600'"
+                        :class="mainTab === 'models' ? 'bg-surface-2 text-fg-title' : 'text-fg-secondary'"
                         class="w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2">
                     <i data-lucide="hard-drive-download" class="w-4 h-4"></i>
                     {{ t('navbar.tab.models') }}
@@ -326,51 +326,51 @@
                           x-cloak></span>
                 </button>
                 <button @click="setMainTab('settings'); mobileMenuOpen = false"
-                        :class="mainTab === 'settings' ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-600'"
+                        :class="mainTab === 'settings' ? 'bg-surface-2 text-fg-title' : 'text-fg-secondary'"
                         class="w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2">
                     <i data-lucide="settings" class="w-4 h-4"></i>
                     {{ t('navbar.tab.settings') }}
                 </button>
                 <button @click="setMainTab('logs'); mobileMenuOpen = false"
-                        :class="mainTab === 'logs' ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-600'"
+                        :class="mainTab === 'logs' ? 'bg-surface-2 text-fg-title' : 'text-fg-secondary'"
                         class="w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2">
                     <i data-lucide="scroll-text" class="w-4 h-4"></i>
                     {{ t('navbar.tab.logs') }}
                 </button>
                 <button @click="setMainTab('bench'); mobileMenuOpen = false"
-                        :class="mainTab === 'bench' ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-600'"
+                        :class="mainTab === 'bench' ? 'bg-surface-2 text-fg-title' : 'text-fg-secondary'"
                         class="w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2">
                     <i data-lucide="gauge" class="w-4 h-4"></i>
                     {{ t('navbar.tab.bench') }}
                 </button>
                 <a href="/admin/chat"
-                   class="w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 text-neutral-600 hover:text-neutral-900">
+                   class="w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 text-fg-secondary hover:text-fg-title">
                     <i data-lucide="message-circle" class="w-4 h-4"></i>
                     {{ t('navbar.tab.chat') }}
                 </a>
-                <div class="border-t border-neutral-100 pt-2 mt-2 flex items-center justify-between px-2">
+                <div class="border-t border-line pt-2 mt-2 flex items-center justify-between px-2">
                     <div class="flex items-center gap-1">
                         <button @click="setTheme('auto')"
                                 class="p-2 rounded-full transition-all duration-200"
-                                :class="theme === 'auto' ? 'text-amber-400 bg-neutral-100' : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100'"
+                                :class="theme === 'auto' ? 'text-amber-400 bg-surface-2' : 'text-fg-tertiary hover:text-fg-title hover:bg-surface-2'"
                                 :title="window.t('navbar.theme.auto')">
                             <i data-lucide="sun-moon" class="w-4 h-4"></i>
                         </button>
                         <button @click="setTheme('light')"
                                 class="p-2 rounded-full transition-all duration-200"
-                                :class="theme === 'light' ? 'text-amber-400 bg-neutral-100' : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100'"
+                                :class="theme === 'light' ? 'text-amber-400 bg-surface-2' : 'text-fg-tertiary hover:text-fg-title hover:bg-surface-2'"
                                 :title="window.t('navbar.theme.light_mode')">
                             <i data-lucide="sun" class="w-4 h-4"></i>
                         </button>
                         <button @click="setTheme('dark')"
                                 class="p-2 rounded-full transition-all duration-200"
-                                :class="theme === 'dark' ? 'text-amber-400 bg-neutral-100' : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100'"
+                                :class="theme === 'dark' ? 'text-amber-400 bg-surface-2' : 'text-fg-tertiary hover:text-fg-title hover:bg-surface-2'"
                                 :title="window.t('navbar.theme.dark_mode')">
                             <i data-lucide="moon" class="w-4 h-4"></i>
                         </button>
                     </div>
                     <button @click="logout"
-                            class="inline-flex items-center px-4 py-2 text-sm font-medium text-neutral-600 hover:text-neutral-900 rounded-full transition-all">
+                            class="inline-flex items-center px-4 py-2 text-sm font-medium text-fg-secondary hover:text-fg-title rounded-full transition-all">
                         <i data-lucide="log-out" class="w-4 h-4 mr-2"></i>
                         {{ t('navbar.logout') }}
                     </button>

@@ -14,14 +14,24 @@ module.exports = {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
       },
+
       colors: {
         surface: {
-          DEFAULT: 'var(--bg-primary)',
-          alt: 'var(--bg-secondary)',
-          muted: 'var(--bg-tertiary)',
+          0: 'var(--surface-0)',
+          1: 'var(--surface-1)',
+          2: 'var(--surface-2)',
+          3: 'var(--surface-3)',
+          4: 'var(--surface-4)',
+          DEFAULT: 'var(--surface-0)',
+          alt: 'var(--surface-1)',
+          muted: 'var(--surface-2)',
         },
         fg: {
-          DEFAULT: 'var(--text-primary)',
+          DEFAULT: 'var(--text-body)',
+          display: 'var(--text-display)',
+          title: 'var(--text-title)',
+          heading: 'var(--text-heading)',
+          caption: 'var(--text-caption)',
           secondary: 'var(--text-secondary)',
           tertiary: 'var(--text-tertiary)',
           muted: 'var(--text-muted)',
@@ -31,17 +41,23 @@ module.exports = {
           strong: 'var(--border-normal)',
         },
         accent: {
-          DEFAULT: 'var(--btn-primary)',
-          hover: 'var(--btn-primary-hover)',
-          fg: 'var(--btn-primary-text)',
+          execution: 'var(--accent-execution)',
+          runtime: 'var(--accent-runtime)',
+          planning: 'var(--accent-planning)',
+          success: 'var(--accent-success)',
+          warning: 'var(--accent-warning)',
+          error: 'var(--accent-error)',
+          DEFAULT: 'var(--accent-runtime)',
+          hover: 'var(--accent-runtime-hover)',
+          fg: 'var(--text-inverse)',
         },
         danger: {
-          DEFAULT: 'var(--text-danger)',
+          DEFAULT: 'var(--accent-error)',
           bg: 'var(--bg-danger-hover)',
         },
         code: 'var(--code-bg)',
       },
-      animation: {
+animation: {
         'fade-in-up': 'fadeInUp 0.5s ease-out forwards',
       },
       keyframes: {
