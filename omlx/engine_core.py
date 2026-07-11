@@ -1327,6 +1327,9 @@ class AsyncEngineCore:
         config: Optional[EngineConfig] = None,
     ):
         self.engine = EngineCore(model, tokenizer, config)
+        # Drop wrapper-local aliases after EngineCore takes ownership.
+        model = None
+        tokenizer = None
 
     @property
     def _mlx_executor(self):
