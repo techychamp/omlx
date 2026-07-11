@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct TraceViewerView: View {
+    let viewModel: DeveloperToolsViewModel
     @Environment(\.omlxTheme) private var theme
 
     var body: some View {
@@ -9,27 +10,18 @@ struct TraceViewerView: View {
                 .font(.headline)
 
             VStack(alignment: .leading, spacing: 10) {
-                TraceStep(name: "View", icon: "macwindow")
-                TraceArrow()
-                TraceStep(name: "ViewModel", icon: "brain")
-                TraceArrow()
-                TraceStep(name: "Service", icon: "network")
-                TraceArrow()
-                TraceStep(name: "OMLXClient", icon: "globe")
-                TraceArrow()
-                TraceStep(name: "Runtime", icon: "cpu")
-                TraceArrow()
-                TraceStep(name: "Compiler", icon: "gearshape.2")
-                TraceArrow()
-                TraceStep(name: "Execution", icon: "bolt.fill")
-                TraceArrow()
-                TraceStep(name: "Response", icon: "arrow.uturn.left")
+                ForEach(Array(viewModel.traceSteps.enumerated()), id: \.element.id) { index, step in
+                    TraceStep(step: step)
+                    if index < viewModel.traceSteps.count - 1 {
+                        TraceArrow()
+                    }
+                }
             }
             .padding()
             .background(theme.groupBg)
-            .cornerRadius(12)
+            .cornerRadius(8)
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 8)
                     .stroke(theme.groupBorder, lineWidth: 1)
             )
 
@@ -40,19 +32,40 @@ struct TraceViewerView: View {
 }
 
 private struct TraceStep: View {
-    let name: String
-    let icon: String
+    let step: DeveloperTraceStep
     @Environment(\.omlxTheme) private var theme
 
     var body: some View {
-        HStack {
-            Image(systemName: icon)
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: step.icon)
                 .frame(width: 24)
                 .foregroundColor(theme.text)
-            Text(name)
-                .font(.body)
-                .foregroundColor(theme.text)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(step.name)
+                        .font(.body)
+                        .foregroundColor(theme.text)
+                    Text(step.status.rawValue)
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(color(for: step.status))
+                }
+                if let detail = step.detail, !detail.isEmpty {
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundColor(theme.textSecondary)
+                        .lineLimit(2)
+                }
+            }
             Spacer()
+        }
+    }
+
+    private func color(for status: DeveloperTraceStatus) -> Color {
+        switch status {
+        case .pending: return theme.textTertiary
+        case .running: return .blue
+        case .completed: return .green
+        case .failed: return .red
         }
     }
 }

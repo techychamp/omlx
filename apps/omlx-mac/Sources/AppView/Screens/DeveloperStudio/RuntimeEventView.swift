@@ -9,10 +9,13 @@ struct RuntimeEventView: View {
             VStack(alignment: .leading, spacing: 20) {
                 if viewModel.isLoading {
                     ProgressView()
-                } else if let error = viewModel.error {
-                    Text("Error: \(error)")
-                        .foregroundColor(.red)
                 } else {
+                    if let error = viewModel.error {
+                        Text("Error: \(error)")
+                            .font(.caption)
+                            .foregroundColor(.red)
+                    }
+
                     if let status = viewModel.runtimeStatus {
                         SectionHeader("Runtime Status")
                         VStack(alignment: .leading) {
@@ -51,9 +54,6 @@ struct RuntimeEventView: View {
                 }
             }
             .padding()
-        }
-        .task {
-            await viewModel.refreshData()
         }
     }
 }

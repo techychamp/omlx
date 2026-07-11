@@ -12,6 +12,7 @@ final class DiagnosticsViewModel: ObservableObject {
 
     @Published var isLoading = false
     @Published var error: Error?
+    @Published var sectionErrors: [DiagnosticsSection: Error] = [:]
 
     init(diagnosticsService: DiagnosticsServiceProtocol) {
         self.diagnosticsService = diagnosticsService
@@ -20,19 +21,84 @@ final class DiagnosticsViewModel: ObservableObject {
     func fetchAll() async {
         isLoading = true
         error = nil
-        do {
-            async let fetchCompiler = diagnosticsService.getCompilerInspection()
-            async let fetchExecution = diagnosticsService.getExecutionMetrics()
-            async let fetchApple = diagnosticsService.getAppleMetrics()
-            async let fetchBenchmark = diagnosticsService.getBenchmarkReport()
+        sectionErrors = [:]
 
-            self.compilerInspection = try await fetchCompiler
-            self.executionMetrics = try await fetchExecution
-            self.appleMetrics = try await fetchApple
-            self.benchmarkReport = try await fetchBenchmark
-        } catch {
-            self.error = error
-        }
+        await fetchCompilerInspection()
+        await fetchExecutionMetrics()
+        await fetchAppleMetrics()
+        await fetchBenchmarkReport()
+
+        error = sectionErrors.values.first
         isLoading = false
+    }
+
+    func error(for section: DiagnosticsSection) -> Error? {
+        sectionErrors[section]
+    }
+
+    private func fetchCompilerInspection() async {
+        do {
+            compilerInspection = try await diagnosticsService.getCompilerInspection()
+        } catch {
+            sectionErrors[.explorer] = error
+        }
+    }
+
+    private func fetchExecutionMetrics() async {
+        do {
+            executionMetrics = try await diagnosticsService.getExecutionMetrics()
+        } catch {
+            sectionErrors[.runtime] = error
+        }
+    }
+
+    private func fetchAppleMetrics() async {
+        do {
+            appleMetrics = try await diagnosticsService.getAppleMetrics()
+        } catch {
+            sectionErrors[.apple] = error
+            sectionErrors[.resources] = error
+        }
+    }
+
+    private func fetchBenchmarkReport() async {
+        do {
+            benchmarkReport = try await diagnosticsService.getBenchmarkReport()
+        } catch {
+            sectionErrors[.benchmarks] = error
+        }
+    }
+}
+
+enum DiagnosticsSection: String, CaseIterable, Hashable, Identifiable {
+    case runtime
+    case apple
+    case benchmarks
+    case execution
+    case resources
+    case explorer
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .runtime: return "Runtime Metrics"
+        case .apple: return "Apple Silicon"
+        case .benchmarks: return "Benchmark Center"
+        case .execution: return "Execution Timeline"
+        case .resources: return "Resource Dashboard"
+        case .explorer: return "Diagnostics Explorer"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .runtime: return "timer"
+        case .apple: return "cpu"
+        case .benchmarks: return "chart.bar"
+        case .execution: return "clock"
+        case .resources: return "memorychip"
+        case .explorer: return "magnifyingglass"
+        }
     }
 }

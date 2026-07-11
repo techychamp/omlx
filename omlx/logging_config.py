@@ -260,6 +260,11 @@ def configure_file_logging(
     # Create file handler with daily rotation
     # File: server.log, rotated files: server.log.YYYY-MM-DD
     log_file = log_dir / "server.log"
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers:
+        if getattr(handler, "baseFilename", None) == str(log_file):
+            handler.setLevel(log_level)
+            return
 
     file_handler = TimedRotatingFileHandler(
         filename=log_file,
@@ -279,5 +284,6 @@ def configure_file_logging(
         file_handler.addFilter(RequestContextFilter())
 
     # Add to root logger
-    root_logger = logging.getLogger()
     root_logger.addHandler(file_handler)
+    if root_logger.level > log_level:
+        root_logger.setLevel(log_level)

@@ -7,6 +7,12 @@ struct LogExplorerView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                if let error = viewModel.error {
+                    Text("Error: \(error)")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                }
+
                 if let compiler = viewModel.compilerInspection {
                     SectionHeader("Compiler Diagnostics")
                     VStack(alignment: .leading) {
@@ -49,9 +55,6 @@ struct LogExplorerView: View {
                 }
             }
             .padding()
-        }
-        .task {
-            await viewModel.refreshData()
         }
     }
 }

@@ -43,19 +43,22 @@ struct DeveloperStudioScreen: View {
                 case .apiExplorer:
                     APIExplorerView()
                 case .requestInspector:
-                    RequestInspectorView()
+                    RequestInspectorView(viewModel: viewModel)
                 case .responseInspector:
-                    ResponseInspectorView()
+                    ResponseInspectorView(viewModel: viewModel)
                 case .runtimeEvents:
                     RuntimeEventView(viewModel: viewModel)
                 case .logExplorer:
                     LogExplorerView(viewModel: viewModel)
                 case .traceViewer:
-                    TraceViewerView()
+                    TraceViewerView(viewModel: viewModel)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(theme.windowBg)
+        .task {
+            await viewModel.refreshData()
+        }
     }
 }

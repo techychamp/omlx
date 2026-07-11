@@ -105,10 +105,10 @@ private struct ModelCard: View {
                     .font(.omlxText(16, weight: .semibold))
                     .foregroundStyle(theme.text)
                 Spacer()
-                StatusBadge(ready: model.ready)
+                StatusBadge(status: model.status)
             }
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(model.id), status: \(model.ready ? "Ready" : "Not Ready")")
+            .accessibilityLabel("\(model.id), status: \(model.status.label)")
             
             Divider()
             
@@ -116,28 +116,44 @@ private struct ModelCard: View {
                 Text("Metadata")
                     .font(.omlxText(13, weight: .semibold))
                     .foregroundStyle(theme.textSecondary)
-                
-                // Display available properties from DTO.
-                // Currently only API Version is available in DTO besides ID and Ready.
                 if let apiVersion = model.apiVersion {
                     ModelInfoRow(label: "API Version", value: apiVersion)
                 }
-                
-                // Placeholder for missing metadata in DTO per explicit instructions
-                ModelInfoRow(label: "Context Length", value: "Unavailable via current Runtime API")
-                ModelInfoRow(label: "Quantization", value: "Unavailable via current Runtime API")
-                ModelInfoRow(label: "Parameters", value: "Unavailable via current Runtime API")
-                ModelInfoRow(label: "Capabilities", value: "Unavailable via current Runtime API")
-                ModelInfoRow(label: "Backend", value: "Unavailable via current Runtime API")
+                if model.rawId != model.id {
+                    ModelInfoRow(label: "Model ID", value: model.rawId)
+                }
+                if let engineType = model.engineType, !engineType.isEmpty {
+                    ModelInfoRow(label: "Engine", value: engineType)
+                }
+                if let modelType = model.modelType, !modelType.isEmpty {
+                    ModelInfoRow(label: "Model Type", value: modelType)
+                }
+                if let configModelType = model.configModelType, !configModelType.isEmpty {
+                    ModelInfoRow(label: "Config Type", value: configModelType)
+                }
+                if let context = model.maxContextWindow {
+                    ModelInfoRow(label: "Context Length", value: "\(context) tokens")
+                }
+                if let maxTokens = model.maxTokens {
+                    ModelInfoRow(label: "Max Tokens", value: "\(maxTokens)")
+                }
+                if let actualSize = model.actualSize, !actualSize.isEmpty {
+                    ModelInfoRow(label: "Size", value: actualSize)
+                } else if let estimatedSize = model.estimatedSize, !estimatedSize.isEmpty {
+                    ModelInfoRow(label: "Estimated Size", value: estimatedSize)
+                }
+                if let sourceType = model.sourceType, !sourceType.isEmpty {
+                    ModelInfoRow(label: "Source", value: sourceType)
+                }
+                if let repo = model.sourceRepoId, !repo.isEmpty {
+                    ModelInfoRow(label: "Repository", value: repo)
+                }
+                if let path = model.modelPath, !path.isEmpty {
+                    ModelInfoRow(label: "Path", value: path)
+                }
+                ModelInfoRow(label: "Pinned", value: model.pinned == true ? "Yes" : "No")
+                ModelInfoRow(label: "Default", value: model.isDefault == true ? "Yes" : "No")
             }
-            
-            Divider()
-            
-            Text("Model download, installation, and editing are not supported by current Runtime API.")
-                .font(.omlxText(12, weight: .medium))
-                .foregroundStyle(theme.textTertiary)
-                .padding(.top, 4)
-                .accessibilityLabel("Model management operations are not supported by the current API")
         }
         .padding()
         .background(theme.groupBg)
@@ -150,15 +166,23 @@ private struct ModelCard: View {
 }
 
 private struct StatusBadge: View {
-    let ready: Bool
-    
+    let status: ModelInfo.Status
+
+    private var color: Color {
+        switch status {
+        case .loaded: return .green
+        case .loading: return .orange
+        case .available: return .blue
+        }
+    }
+
     var body: some View {
-        Text(ready ? "READY" : "LOADING")
+        Text(status.label)
             .font(.system(size: 10, weight: .bold))
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .background(ready ? Color.green.opacity(0.2) : Color.orange.opacity(0.2))
-            .foregroundStyle(ready ? Color.green : Color.orange)
+            .background(color.opacity(0.2))
+            .foregroundStyle(color)
             .clipShape(Capsule())
     }
 }

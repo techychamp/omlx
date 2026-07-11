@@ -3960,8 +3960,11 @@ def _get_available_log_files(log_dir: Path) -> list[str]:
 
     files = []
     for f in log_dir.iterdir():
-        # Match server.log and server.log.YYYY-MM-DD patterns
-        if f.name.startswith("server") and (f.suffix == ".log" or ".log." in f.name):
+        # Match server/runtime logs and their daily rotations.
+        if (
+            f.name.startswith(("server", "runtime"))
+            and (f.suffix == ".log" or ".log." in f.name)
+        ):
             files.append(f.name)
 
     # Sort by modification time (newest first)
@@ -4018,8 +4021,17 @@ async def get_logs(
         if not log_file.exists():
             raise HTTPException(status_code=404, detail=f"Log file not found: {file}")
     else:
-        # Default to current log file
-        log_file = log_dir / "server.log"
+        # Default to the active log with content. The Python file handler
+        # writes server.log; the macOS process supervisor may also write
+        # stdout/stderr to runtime.log in the same directory.
+        server_log = log_dir / "server.log"
+        runtime_log = log_dir / "runtime.log"
+        log_file = server_log
+        if (
+            (not server_log.exists() or server_log.stat().st_size == 0)
+            and runtime_log.exists()
+        ):
+            log_file = runtime_log
 
     # Read log content
     if log_file.exists():

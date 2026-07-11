@@ -70,7 +70,27 @@ actor ModelManagementService: ModelManagementServiceProtocol {
     }
     
     func getModels() async throws -> [ModelInfo] {
-        return try await client.get(RuntimeAPI.v1Models)
+        let response = try await client.listModels()
+        return response.models.map { model in
+            ModelInfo(
+                apiVersion: nil,
+                id: model.displayName ?? model.id,
+                rawId: model.id,
+                status: model.isLoading ? .loading : (model.loaded ? .loaded : .available),
+                modelPath: model.modelPath,
+                estimatedSize: model.estimatedSizeFormatted,
+                actualSize: model.actualSizeFormatted,
+                engineType: model.engineType,
+                modelType: model.modelType,
+                configModelType: model.configModelType,
+                sourceType: model.sourceType,
+                sourceRepoId: model.sourceRepoId,
+                maxContextWindow: model.settings?.maxContextWindow,
+                maxTokens: model.settings?.maxTokens,
+                pinned: model.pinned,
+                isDefault: model.isDefault
+            )
+        }
     }
     
     // MARK: - Admin / Model Management
@@ -233,7 +253,73 @@ actor ModelManagementService: ModelManagementServiceProtocol {
 }
 
 struct ModelInfo: Decodable, Sendable {
+    enum Status: String, Decodable, Sendable {
+        case loaded
+        case loading
+        case available
+
+        var label: String {
+            switch self {
+            case .loaded: return "READY"
+            case .loading: return "LOADING"
+            case .available: return "AVAILABLE"
+            }
+        }
+    }
+
     let apiVersion: String?
     let id: String
-    let ready: Bool
+    let rawId: String
+    let status: Status
+    let modelPath: String?
+    let estimatedSize: String?
+    let actualSize: String?
+    let engineType: String?
+    let modelType: String?
+    let configModelType: String?
+    let sourceType: String?
+    let sourceRepoId: String?
+    let maxContextWindow: Int?
+    let maxTokens: Int?
+    let pinned: Bool?
+    let isDefault: Bool?
+
+    var ready: Bool { status == .loaded }
+
+    init(
+        apiVersion: String? = nil,
+        id: String,
+        ready: Bool = false,
+        rawId: String? = nil,
+        status: Status? = nil,
+        modelPath: String? = nil,
+        estimatedSize: String? = nil,
+        actualSize: String? = nil,
+        engineType: String? = nil,
+        modelType: String? = nil,
+        configModelType: String? = nil,
+        sourceType: String? = nil,
+        sourceRepoId: String? = nil,
+        maxContextWindow: Int? = nil,
+        maxTokens: Int? = nil,
+        pinned: Bool? = nil,
+        isDefault: Bool? = nil
+    ) {
+        self.apiVersion = apiVersion
+        self.id = id
+        self.rawId = rawId ?? id
+        self.status = status ?? (ready ? .loaded : .available)
+        self.modelPath = modelPath
+        self.estimatedSize = estimatedSize
+        self.actualSize = actualSize
+        self.engineType = engineType
+        self.modelType = modelType
+        self.configModelType = configModelType
+        self.sourceType = sourceType
+        self.sourceRepoId = sourceRepoId
+        self.maxContextWindow = maxContextWindow
+        self.maxTokens = maxTokens
+        self.pinned = pinned
+        self.isDefault = isDefault
+    }
 }

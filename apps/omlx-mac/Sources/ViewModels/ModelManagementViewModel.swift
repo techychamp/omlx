@@ -30,7 +30,7 @@ final class ModelManagementViewModel {
         do {
             models = try await service.getModels()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = error.omlxDescription
         }
         isLoading = false
     }

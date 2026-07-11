@@ -9,7 +9,11 @@ struct ResourceDashboardView: View {
                 .font(.largeTitle)
                 .bold()
 
-            if let metrics = viewModel.appleMetrics {
+            if viewModel.isLoading {
+                ProgressView("Loading...")
+            } else if let error = viewModel.error(for: .resources) {
+                Text("Error: \(error.omlxDescription)").foregroundColor(.red)
+            } else if let metrics = viewModel.appleMetrics {
                  VStack(alignment: .leading, spacing: 10) {
                      MetricRow(label: "Memory Used", value: "\(metrics.memoryUsed / (1024 * 1024)) MB")
                      MetricRow(label: "GPU Utilization", value: String(format: "%.1f %%", metrics.gpuUtilization * 100))

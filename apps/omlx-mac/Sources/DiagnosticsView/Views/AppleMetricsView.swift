@@ -11,8 +11,8 @@ struct AppleMetricsView: View {
 
             if viewModel.isLoading {
                 ProgressView("Loading...")
-            } else if let error = viewModel.error {
-                Text("Error: \(error.localizedDescription)").foregroundColor(.red)
+            } else if let error = viewModel.error(for: .apple) {
+                Text("Error: \(error.omlxDescription)").foregroundColor(.red)
             } else if let metrics = viewModel.appleMetrics {
                 VStack(alignment: .leading, spacing: 10) {
                     MetricRow(label: "API Version", value: metrics.apiVersion ?? "N/A")

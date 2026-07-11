@@ -168,6 +168,10 @@ final class ServerProcess: @unchecked Sendable {
                 pid: resolver.findOwnerPIDSync(),
                 isOMLX: resolver.isOMLXOnPortSync()
             )
+            if conflict.isOMLX {
+                attachToExistingServer(pid: conflict.pid)
+                return .alreadyRunning
+            }
             update(.failed(message: "Port \(port) in use" +
                            (conflict.isOMLX ? " (oMLX server already running)" : "")))
             postPortConflict(conflict)
@@ -309,6 +313,18 @@ final class ServerProcess: @unchecked Sendable {
         startHealthCheckLoop()
     }
 
+    private func attachToExistingServer(pid: pid_t?) {
+        process = nil
+        closeLog()
+        consecutiveFailures = 0
+        autoRestartCount = 0
+        let now = Date()
+        lastHealthyAt = now
+        lastAuxiliaryHealthyAt = now
+        update(.running(pid: pid ?? 0))
+        startHealthCheckLoop()
+    }
+
     private func handleProcessExit(code: Int32) {
         let wasExpectingExit = expectingExit
         expectingExit = false
@@ -414,7 +430,11 @@ final class ServerProcess: @unchecked Sendable {
                 logHealthProbeFailure(probe, failures: consecutiveFailures, suppressed: false)
                 if consecutiveFailures >= maxHealthFailures,
                    case .running = state {
-                    update(.unresponsive(pid: pid))
+                    if process == nil {
+                        update(.stopped)
+                    } else {
+                        update(.unresponsive(pid: pid))
+                    }
                 }
             }
         default:
@@ -507,7 +527,7 @@ final class ServerProcess: @unchecked Sendable {
 
     static func defaultBasePath() -> URL {
         FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".omlx", isDirectory: true)
+            .appendingPathComponent(".one", isDirectory: true)
     }
 
     static func defaultLogURL() -> URL {

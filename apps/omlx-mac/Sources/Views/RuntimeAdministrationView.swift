@@ -35,24 +35,21 @@ struct RuntimeAdministrationView: View {
                     VStack(alignment: .leading, spacing: 20) {
                         RuntimeOverviewCard(status: viewModel.status, serverInfo: viewModel.serverInfo, capabilities: viewModel.capabilities)
                         RuntimeConfigurationCard(serverInfo: viewModel.serverInfo)
+                        if let warning = viewModel.warningMessage {
+                            Text(warning)
+                                .font(.omlxText(12))
+                                .foregroundStyle(.orange)
+                                .accessibilityLabel(warning)
+                        }
                         SessionManagementView(sessions: viewModel.sessions)
                         
                         Divider()
                         
-                        HStack(spacing: 16) {
-                            Button("Open Diagnostics") {
-                                services.requestedSection = .diagnostics
-                            }
-                            .buttonStyle(.omlx(.normal))
-                            .accessibilityLabel("Open Diagnostics workspace")
-                            
-                            Button("Compiler Explorer") {
-                                // Assuming compiler explorer exists under diagnostics or developer
-                                services.requestedSection = .developer
-                            }
-                            .buttonStyle(.omlx(.normal))
-                            .accessibilityLabel("Open Developer Studio")
+                        Button("Compiler Explorer") {
+                            services.requestedSection = .developer
                         }
+                        .buttonStyle(.omlx(.normal))
+                        .accessibilityLabel("Open Developer Studio")
                         .padding(.top, 8)
                     }
                     .padding()

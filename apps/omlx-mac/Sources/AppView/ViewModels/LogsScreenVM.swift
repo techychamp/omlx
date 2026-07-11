@@ -30,6 +30,8 @@ final class LogsScreenVM {
                 ? String(localized: "logs.file.current",
                          defaultValue: "server.log (current)",
                          comment: "Popup label for the active server log file in the Logs screen file selector")
+                : name == "runtime.log"
+                    ? "runtime.log (process)"
                 : name
             return (name, label)
         }

@@ -883,7 +883,44 @@ class DebugRequestLoggingMiddleware:
         await self.app(scope, cached_receive, send)
 
 
+class RequestLifecycleLoggingMiddleware:
+    """Log request start/end without reading bodies or breaking streams."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        method = scope.get("method", "")
+        path = scope.get("path", "")
+        started = time.perf_counter()
+        status_code = 500
+        logger.info("HTTP request start %s %s", method, path)
+
+        async def logging_send(message):
+            nonlocal status_code
+            if message.get("type") == "http.response.start":
+                status_code = int(message.get("status", status_code))
+            await send(message)
+
+        try:
+            await self.app(scope, receive, logging_send)
+        finally:
+            duration_ms = (time.perf_counter() - started) * 1000
+            logger.info(
+                "HTTP request end %s %s status=%s duration_ms=%.1f",
+                method,
+                path,
+                status_code,
+                duration_ms,
+            )
+
+
 app.add_middleware(DebugRequestLoggingMiddleware)
+app.add_middleware(RequestLifecycleLoggingMiddleware)
 
 
 # =============================================================================
@@ -2812,7 +2849,10 @@ async def _create_markitdown_chat_completion(
 
 
 @app.get("/v1/models")
-async def list_models(request: Request = None, _: bool = Depends(verify_api_key)) -> ModelsResponse:
+async def list_models(
+    request: FastAPIRequest = None,
+    _: bool = Depends(verify_api_key),
+) -> ModelsResponse:
     """List all available models with load status."""
     user_agent = ""
     if request is not None and hasattr(request, "headers"):
@@ -2913,7 +2953,9 @@ async def unload_model(model_id: str, _: bool = Depends(verify_api_key)):
     if entry.engine is None:
         raise HTTPException(status_code=400, detail=f"Model not loaded: {model_id}")
 
+    logger.info("Public model unload requested model_id=%s", model_id)
     await _server_state.engine_pool._unload_engine(model_id)
+    logger.info("Public model unload completed model_id=%s", model_id)
     return {"status": "ok", "model_id": model_id}
 
 
@@ -2927,6 +2969,7 @@ async def load_model_public(model_id: str, _: bool = Depends(verify_api_key)):
     if entry is None:
         raise HTTPException(status_code=404, detail=f"Model not found: {model_id}")
     if entry.engine is not None:
+        logger.info("Public model load skipped already_loaded model_id=%s", model_id)
         return {
             "status": "ok",
             "model_id": model_id,
@@ -2934,6 +2977,7 @@ async def load_model_public(model_id: str, _: bool = Depends(verify_api_key)):
         }
 
     try:
+        logger.info("Public model load requested model_id=%s", model_id)
         await _server_state.engine_pool.get_engine(model_id)
     except ModelNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
@@ -2952,6 +2996,7 @@ async def load_model_public(model_id: str, _: bool = Depends(verify_api_key)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
+    logger.info("Public model load completed model_id=%s", model_id)
     return {"status": "ok", "model_id": model_id, "message": f"Loaded {model_id}"}
 
 
@@ -7020,6 +7065,17 @@ def main():
         level=log_level,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
+    configure_file_logging(
+        settings.logging.get_log_dir(settings.base_path),
+        level=settings.server.log_level,
+        include_request_id=True,
+        retention_days=settings.logging.retention_days,
+    )
+    logger.info(
+        "Server logging initialized log_dir=%s level=%s",
+        settings.logging.get_log_dir(settings.base_path),
+        settings.server.log_level,
+    )
 
     # Set MLX buffer cache limit
     total_mem = mx.device_info().get("memory_size", 0)
@@ -7073,10 +7129,13 @@ def main():
     try:
         for h in bind_hosts:
             print(f"Starting server at http://{h}:{args.port}")
+            logger.info("Starting server at http://%s:%s", h, args.port)
         uvicorn.Server(uvicorn_config).run(sockets=serve_sockets)
     finally:
+        logger.info("Server process stopping")
         for sock in serve_sockets:
             sock.close()
+        logger.info("Server sockets closed")
 
 
 # Auto-initialize server state on module import (e.g. uvicorn workers), except during unit tests
@@ -7119,19 +7178,3 @@ if not is_testing:
 
 if __name__ == "__main__":
     main()
-
-@app.delete("/v1/sessions/{session_id}", dependencies=[Depends(verify_api_key)])
-async def delete_session(session_id: str):
-    """Delete a chat session."""
-    db_path = _get_db_path()
-    try:
-        import sqlite3
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
-        cursor.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
-        conn.commit()
-        conn.close()
-        return {"status": "success", "message": f"Session {session_id} deleted."}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))

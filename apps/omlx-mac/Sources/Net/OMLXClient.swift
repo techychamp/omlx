@@ -8,7 +8,7 @@
 
 import Foundation
 
-enum OMLXClientError: Error, CustomStringConvertible {
+enum OMLXClientError: Error, CustomStringConvertible, LocalizedError {
     case invalidURL
     case invalidResponse
     case unauthenticated
@@ -22,6 +22,8 @@ enum OMLXClientError: Error, CustomStringConvertible {
         case .http(let s, let b):   return "HTTP \(s)" + (b.map { ": \($0)" } ?? "")
         }
     }
+
+    var errorDescription: String? { description }
 }
 
 extension Error {
@@ -71,6 +73,14 @@ final class OMLXClient: ObservableObject {
         self.host = host
         self.port = port
         self.apiKey = apiKey
+    }
+
+    private func applyAuthHeaders(to request: inout URLRequest) {
+        guard let key = apiKey?.trimmingCharacters(in: .whitespacesAndNewlines), !key.isEmpty else {
+            return
+        }
+        request.setValue(key, forHTTPHeaderField: "x-api-key")
+        request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
     }
 
     // MARK: - Endpoints
@@ -525,6 +535,7 @@ final class OMLXClient: ObservableObject {
 
         var req = URLRequest(url: url)
         req.httpMethod = method
+        applyAuthHeaders(to: &req)
         req.setValue("application/json", forHTTPHeaderField: "Accept")
         if body != nil {
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -596,6 +607,7 @@ final class OMLXClient: ObservableObject {
 
                 var req = URLRequest(url: url)
                 req.httpMethod = method
+                applyAuthHeaders(to: &req)
                 req.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                 if let body = body {
                     req.setValue("application/json", forHTTPHeaderField: "Content-Type")

@@ -15,6 +15,7 @@ final class PlatformViewModel {
     
     var isLoading: Bool = false
     var errorMessage: String? = nil
+    var warningMessage: String? = nil
     
     init(service: PlatformServiceProtocol, sessionService: SessionServiceProtocol) {
         self.service = service
@@ -24,19 +25,27 @@ final class PlatformViewModel {
     func loadData() async {
         isLoading = true
         errorMessage = nil
+        warningMessage = nil
         
         async let fetchStatus = service.getStatus()
         async let fetchCapabilities = service.getCapabilities()
         async let fetchServerInfo = service.getServerInfo()
-        async let fetchSessions = sessionService.getSessions()
         
         do {
             status = try await fetchStatus
             capabilities = try await fetchCapabilities
             serverInfo = try await fetchServerInfo
-            sessions = try await fetchSessions
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = error.omlxDescription
+            isLoading = false
+            return
+        }
+
+        do {
+            sessions = try await sessionService.getSessions()
+        } catch {
+            sessions = []
+            warningMessage = "Sessions unavailable: \(error.omlxDescription)"
         }
         
         isLoading = false

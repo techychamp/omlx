@@ -73,12 +73,8 @@ class PlanningClient:
 
     def generate_bundle(self, request: PlanningRequest) -> PlanningBundle:
         """Generate a complete PlanningBundle for a request."""
-        raise NotImplementedError("PlanningClient generation is not fully integrated yet."),
-            device_plan=None,
-            cache_plan=None,
-            memory_plan=None,
-            verification_plan=None,
-            moe_plan=None
+        raise NotImplementedError(
+            "PlanningClient generation is not fully integrated yet."
         )
 
 

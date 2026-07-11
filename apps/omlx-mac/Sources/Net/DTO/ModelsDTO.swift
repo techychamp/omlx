@@ -23,10 +23,14 @@ struct ModelDTO: Codable, Equatable, Sendable, Identifiable {
     let isLoading: Bool
     let estimatedSize: Int64
     let estimatedSizeFormatted: String?
+    let actualSize: Int64?
+    let actualSizeFormatted: String?
     let pinned: Bool?
     let isDefault: Bool?
     let engineType: String?
     let modelType: String?
+    let sourceType: String?
+    let sourceRepoId: String?
     /// Lower-level config-derived model class (e.g. `deepseek_v32`,
     /// `glm_moe_dsa`). Used to gate the IndexCache row to DSA models.
     let configModelType: String?
