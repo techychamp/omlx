@@ -1,4 +1,4 @@
-# Backend Adapter
+# Compiler Pipeline
 
 ## Purpose
 

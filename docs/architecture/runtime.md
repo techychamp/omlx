@@ -10,4 +10,4 @@
 
 ## Common Workflows
 
-[Developer Manual](../manual/index.md) | [Glossary](../glossary/glossary.md)
+[Developer Manual](../guides/index.md) | [Glossary](../reference/glossary.md)

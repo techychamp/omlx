@@ -10,17 +10,24 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 def test_milestone_reports_exist():
+    # Root-level documents that must always exist at the repo root
+    root_docs = ["README.md"]
+    for m in root_docs:
+        file_path = REPO_ROOT / m
+        assert file_path.exists(), f"Root document '{m}' is missing!"
+
+    # Milestone reports — canonical location is docs/milestones/ after DOCS-001 migration
     milestones = [
         "RUN_005_PLATFORM_CERTIFICATION.md",
         "RUN_005_RELEASE_READINESS.md",
         "TEST_001_Test_Isolation.md",
         "REL_001_Release_Validation.md",
         "PERF_001_Performance_Baseline.md",
-        "README.md"
     ]
+    milestones_dir = REPO_ROOT / "docs" / "milestones"
     for m in milestones:
-        file_path = REPO_ROOT / m
-        assert file_path.exists(), f"Milestone report/document '{m}' is missing!"
+        file_path = milestones_dir / m
+        assert file_path.exists(), f"Milestone report '{m}' is missing from docs/milestones/!"
 
 def test_markdown_and_links():
     # Scan all markdown files in the repo root and docs/

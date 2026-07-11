@@ -1,4 +1,4 @@
-# Backend Adapter
+# Execution Planner
 
 ## Purpose
 

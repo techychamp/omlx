@@ -364,11 +364,11 @@ apps/omlx-mac/Scripts/build.sh release --rebuild-donor
 apps/omlx-mac/Scripts/build.sh release --with-custom-kernel
 ```
 
-首次 cold 构建需要 10–20 分钟（venvstacks Python 层组装）。后续构建复用 `packaging/_export/` 缓存，约 4 分钟完成。层配置请参阅 [packaging/README.md](packaging/README.md)，Swift 源码请参阅 [apps/omlx-mac/](apps/omlx-mac/)。
+首次 cold 构建需要 10–20 分钟（venvstacks Python 层组装）。后续构建复用 `packaging/_export/` 缓存，约 4 分钟完成。层配置请参阅 [packaging guide](docs/guides/packaging-guide.md)，Swift 源码请参阅 [apps/omlx-mac/](apps/omlx-mac)。
 
 ## 贡献
 
-欢迎贡献！详情请参阅[贡献指南](docs/CONTRIBUTING.md)。
+欢迎贡献！详情请参阅[贡献指南](docs/guides/CONTRIBUTING.md)。
 
 - Bug 修复和改进
 - 性能优化

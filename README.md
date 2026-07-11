@@ -382,11 +382,11 @@ apps/omlx-mac/Scripts/build.sh release --rebuild-donor
 apps/omlx-mac/Scripts/build.sh release --with-custom-kernel
 ```
 
-First cold build takes 10–20 minutes (venvstacks Python layer assembly). Subsequent builds reuse the cached `packaging/_export/` and finish in about 4 minutes. See [packaging/README.md](packaging/README.md) for the layer configuration and [apps/omlx-mac/](apps/omlx-mac/) for the Swift sources.
+First cold build takes 10–20 minutes (venvstacks Python layer assembly). Subsequent builds reuse the cached `packaging/_export/` and finish in about 4 minutes. See [packaging guide](docs/guides/packaging-guide.md) for the layer configuration and [apps/omlx-mac/](apps/omlx-mac) for the Swift sources.
 
 ## Contributing
 
-Contributions are welcome! See [Contributing Guide](docs/CONTRIBUTING.md) for details.
+Contributions are welcome! See [Contributing Guide](docs/guides/CONTRIBUTING.md) for details.
 
 - Bug fixes and improvements
 - Performance optimizations
