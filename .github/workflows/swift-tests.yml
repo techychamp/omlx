@@ -1,0 +1,28 @@
+name: Swift Tests
+on:
+  workflow_call:
+
+jobs:
+  test:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Xcode
+        uses: ./.github/actions/setup-swift
+
+      - name: Cache dependencies
+        uses: ./.github/actions/cache
+        with:
+          python-version: '3.12'
+
+      - name: Resolve SPM Dependencies
+        shell: bash
+        run: |
+          xcodebuild -resolvePackageDependencies -project apps/omlx-mac/oMLX.xcodeproj -scheme oMLX
+
+      - name: Run Swift Unit and UI Tests
+        shell: bash
+        run: |
+          xcodebuild test -project apps/omlx-mac/oMLX.xcodeproj -scheme oMLX -destination 'platform=macOS' CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO

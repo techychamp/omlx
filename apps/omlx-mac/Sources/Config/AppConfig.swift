@@ -10,7 +10,7 @@
 //      path through the in-app Storage row, so Finder relaunches still
 //      land on the right data root. This is the *only* Swift-side config
 //      we keep — its sole job is to tell us where settings.json lives.
-//   3. Default `~/.omlx`.
+//   3. Default `~/.one`.
 //
 // Every other field (host, port, api_key, model_dirs, hf_endpoint) lives
 // in `<basePath>/settings.json` — owned by the running Python server,
@@ -37,7 +37,7 @@ struct AppConfig: Sendable, Equatable, Codable {
     /// when the app launches.
     var autoStartOnLaunch: Bool
     var apiKey: String?
-    /// Always `OMLX_BASE_PATH` if set, else `~/.omlx`. Set at load() time
+    /// Always `OMLX_BASE_PATH` if set, else `~/.one`. Set at load() time
     /// from the current process env so the running app sees a consistent
     /// view; `AppServices.changeBasePath` updates the env in place when
     /// the user moves their data root.
@@ -176,6 +176,32 @@ struct AppConfig: Sendable, Equatable, Codable {
         if let stored = readBootstrapBasePath() {
             return stored
         }
+        
+        // Migrate old ~/.omlx default directory to ~/.one if it exists
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let oldDefault = home.appendingPathComponent(".omlx", isDirectory: true).path
+        let newDefault = home.appendingPathComponent(".one", isDirectory: true).path
+        let fm = FileManager.default
+        if fm.fileExists(atPath: oldDefault) {
+            if !fm.fileExists(atPath: newDefault) {
+                try? fm.moveItem(atPath: oldDefault, toPath: newDefault)
+            } else if !fm.fileExists(atPath: URL(fileURLWithPath: newDefault).appendingPathComponent("settings.json").path) {
+                // ~/.one exists (e.g. created by CLI shim) but has no settings.json yet.
+                // Move contents from ~/.omlx to ~/.one
+                if let contents = try? fm.contentsOfDirectory(atPath: oldDefault) {
+                    for item in contents {
+                        let src = URL(fileURLWithPath: oldDefault).appendingPathComponent(item).path
+                        let dst = URL(fileURLWithPath: newDefault).appendingPathComponent(item).path
+                        if !fm.fileExists(atPath: dst) {
+                            try? fm.moveItem(atPath: src, toPath: dst)
+                        }
+                    }
+                }
+                // Finally remove the empty old default dir
+                try? fm.removeItem(atPath: oldDefault)
+            }
+        }
+        
         return defaultBasePath()
     }
 
@@ -226,7 +252,7 @@ struct AppConfig: Sendable, Equatable, Codable {
     ///   • bootstrap file (so Finder relaunches and the app-managed CLI shim
     ///     see it without editing shell rc files)
     /// Pass `nil` (or an empty string) to clear every override — the
-    /// "reset to ~/.omlx default" flow. Callers should compare against
+    /// "reset to ~/.one default" flow. Callers should compare against
     /// `defaultBasePath()` first and pass `nil` when the user chose the
     /// default so a default install isn't left with stale state.
     static func persistBasePath(_ path: String?) {
@@ -241,7 +267,7 @@ struct AppConfig: Sendable, Equatable, Codable {
 
     static func defaultBasePath() -> String {
         let home = FileManager.default.homeDirectoryForCurrentUser
-        return home.appendingPathComponent(".omlx", isDirectory: true).path
+        return home.appendingPathComponent(".one", isDirectory: true).path
     }
 
     static func settingsURL(basePath: String) -> URL {
@@ -260,8 +286,13 @@ struct AppConfig: Sendable, Equatable, Codable {
         let base = FileManager.default.urls(
             for: .applicationSupportDirectory, in: .userDomainMask
         ).first ?? FileManager.default.temporaryDirectory
-        let dir = base.appendingPathComponent("oMLX", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let oldDir = base.appendingPathComponent("oMLX", isDirectory: true)
+        let dir = base.appendingPathComponent("One", isDirectory: true)
+        let fm = FileManager.default
+        if fm.fileExists(atPath: oldDir.path) && !fm.fileExists(atPath: dir.path) {
+            try? fm.moveItem(at: oldDir, to: dir)
+        }
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }
 
@@ -313,9 +344,15 @@ struct AppConfig: Sendable, Equatable, Codable {
     /// other key in the file (cache, claude_code, integrations, …).
     func save() throws {
         let url = AppConfig.settingsURL(basePath: basePath)
+        let baseDir = URL(fileURLWithPath: basePath, isDirectory: true)
+        let configDir = baseDir.appendingPathComponent("config", isDirectory: true)
 
         try FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(
+            at: configDir,
             withIntermediateDirectories: true
         )
 
@@ -338,8 +375,6 @@ struct AppConfig: Sendable, Equatable, Codable {
         json["auth"] = auth
 
         var model = (json["model"] as? [String: Any]) ?? [:]
-        // `modelDirs` is always persisted as the canonical ordered list, with
-        // `model_dir` kept in sync for older server/app builds.
         let dirs = effectiveModelDirs
         model["model_dirs"] = dirs
         model["model_dir"] = dirs[0]
@@ -351,11 +386,37 @@ struct AppConfig: Sendable, Equatable, Codable {
 
         if json["version"] == nil { json["version"] = "1.0" }
 
+        // Write legacy settings.json
         let out = try JSONSerialization.data(
             withJSONObject: json,
             options: [.prettyPrinted]
         )
         try out.write(to: url, options: [.atomic])
+
+        // Write segmented server.json
+        let serverData = try JSONSerialization.data(withJSONObject: ["server": server], options: [.prettyPrinted])
+        try serverData.write(to: configDir.appendingPathComponent("server.json"), options: [.atomic])
+
+        // Write segmented auth.json
+        let authData = try JSONSerialization.data(withJSONObject: ["auth": auth], options: [.prettyPrinted])
+        try authData.write(to: configDir.appendingPathComponent("auth.json"), options: [.atomic])
+
+        // Write segmented models.json
+        let modelsData = try JSONSerialization.data(withJSONObject: ["model": model], options: [.prettyPrinted])
+        try modelsData.write(to: configDir.appendingPathComponent("models.json"), options: [.atomic])
+
+        // Write segmented system.json
+        let systemUrl = configDir.appendingPathComponent("system.json")
+        var systemJson: [String: Any] = [:]
+        if FileManager.default.fileExists(atPath: systemUrl.path),
+           let data = try? Data(contentsOf: systemUrl),
+           let existing = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            systemJson = existing
+        }
+        systemJson["huggingface"] = hf
+        if systemJson["version"] == nil { systemJson["version"] = "1.0.0" }
+        let systemData = try JSONSerialization.data(withJSONObject: systemJson, options: [.prettyPrinted])
+        try systemData.write(to: systemUrl, options: [.atomic])
     }
 
     // MARK: - Internal
@@ -376,6 +437,53 @@ struct AppConfig: Sendable, Equatable, Codable {
     }
 
     private static func readSettings(basePath: String) throws -> ServerSettingsSlice {
+        let baseDir = URL(fileURLWithPath: basePath, isDirectory: true)
+        let configDir = baseDir.appendingPathComponent("config", isDirectory: true)
+        
+        let serverJsonURL = configDir.appendingPathComponent("server.json")
+        let authJsonURL = configDir.appendingPathComponent("auth.json")
+        let modelsJsonURL = configDir.appendingPathComponent("models.json")
+        let systemJsonURL = configDir.appendingPathComponent("system.json")
+        
+        if FileManager.default.fileExists(atPath: serverJsonURL.path) ||
+           FileManager.default.fileExists(atPath: authJsonURL.path) ||
+           FileManager.default.fileExists(atPath: modelsJsonURL.path) {
+            
+            var server: [String: Any]? = nil
+            var auth: [String: Any]? = nil
+            var model: [String: Any]? = nil
+            var hf: [String: Any]? = nil
+            
+            if let data = try? Data(contentsOf: serverJsonURL),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                server = json["server"] as? [String: Any]
+            }
+            if let data = try? Data(contentsOf: authJsonURL),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                auth = json["auth"] as? [String: Any]
+            }
+            if let data = try? Data(contentsOf: modelsJsonURL),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                model = json["model"] as? [String: Any]
+            }
+            if let data = try? Data(contentsOf: systemJsonURL),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                hf = json["huggingface"] as? [String: Any]
+            }
+            
+            let bindAddr = server?["host"] as? String
+                ?? server?["bind_address"] as? String
+            return ServerSettingsSlice(
+                bindAddress: bindAddr,
+                port: server?["port"] as? Int,
+                autoStartOnLaunch: server?["auto_start_on_launch"] as? Bool,
+                apiKey: auth?["api_key"] as? String,
+                modelDirs: model?["model_dirs"] as? [String],
+                modelDir: model?["model_dir"] as? String,
+                hfEndpoint: hf?["endpoint"] as? String
+            )
+        }
+
         let url = settingsURL(basePath: basePath)
         guard FileManager.default.fileExists(atPath: url.path) else {
             return ServerSettingsSlice()

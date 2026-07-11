@@ -1,0 +1,97 @@
+{
+  "model_descriptor": {
+    "model_id": "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit",
+    "model_family": "Autoregressive",
+    "architecture": "Unknown",
+    "architecture_family": "unknown",
+    "architecture_generation": "unknown",
+    "task": "Text-Generation",
+    "modality": "Text",
+    "parameter_count": 0,
+    "hidden_size": 2048,
+    "layer_count": 22,
+    "context_length": 2048,
+    "attention_type": "Standard",
+    "activation_type": "unknown",
+    "tokenizer_family": "unknown",
+    "special_token_information": {},
+    "moe_information": {},
+    "expert_count": 0,
+    "expert_size": 0,
+    "kv_cache_support": true,
+    "speculative_support": false,
+    "streaming_support": true,
+    "expert_support": false,
+    "vision_support": false,
+    "audio_support": false,
+    "tool_support": false,
+    "embedding_support": false,
+    "reranking_support": false,
+    "quantization_support": true,
+    "backend_requirements": [
+      "mlx"
+    ],
+    "license": "Unknown",
+    "repository_metadata": {},
+    "recommended_backend": "mlx",
+    "recommended_quantization": "none",
+    "recommended_execution_mode": "batched",
+    "recommended_scheduler": "continuous",
+    "compatibility_report": {},
+    "validation_report": {},
+    "planner_metadata": {},
+    "compiler_metadata": {}
+  },
+  "architecture_detected": [
+    "Autoregressive",
+    "Unknown",
+    "Text-Generation",
+    "Text"
+  ],
+  "statistics": {
+    "family_distribution": {
+      "Autoregressive": 1
+    },
+    "architecture_distribution": {
+      "Unknown": 1
+    },
+    "license_distribution": {
+      "Unknown": 1
+    },
+    "backend_recommendation_distribution": {
+      "mlx": 1
+    },
+    "capability_distribution": {
+      "kv_cache": 1,
+      "speculative": 0,
+      "streaming": 1,
+      "expert": 0,
+      "vision": 0,
+      "audio": 0,
+      "tool": 0,
+      "embedding": 0,
+      "reranking": 0,
+      "quantization": 1
+    },
+    "compatibility_statistics": {
+      "runtime": 1,
+      "compiler": 1,
+      "backend": 1
+    },
+    "unknown_architecture_count": 1,
+    "total_models": 1
+  },
+  "diagnostics": [
+    {
+      "severity": "WARNING",
+      "category": "Architecture",
+      "component": "ModelClassifier",
+      "message": "Unknown architecture detected.",
+      "recommendation": "Add support for this architecture in ModelClassifier.",
+      "metadata": {
+        "model_id": "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit"
+      }
+    }
+  ],
+  "registry_size": 1
+}

@@ -1,7 +1,7 @@
 // ShellEnvWriter owns the app-managed CLI shim.
 //
 // Default launch behavior must not edit shell rc files. The app first creates
-// `~/.omlx/bin/omlx`, then tries to expose it through a safe public symlink.
+// `~/.one/bin/one`, then tries to expose it through a safe public symlink.
 // Shell rc edits are kept behind an explicit user prompt only.
 
 import Foundation
@@ -29,19 +29,19 @@ enum ShellEnvWriter {
         }
     }
 
-    private static let cliShimBeginMarker = "# oMLX: CLI shim path begin"
-    private static let cliShimEndMarker = "# oMLX: CLI shim path end"
+    private static let cliShimBeginMarker = "# One: CLI shim path begin"
+    private static let cliShimEndMarker = "# One: CLI shim path end"
     private static let publicBinCandidates = [
         "/opt/homebrew/bin",
         "/usr/local/bin",
     ]
 
-    /// Install/update `~/.omlx/bin/omlx` so app-only installs still expose
+    /// Install/update `~/.one/bin/one` so app-only installs still expose
     /// the same terminal command as pip/Homebrew installs.
     @discardableResult
     static func ensureCLIShim(appBundleURL: URL = Bundle.main.bundleURL) throws -> CLISetupResult {
         let shimDir = home()
-            .appendingPathComponent(".omlx", isDirectory: true)
+            .appendingPathComponent(".one", isDirectory: true)
             .appendingPathComponent("bin", isDirectory: true)
         try FileManager.default.createDirectory(
             at: shimDir,
@@ -51,14 +51,29 @@ enum ShellEnvWriter {
         let bundleCLI = appBundleURL
             .appendingPathComponent("Contents", isDirectory: true)
             .appendingPathComponent("MacOS", isDirectory: true)
-            .appendingPathComponent("omlx-cli")
+            .appendingPathComponent("one-cli")
+        if !FileManager.default.isExecutableFile(atPath: bundleCLI.path) {
+            let homeDir = FileManager.default.homeDirectoryForCurrentUser
+            let venvPython = homeDir.appendingPathComponent("dev/repo/omlx/.venv/bin/python").path
+            let debugScript = """
+            #!/bin/sh
+            if [ -x "\(venvPython)" ]; then
+                exec "\(venvPython)" -m omlx.cli "$@"
+            else
+                echo "oMLX: Workspace python not found at \(venvPython)."
+                exit 1
+            fi
+            """
+            try? debugScript.write(to: bundleCLI, atomically: true, encoding: .utf8)
+            try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: bundleCLI.path)
+        }
         guard FileManager.default.isExecutableFile(atPath: bundleCLI.path) else {
             throw WriterError.cliWrapperNotExecutable(bundleCLI.path)
         }
-        let shimURL = shimDir.appendingPathComponent("omlx")
+        let shimURL = shimDir.appendingPathComponent("one")
         let script = """
         #!/bin/sh
-        BOOTSTRAP="$HOME/Library/Application Support/oMLX/base-path"
+        BOOTSTRAP="$HOME/Library/Application Support/One/base-path"
         if [ -r "$BOOTSTRAP" ]; then
             IFS= read -r \(variableName) < "$BOOTSTRAP" || \(variableName)=""
             if [ -n "$\(variableName)" ]; then
@@ -86,7 +101,7 @@ enum ShellEnvWriter {
             if let first = firstCLIPathInCurrentPath(),
                !isManagedCLI(path: first, shimURL: shimURL) {
                 return .needsShellPathPrompt(
-                    reason: "\(first.path) appears before the oMLX app-managed command on PATH."
+                    reason: "\(first.path) appears before the One app-managed command on PATH."
                 )
             }
             return .publicCommandReady(path: path.path)
@@ -164,12 +179,12 @@ enum ShellEnvWriter {
                 continue
             }
 
-            let link = dir.appendingPathComponent("omlx")
+            let link = dir.appendingPathComponent("one")
             if fm.fileExists(atPath: link.path) {
                 if isManagedCLI(path: link, shimURL: shimURL) {
                     return .installed(link)
                 }
-                reasons.append("\(link.path) already exists and is not managed by oMLX.")
+                reasons.append("\(link.path) already exists and is not managed by One.")
                 continue
             }
             guard fm.isWritableFile(atPath: dir.path) else {
@@ -217,7 +232,7 @@ enum ShellEnvWriter {
         let current = getenv("PATH").map { String(cString: $0) } ?? ""
         for part in current.split(separator: ":").map(String.init) {
             let candidate = URL(fileURLWithPath: part, isDirectory: true)
-                .appendingPathComponent("omlx")
+                .appendingPathComponent("one")
             guard FileManager.default.isExecutableFile(atPath: candidate.path) else {
                 continue
             }
@@ -271,8 +286,8 @@ enum ShellEnvWriter {
         let block = """
         \(cliShimBeginMarker)
         case ":$PATH:" in
-          *":$HOME/.omlx/bin:"*) ;;
-          *) export PATH="$HOME/.omlx/bin:$PATH" ;;
+          *":$HOME/.one/bin:"*) ;;
+          *) export PATH="$HOME/.one/bin:$PATH" ;;
         esac
         \(cliShimEndMarker)
         """

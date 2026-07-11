@@ -1,17 +1,14 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
 """
-CLI for oMLX.
+CLI for One.
 
 Commands:
-    omlx serve --model-dir /path/to/models    Start multi-model server
+    one serve --model-dir /path/to/models    Start multi-model server
 
 Usage:
     # Multi-model serving
-    omlx serve --model-dir /path/to/models
-
-    # With pinned models
-    omlx serve --model-dir /path/to/models --pin llama-3b,qwen-7b
+    one serve --model-dir /path/to/models
 """
 
 import argparse
@@ -72,282 +69,22 @@ def _has_cli_overrides(args) -> bool:
 
 
 def serve_command(args):
-    """Start the OpenAI-compatible multi-model server."""
-    import logging
-    import os
-    import uvicorn
+    """Start the One platform launcher and bootstrap all services."""
+    import time
+    from .platform.launcher import Launcher
 
-    from ._version import __version__
-    from . import process_title
-    from .settings import burst_decode_env, init_settings
-    from .logging_config import configure_file_logging, AdminStatsAccessFilter
-
-    process_title.set_process_title()
-
+    launcher = Launcher(base_path=args.base_path, cli_args=args)
     try:
-        from ._build_info import build_number
-    except ImportError:
-        build_number = None
-
-    # Print version banner
-    print(f"\033[33moMLX - LLM inference, optimized for your Mac\033[0m")
-    print(f"\033[33m├─ https://github.com/jundot/omlx\033[0m")
-    if build_number:
-        print(f"\033[33m├─ Version: {__version__}\033[0m")
-        print(f"\033[33m└─ Build: {build_number}\033[0m")
-    else:
-        print(f"\033[33m└─ Version: {__version__}\033[0m")
-    print()
-
-    # Initialize global settings first (to get log_level from file if not specified)
-    settings = init_settings(base_path=args.base_path, cli_args=args)
-
-    # Register TRACE level (5) — includes full message content
-    TRACE = 5
-    logging.addLevelName(TRACE, "TRACE")
-
-    # Configure logging (use settings value which has proper priority)
-    level_name = settings.server.log_level.upper()
-    log_level = (
-        TRACE if level_name == "TRACE" else getattr(logging, level_name, logging.INFO)
-    )
-    logging.basicConfig(
-        level=log_level,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
-    # Set omlx loggers
-    for name in [
-        "omlx",
-        "omlx.scheduler",
-        "omlx.paged_ssd_cache",
-        "omlx.memory_monitor",
-        "omlx.paged_cache",
-        "omlx.prefix_cache",
-        "omlx.engine_pool",
-        "omlx.model_discovery",
-    ]:
-        logging.getLogger(name).setLevel(log_level)
-
-    # Suppress repetitive admin stats access logs
-    logging.getLogger("uvicorn.access").addFilter(AdminStatsAccessFilter())
-
-    # Suppress noisy third-party loggers unless trace level
-    if log_level > TRACE:
-        logging.getLogger("httpcore").setLevel(logging.INFO)
-        logging.getLogger("httpx").setLevel(logging.INFO)
-
-    # Ensure required directories exist
-    settings.ensure_directories()
-
-    # Apply HuggingFace endpoint if configured
-    if settings.huggingface.endpoint:
-        os.environ["HF_ENDPOINT"] = settings.huggingface.endpoint
-
-    # Apply ModelScope endpoint if configured
-    if settings.modelscope.endpoint:
-        os.environ["MODELSCOPE_DOMAIN"] = settings.modelscope.endpoint
-
-    # Apply proxy/TLS settings if configured
-    if settings.network.http_proxy:
-        os.environ["HTTP_PROXY"] = settings.network.http_proxy
-        os.environ["http_proxy"] = settings.network.http_proxy
-    if settings.network.https_proxy:
-        os.environ["HTTPS_PROXY"] = settings.network.https_proxy
-        os.environ["https_proxy"] = settings.network.https_proxy
-    if settings.network.no_proxy:
-        os.environ["NO_PROXY"] = settings.network.no_proxy
-        os.environ["no_proxy"] = settings.network.no_proxy
-    if settings.network.ca_bundle:
-        os.environ["REQUESTS_CA_BUNDLE"] = settings.network.ca_bundle
-        os.environ["SSL_CERT_FILE"] = settings.network.ca_bundle
-
-    # Seed Burst Decode env vars so EngineConfig picks up the saved mode at
-    # engine construction (no restart needed when the mode changes later).
-    for _key, _value in burst_decode_env(settings.server.burst_decode_mode).items():
-        os.environ[_key] = _value
-
-    # Validate before persisting CLI overrides, so invalid flags never poison
-    # settings.json.
-    errors = settings.validate()
-    if errors:
-        for error in errors:
-            print(f"Configuration error: {error}")
-        sys.exit(1)
-
-    # Save CLI args to settings.json if non-default values provided
-    if _has_cli_overrides(args):
-        try:
-            settings.save()
-            print("Saved CLI arguments to settings.json")
-        except Exception as e:
-            print(f"Warning: Failed to save settings: {e}")
-
-    # Configure file logging (writes to {base_path}/logs/server.log)
-    log_dir = settings.logging.get_log_dir(settings.base_path)
-    configure_file_logging(
-        log_dir=log_dir,
-        level=settings.server.log_level,
-        include_request_id=True,
-        retention_days=settings.logging.retention_days,
-    )
-    print(f"Log directory: {log_dir}")
-
-    # Enable native crash diagnostics (SIGABRT, SIGSEGV, SIGFPE, SIGBUS).
-    # On Metal/MLX crashes (#511, #520), this dumps all Python thread
-    # tracebacks to the server log before the process terminates.
-    crash_log_path = log_dir / "crash.log"
-    _crash_file = open(crash_log_path, "a")
-    faulthandler.enable(file=_crash_file, all_threads=True)
-
-    # Bind the socket before importing/initializing the server. Uvicorn's
-    # normal startup runs ASGI lifespan before binding host/port, which means
-    # pinned models can be preloaded before a port conflict is detected.
-    bind_hosts = [h.strip() for h in settings.server.host.split(",") if h.strip()]
-    for h in bind_hosts:
-        print(f"Binding server at http://{h}:{settings.server.port}")
-    # uvicorn does not support "trace" — map to "debug" for its internal logging
-    uvicorn_level = (
-        "debug" if settings.server.log_level == "trace" else settings.server.log_level
-    )
-    # Only show access logs at trace level
-    show_access_log = settings.server.log_level == "trace"
-    uvicorn_config = uvicorn.Config(
-        "omlx.server:app",
-        host=bind_hosts[0],
-        port=settings.server.port,
-        log_level=uvicorn_level,
-        access_log=show_access_log,
-    )
-    # Bind a socket per host so an occupied port fails fast before model preload.
-    # uvicorn.Server.run(sockets=[...]) accepts a list and listens on all of them.
-    serve_sockets = [uvicorn_config.bind_socket()]
-    for h in bind_hosts[1:]:
-        extra_cfg = uvicorn.Config(
-            "omlx.server:app",
-            host=h,
-            port=settings.server.port,
-            log_level=uvicorn_level,
-            access_log=show_access_log,
-        )
-        serve_sockets.append(extra_cfg.bind_socket())
-
-    try:
-        # Import server and config after the port is known to be available.
-        from .server import init_server
-        from .config import parse_size
-
-        model_dirs = settings.get_effective_model_dirs()
-        print(f"Base path: {settings.base_path}")
-        print(f"Model directories: {', '.join(str(d) for d in model_dirs)}")
-        print(f"Memory guard tier: {settings.memory.memory_guard_tier}")
-
-        # Store MCP config path for FastAPI startup
-        # Priority: CLI arg > settings.json
-        mcp_config = args.mcp_config or settings.mcp.config_path
-        if mcp_config:
-            print(f"MCP config: {mcp_config}")
-            os.environ["OMLX_MCP_CONFIG"] = mcp_config
-
-        # Determine paged SSD cache directory
-        # Priority: --no-cache > CLI arg > settings file
-        if args.no_cache:
-            paged_ssd_cache_dir = None
-        elif args.paged_ssd_cache_dir:
-            # CLI argument takes precedence
-            paged_ssd_cache_dir = args.paged_ssd_cache_dir
-        elif settings.cache.enabled:
-            # Use settings file value (resolved path or default)
-            paged_ssd_cache_dir = str(
-                settings.cache.get_ssd_cache_dir(settings.base_path)
-            )
-        else:
-            # Cache explicitly disabled in settings
-            paged_ssd_cache_dir = None
-
-        # Build scheduler config for BatchedEngine
-        scheduler_config = settings.to_scheduler_config()
-        # Set paged SSD cache options
-        scheduler_config.paged_ssd_cache_dir = paged_ssd_cache_dir
-        # Determine cache max size: CLI arg > settings (with auto resolution)
-        if paged_ssd_cache_dir:
-            if args.paged_ssd_cache_max_size:
-                # CLI argument specified explicitly
-                cache_max_size_bytes = parse_size(args.paged_ssd_cache_max_size)
-            else:
-                # Use settings value (handles "auto" -> 10% of SSD capacity)
-                cache_max_size_bytes = settings.cache.get_ssd_cache_max_size_bytes(
-                    settings.base_path
-                )
-            scheduler_config.paged_ssd_cache_max_size = cache_max_size_bytes
-        else:
-            scheduler_config.paged_ssd_cache_max_size = 0
-            cache_max_size_bytes = 0
-
-        # Hot cache: CLI arg > settings
-        if paged_ssd_cache_dir:
-            if args.hot_cache_max_size:
-                hot_cache_max_bytes = parse_size(args.hot_cache_max_size)
-            else:
-                hot_cache_max_bytes = settings.cache.get_hot_cache_max_size_bytes()
-            scheduler_config.hot_cache_max_size = hot_cache_max_bytes
-        else:
-            scheduler_config.hot_cache_max_size = 0
-
-        if args.no_cache:
-            print(
-                "Mode: Multi-model serving (no oMLX cache, mlx-lm BatchGenerator only)"
-            )
-        elif paged_ssd_cache_dir:
-            print("Mode: Multi-model serving (continuous batching + paged SSD cache)")
-            # Format cache size for display
-            cache_max_size_display = f"{cache_max_size_bytes / (1024**3):.1f}GB"
-            print(
-                f"paged SSD cache: {paged_ssd_cache_dir} (max: {cache_max_size_display})"
-            )
-            if scheduler_config.hot_cache_max_size > 0:
-                hot_display = f"{scheduler_config.hot_cache_max_size / (1024**3):.1f}GB"
-                print(f"Hot cache: {hot_display} (in-memory)")
-        else:
-            print("Mode: Multi-model serving (continuous batching, no cache)")
-
-        # Set MLX buffer cache limit high to prevent the allocator from
-        # immediately releasing Metal buffers when the cache is full.
-        # Without this, allocator::free() can call buf->release() while the
-        # GPU is still using the buffer, causing kernel panics on M4.
-        # With a large cache limit, freed buffers always stay in the pool
-        # and are only released via mx.clear_cache() (which we protect
-        # with mx.synchronize()). See issue #300.
-        import mlx.core as mx
-
-        total_mem = mx.device_info().get("memory_size", 0)
-        if total_mem > 0:
-            mx.set_cache_limit(total_mem)
-
-        # Initialize server
-        # Note: pinned_models and default_model are managed via admin page (model_settings.json)
-        # Sampling parameters (max_tokens, temperature, etc.) are per-model settings
-        init_server(
-            model_dirs=[str(d) for d in model_dirs],
-            scheduler_config=scheduler_config,
-            api_key=settings.auth.api_key,
-            global_settings=settings,
-        )
-
-        for h in bind_hosts:
-            print(f"Starting server at http://{h}:{settings.server.port}")
-        try:
-            uvicorn.Server(uvicorn_config).run(sockets=serve_sockets)
-        except KeyboardInterrupt:
-            pass
-    finally:
-        # Uvicorn closes sockets during normal shutdown; this covers failures
-        # after bind succeeds but before the server takes ownership.
-        for sock in serve_sockets:
-            sock.close()
+        launcher.bootstrap()
+        while launcher.running:
+            time.sleep(0.5)
+    except KeyboardInterrupt:
+        print("\nShutting down One platform...")
+        launcher.shutdown()
 
 
 def launch_command(args, extra_args: list[str] | None = None):
-    """Launch an external tool integrated with oMLX.
+    """Launch an external tool integrated with One.
 
     extra_args are unknown CLI tokens forwarded to the underlying tool binary
     (e.g. ``-r`` / ``--resume <id>`` for Claude Code).
@@ -386,14 +123,14 @@ def launch_command(args, extra_args: list[str] | None = None):
     first_bind = [h.strip() for h in host.split(",") if h.strip()][0] if host else ""
     connect_host = first_bind if first_bind not in ("", "0.0.0.0", "::") else "127.0.0.1"
 
-    # Check if oMLX server is running
+    # Check if One server is running
     base_url = f"http://{connect_host}:{port}"
     try:
         resp = requests.get(f"{base_url}/health", timeout=3)
         resp.raise_for_status()
     except Exception:
-        print(f"oMLX server is not running at {base_url}")
-        print("Start the server first: omlx start")
+        print(f"One server is not running at {base_url}")
+        print("Start the server first: one start")
         sys.exit(1)
 
     # Get API key: CLI args > settings.json > empty
@@ -502,7 +239,7 @@ def launch_command(args, extra_args: list[str] | None = None):
 def _app_control_socket_path():
     from pathlib import Path
 
-    return Path.home() / "Library" / "Application Support" / "oMLX" / "control.sock"
+    return Path.home() / "Library" / "Application Support" / "One" / "control.sock"
 
 
 def _app_bundle_path():
@@ -514,7 +251,7 @@ def _app_bundle_path():
     try:
         return cli_path.parents[2]
     except IndexError:
-        return Path("/Applications/oMLX.app")
+        return Path("/Applications/One.app")
 
 
 def _open_macos_app() -> None:
@@ -562,7 +299,7 @@ def _send_app_control_with_launch(command: str, timeout: float) -> dict:
         except OSError as exc:
             last_error = exc
             time.sleep(0.2)
-    raise RuntimeError(f"Could not reach oMLX.app control socket: {last_error}")
+    raise RuntimeError(f"Could not reach One.app control socket: {last_error}")
 
 
 def _wait_app_control_state(states: set[str], timeout: float) -> dict:
@@ -604,34 +341,34 @@ def lifecycle_command(args) -> int:
                 try:
                     response = _send_app_control(command)
                 except OSError:
-                    print("oMLX stopped")
+                    print("One stopped")
                     return 0
             else:
                 response = _send_app_control_with_launch(command, timeout=timeout)
             if not response.get("ok"):
-                print(response.get("message") or f"oMLX {command} failed")
+                print(response.get("message") or f"One {command} failed")
                 return 1
 
             if command in {"start", "restart"} and not no_wait:
                 response = _wait_app_control_state({"running", "unresponsive"}, timeout)
                 if response.get("state") not in {"running", "unresponsive"}:
                     print(
-                        f"oMLX server is {response.get('state', 'unknown')} "
+                        f"One server is {response.get('state', 'unknown')} "
                         f"after {int(timeout)}s."
                     )
                     return 1
 
             if command == "stop":
-                print("oMLX stopped")
+                print("One stopped")
             elif command == "start":
                 print(
-                    f"oMLX server {response.get('state')} on port {response.get('port')}"
+                    f"One server {response.get('state')} on port {response.get('port')}"
                 )
             elif command == "restart":
-                print(f"oMLX server restarted on port {response.get('port')}")
+                print(f"One server restarted on port {response.get('port')}")
             return 0
         except Exception as exc:
-            print(f"Failed to control oMLX.app: {exc}")
+            print(f"Failed to control One.app: {exc}")
             return 1
 
     if is_homebrew():
@@ -640,14 +377,14 @@ def lifecycle_command(args) -> int:
 
     if command == "start":
         print("Background start is available for the macOS app and Homebrew installs.")
-        print("For this install, run foreground server mode with: omlx serve")
+        print("For this install, run foreground server mode with: one serve")
     else:
         print("Background stop/restart requires the macOS app or Homebrew service.")
     return 1
 
 
 def diagnose_menubar() -> int:
-    """Diagnose why the oMLX menubar icon might be missing.
+    """Diagnose why the One menubar icon might be missing.
 
     Reports macOS version, app install path, running menubar process, and the
     most recent visibility warning from the log. Prints manual recovery steps
@@ -658,19 +395,19 @@ def diagnose_menubar() -> int:
     import subprocess
     from pathlib import Path
 
-    print("oMLX menubar diagnostics")
+    print("One menubar diagnostics")
     print("=" * 40)
 
     mac_ver = platform.mac_ver()[0] or "unknown"
     print(f"macOS:          {mac_ver}")
-    print(f"Bundle ID:      app.omlx")
+    print(f"Bundle ID:      app.one")
 
-    app_path = Path("/Applications/oMLX.app")
+    app_path = Path("/Applications/One.app")
     print(f"App installed:  {'yes' if app_path.exists() else 'NO (install DMG first)'}")
 
     try:
         res = subprocess.run(
-            ["pgrep", "-af", "oMLX"],
+            ["pgrep", "-af", "One"],
             capture_output=True,
             text=True,
             timeout=5,
@@ -687,7 +424,7 @@ def diagnose_menubar() -> int:
     # The Swift app writes `server.log` (stdout/stderr of the Python child).
     # No separate menubar.log — visibility-probe lines are logged into the
     # same file via OSLog.
-    log_dir = Path.home() / "Library" / "Application Support" / "oMLX" / "logs"
+    log_dir = Path.home() / "Library" / "Application Support" / "One" / "logs"
     log_candidates = [log_dir / "server.log"]
     print(f"Log dir:        {log_dir}")
 
@@ -726,8 +463,8 @@ def diagnose_menubar() -> int:
     print(
         "     open 'x-apple.systempreferences:com.apple.ControlCenter-Settings.extension?MenuBar'"
     )
-    print("  2. Find 'oMLX' and set it to 'Show in Menu Bar'")
-    print("  3. If oMLX isn't in the list, quit the app and relaunch oMLX.app")
+    print("  2. Find 'One' and set it to 'Show in Menu Bar'")
+    print("  3. If One isn't in the list, quit the app and relaunch One.app")
     print()
     print("Note: Apple's sandbox policy prevents third-party apps from")
     print("programmatically re-enabling their own menubar visibility on Tahoe.")
@@ -735,7 +472,7 @@ def diagnose_menubar() -> int:
 
 
 def diagnose_command(args) -> int:
-    """Dispatch 'omlx diagnose <target>' to the appropriate subcommand."""
+    """Dispatch 'one diagnose <target>' to the appropriate subcommand."""
     target = getattr(args, "target", None)
     if target == "menubar":
         return diagnose_menubar()
@@ -746,26 +483,26 @@ def diagnose_command(args) -> int:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="omlx: Production-ready LLM server for Apple Silicon",
+        description="one: Production-ready LLM server for Apple Silicon",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  omlx serve mlx-community/Llama-3.2-3B-Instruct-4bit --port 8000
-  omlx launch codex --model qwen3.5
+  one serve mlx-community/Llama-3.2-3B-Instruct-4bit --port 8000
+  one launch codex --model qwen3.5
         """,
     )
     parser.add_argument(
         "--version",
         action="version",
         version=__version__,
-        help="Print the oMLX version and exit",
+        help="Print the One version and exit",
     )
     subparsers = parser.add_subparsers(dest="command", help="Commands")
 
     for name, help_text in (
-        ("start", "Start oMLX as a managed background server"),
-        ("stop", "Stop the managed background oMLX server"),
-        ("restart", "Restart the managed background oMLX server"),
+        ("start", "Start One as a managed background server"),
+        ("stop", "Stop the managed background One server"),
+        ("restart", "Restart the managed background One server"),
     ):
         lifecycle_parser = subparsers.add_parser(
             name,
@@ -811,7 +548,7 @@ Example directory structure:
         "--model-dir",
         type=str,
         default=None,
-        help="Directory containing model subdirectories (default: ~/.omlx/models)",
+        help="Directory containing model subdirectories (default: ~/.one/models)",
     )
     # Server options
     serve_parser.add_argument(
@@ -858,7 +595,7 @@ Example directory structure:
         type=str,
         choices=["safe", "balanced", "aggressive"],
         default=None,
-        help="Memory guard tier. safe reserves more system memory; aggressive allows more oMLX memory use. (default: balanced)",
+        help="Memory guard tier. safe reserves more system memory; aggressive allows more One memory use. (default: balanced)",
     )
     serve_parser.add_argument(
         "--memory-guard-gb",
@@ -872,7 +609,7 @@ Example directory structure:
         "--paged-ssd-cache-dir",
         type=str,
         default=None,
-        help="Directory for paged SSD cache storage (enables oMLX prefix cache)",
+        help="Directory for paged SSD cache storage (enables One prefix cache)",
     )
     serve_parser.add_argument(
         "--paged-ssd-cache-max-size",
@@ -889,7 +626,7 @@ Example directory structure:
     serve_parser.add_argument(
         "--no-cache",
         action="store_true",
-        help="Disable oMLX paged SSD cache. mlx-lm BatchGenerator still manages KV states internally.",
+        help="Disable One paged SSD cache. mlx-lm BatchGenerator still manages KV states internally.",
     )
     serve_parser.add_argument(
         "--initial-cache-blocks",
@@ -961,7 +698,7 @@ Example directory structure:
         "--base-path",
         type=str,
         default=None,
-        help="Base directory for oMLX data (default: ~/.omlx)",
+        help="Base directory for One data (default: ~/.one)",
     )
     serve_parser.add_argument(
         "--api-key",
@@ -973,11 +710,11 @@ Example directory structure:
     # Launch command
     launch_parser = subparsers.add_parser(
         "launch",
-        help="Launch an external tool with oMLX integration",
+        help="Launch an external tool with One integration",
         description=(
             "Configure and launch external coding tools (Claude Code, Copilot, "
             "Codex, Codex App, OpenCode, OpenClaw, Hermes Agent, Pi) to use "
-            "the running oMLX server."
+            "the running One server."
         ),
     )
     launch_parser.add_argument(
@@ -998,19 +735,19 @@ Example directory structure:
         "--host",
         type=str,
         default=None,
-        help="oMLX server host (default: from settings or 127.0.0.1)",
+        help="One server host (default: from settings or 127.0.0.1)",
     )
     launch_parser.add_argument(
         "--port",
         type=int,
         default=None,
-        help="oMLX server port (default: from settings or 8000)",
+        help="One server port (default: from settings or 8000)",
     )
     launch_parser.add_argument(
         "--api-key",
         type=str,
         default=None,
-        help="API key for oMLX server authentication",
+        help="API key for One server authentication",
     )
     launch_parser.add_argument(
         "--tools-profile",
@@ -1054,7 +791,7 @@ Example directory structure:
         help="What to diagnose. 'menubar' checks Tahoe ControlCenter visibility.",
     )
 
-    # Use parse_known_args so `omlx launch <tool> -- ...` can forward unknown
+    # Use parse_known_args so `one launch <tool> -- ...` can forward unknown
     # tokens (e.g. `-r`, `--resume <id>`) to the underlying tool binary.
     # Non-launch commands keep the previous strictness by rejecting unknowns.
     args, extra_args = parser.parse_known_args()

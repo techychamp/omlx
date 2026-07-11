@@ -27,10 +27,10 @@ final class AppUpdater {
         var description: String {
             switch self {
             case .notWritable(let path):
-                return "Cannot write to \(path). Move oMLX.app to a writable location and try again."
+                return "Cannot write to \(path). Move One.app to a writable location and try again."
             case .downloadFailed(let m): return "Download failed: \(m)"
             case .mountFailed(let m): return "Could not mount DMG: \(m)"
-            case .appNotFoundInVolume: return "oMLX.app not found inside the downloaded DMG"
+            case .appNotFoundInVolume: return "One.app not found inside the downloaded DMG"
             case .stageFailed(let m): return "Could not stage the update: \(m)"
             case .cancelled: return "Update cancelled"
             }
@@ -45,7 +45,7 @@ final class AppUpdater {
         case ready
     }
 
-    static let stagedAppName = ".oMLX-update.app"
+    static let stagedAppName = ".One-update.app"
 
     private let dmgURL: URL
     private let version: String
@@ -111,7 +111,7 @@ final class AppUpdater {
         onProgress(.starting)
 
         let tmpDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("omlx-update-\(UUID().uuidString)")
+            .appendingPathComponent("one-update-\(UUID().uuidString)")
         do {
             try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
         } catch {
@@ -120,7 +120,7 @@ final class AppUpdater {
         }
         defer { try? FileManager.default.removeItem(at: tmpDir) }
 
-        let dmgPath = tmpDir.appendingPathComponent("oMLX-\(version).dmg")
+        let dmgPath = tmpDir.appendingPathComponent("One-\(version).dmg")
 
         do {
             try await downloadDMG(to: dmgPath)
@@ -336,7 +336,7 @@ final class AppUpdater {
     }
 
     private func findAppInVolume(_ mountPoint: URL) throws -> URL {
-        let preferred = mountPoint.appendingPathComponent("oMLX.app")
+        let preferred = mountPoint.appendingPathComponent("One.app")
         if FileManager.default.fileExists(atPath: preferred.path) { return preferred }
         let entries = (try? FileManager.default.contentsOfDirectory(atPath: mountPoint.path)) ?? []
         for name in entries where name.hasSuffix(".app") {
@@ -383,7 +383,7 @@ final class AppUpdater {
         do {
             try process.run()
         } catch {
-            NSLog("oMLX: failed to spawn swap script: %@", error.localizedDescription)
+            NSLog("One: failed to spawn swap script: %@", error.localizedDescription)
             return false
         }
         return true

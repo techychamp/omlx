@@ -415,14 +415,14 @@ xcodebuild \
     build >"$BUILD_DIR/xcodebuild.log" 2>&1 \
         || { tail -40 "$BUILD_DIR/xcodebuild.log" >&2; die "xcodebuild failed; full log: $BUILD_DIR/xcodebuild.log"; }
 
-XCODE_APP="$BUILD_DIR/Build/Products/$CONFIG/oMLX.app"
+XCODE_APP="$BUILD_DIR/Build/Products/$CONFIG/One.app"
 [ -d "$XCODE_APP" ] || die "Expected $XCODE_APP — check build log."
 ok "Built $XCODE_APP"
 
 # --- Stage --------------------------------------------------------------
 
 mkdir -p "$OUTPUT_DIR"
-STAGED_APP="$OUTPUT_DIR/oMLX.app"
+STAGED_APP="$OUTPUT_DIR/One.app"
 
 log "Staging bundle at $STAGED_APP"
 rm -rf "$STAGED_APP"
@@ -495,7 +495,7 @@ ok "  + _engine_commits.json"
 # --- Embed CLI wrapper ----------------------------------------------------
 
 log "Writing app-bundle CLI wrapper..."
-CLI_WRAPPER="$STAGED_APP/Contents/MacOS/omlx-cli"
+CLI_WRAPPER="$STAGED_APP/Contents/MacOS/one-cli"
 cat > "$CLI_WRAPPER" <<'EOF'
 #!/bin/sh
 set -eu
@@ -519,7 +519,7 @@ fi
 exec "$PYTHON" -m omlx.cli "$@"
 EOF
 chmod 755 "$CLI_WRAPPER"
-ok "  + omlx-cli"
+ok "  + one-cli"
 
 # --- Compile AppIcon.icon (Tahoe Liquid Glass) ----------------------------
 #
@@ -554,7 +554,7 @@ if [ -d "$ICON_BUNDLE" ] && [ -d "$XCASSETS_DIR" ]; then
             --target-device mac \
             --minimum-deployment-target 26.0 \
             --platform macosx \
-            --bundle-identifier app.omlx \
+            --bundle-identifier app.one \
             --output-format human-readable-text \
             --output-partial-info-plist "$ICON_TMP/icon.plist" \
             >/dev/null 2>&1; then
@@ -588,7 +588,7 @@ else
     log "Ad-hoc signing embedded native code…"
     _sign_embedded_mach_o_files "$PYTHON_DIR"
     codesign --force --sign - "$CLI_WRAPPER" >/dev/null 2>&1
-    ok "  + signed omlx-cli wrapper"
+    ok "  + signed one-cli wrapper"
 fi
 
 log "Ad-hoc resigning app bundle…"
@@ -608,4 +608,4 @@ echo "To launch:"
 echo "  open '$STAGED_APP'"
 echo
 echo "Server log will appear at:"
-echo "  ~/Library/Application Support/oMLX/logs/server.log"
+echo "  ~/Library/Application Support/One/logs/server.log"

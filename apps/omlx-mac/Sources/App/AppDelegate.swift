@@ -41,7 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var welcomeCloseObserver: NSObjectProtocol?
 
     /// Set true by `requestQuit()` to permit a real terminate. Cmd-Q / Dock
-    /// Quit / "Quit oMLX" from the application menu all route through
+    /// Quit / "Quit One" from the application menu all route through
     /// `applicationShouldTerminate`, which (when this flag is false) closes
     /// any visible app window instead of terminating — preserving the
     /// menubar status item + the running server. The menubar's own "Quit"
@@ -82,7 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Bring the main AppView window forward. If SwiftUI hasn't materialised
     /// the NSWindow yet (i.e. nobody opened it since launch), kick the
-    /// `omlxapp://main` URL — the Window scene in oMLXApp.swift handles it
+    /// `oneapp://main` URL — the Window scene in oMLXApp.swift handles it
     /// via `.handlesExternalEvents(matching: ["main"])`.
     func presentAppView() {
         // Flip to .regular eagerly so the Dock icon shows in lockstep with
@@ -103,7 +103,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             main.makeKeyAndOrderFront(nil)
             return
         }
-        if let url = URL(string: "omlxapp://main") {
+        if let url = URL(string: "oneapp://main") {
             NSWorkspace.shared.open(url)
         }
     }
@@ -142,7 +142,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let cliResult = try ShellEnvWriter.ensureCLIShim()
                 handleCLISetupResult(cliResult)
             } catch {
-                NSLog("oMLX: CLI shim setup failed — \(error)")
+                NSLog("One: CLI shim setup failed — \(error)")
             }
             startControlServer()
         }
@@ -152,7 +152,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         if AppConfig.hasExistingConfig {
             // Returning user. AppConfig.load() picks the highest-priority
-            // file (`~/.omlx/settings.json` first, Library config.json
+            // file (`~/.one/settings.json` first, Library config.json
             // second) and stamps `config.source` so future saves route to
             // the same file. No re-write needed here.
             bootstrapServer(config: config)
@@ -173,11 +173,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func promptForShellPathExport(reason: String) {
         let alert = NSAlert()
-        alert.messageText = "Enable `omlx` in Terminal?"
+        alert.messageText = "Enable `one` in Terminal?"
         alert.informativeText = """
-        oMLX could not create a public `omlx` command in /opt/homebrew/bin or /usr/local/bin.
+        One could not create a public `one` command in /opt/homebrew/bin or /usr/local/bin.
 
-        To make `omlx` available in new Terminal sessions, oMLX can add a small PATH block to your shell init file. This only happens if you choose Update Shell File.
+        To make `one` available in new Terminal sessions, One can add a small PATH block to your shell init file. This only happens if you choose Update Shell File.
 
         \(reason)
         """
@@ -191,7 +191,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             do {
                 try ShellEnvWriter.ensureShellPathExport()
             } catch {
-                NSLog("oMLX: CLI shell path setup failed — \(error)")
+                NSLog("One: CLI shell path setup failed — \(error)")
             }
         case .alertThirdButtonReturn:
             ShellEnvWriter.suppressCLIPathPromptForever()
@@ -257,7 +257,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // Surface the failure in the menubar header so the user has a
             // recovery affordance without needing to dig through logs.
             self.menubar = makeMenubar(server: nil, config: config, lastError: error)
-            NSLog("oMLX: server bootstrap failed — \(error)")
+            NSLog("One: server bootstrap failed — \(error)")
         }
     }
 
@@ -298,7 +298,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func windowDidBecomeMainNotification(_ notif: Notification) {
         guard let win = notif.object as? NSWindow, isAppOwnedWindow(win) else { return }
         // Hide the SwiftUI Window scene's title text in the title bar
-        // (the "oMLX" floating above the toolbar zone). The title string
+        // (the "One" floating above the toolbar zone). The title string
         // is still used by the Window menu / Dock-icon right-click menu —
         // only the in-bar display is suppressed. Matches Settings.app's
         // chrome where the title bar is left to the per-screen big title
@@ -436,7 +436,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Intercept terminate so Cmd-Q / Dock → Quit *only* close the window.
-    /// The single real-quit path is the menubar status item's "Quit oMLX",
+    /// The single real-quit path is the menubar status item's "Quit One",
     /// which routes through `requestQuit()` to set the explicit flag.
     ///
     /// Notes:
@@ -463,7 +463,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             try control.start()
             self.controlServer = control
         } catch {
-            NSLog("oMLX: app-control server failed to start — \(error)")
+            NSLog("One: app-control server failed to start — \(error)")
         }
     }
 
@@ -487,7 +487,7 @@ extension AppDelegate: AppControlHandling {
                 status: "unavailable",
                 state: .stopped,
                 server: nil,
-                message: "Managed server is unavailable. Complete the oMLX first-run setup in the app."
+                message: "Managed server is unavailable. Complete the One first-run setup in the app."
             )
         }
 
@@ -526,7 +526,7 @@ extension AppDelegate: AppControlHandling {
                 status: "stopped",
                 state: server.state,
                 server: server,
-                message: "oMLX stopped"
+                message: "One stopped"
             )
 
         case .restart:

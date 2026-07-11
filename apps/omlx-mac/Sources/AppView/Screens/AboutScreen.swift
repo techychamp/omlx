@@ -50,7 +50,7 @@ private struct HeroCard: View {
                 .interpolation(.high)
                 .frame(width: 69, height: 69)
             VStack(alignment: .leading, spacing: 4) {
-                Text("oMLX")
+                Text("One")
                     .font(.omlxText(22, weight: .semibold))
                     .foregroundStyle(theme.text)
                 Text(String(localized: "about.hero.tagline",
@@ -157,7 +157,7 @@ private struct LicenseSection: View {
                             .foregroundStyle(theme.text)
                     }
                     Text(String(localized: "about.license.notice",
-                                defaultValue: "Copyright © oMLX contributors. Licensed under the Apache License, Version 2.0. See the LICENSE file in the repository for the full text.",
+                                defaultValue: "Copyright © One contributors. Licensed under the Apache License, Version 2.0. See the LICENSE file in the repository for the full text.",
                                 comment: "Copyright + license notice paragraph on the About screen"))
                         .font(.omlxText(11.5))
                         .foregroundStyle(theme.textSecondary)

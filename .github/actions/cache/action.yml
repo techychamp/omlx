@@ -1,0 +1,46 @@
+name: 'Dependency Caching'
+description: 'Cache uv, SPM, DerivedData, and venvstacks layers using lockfile hashes'
+inputs:
+  python-version:
+    description: 'Python version used'
+    required: true
+    default: '3.12'
+runs:
+  using: 'composite'
+  steps:
+    - name: Cache uv/pip
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/uv
+          ~/.cache/pip
+        key: ${{ runner.os }}-uv-${{ inputs.python-version }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-uv-${{ inputs.python-version }}-
+
+    - name: Cache SwiftPM Packages
+      uses: actions/cache@v4
+      with:
+        path: apps/omlx-mac/build/SourcePackages
+        key: ${{ runner.os }}-spm-${{ hashFiles('apps/omlx-mac/Package.resolved') }}
+        restore-keys: |
+          ${{ runner.os }}-spm-
+
+    - name: Cache Xcode DerivedData
+      uses: actions/cache@v4
+      with:
+        path: apps/omlx-mac/build/DerivedData
+        key: ${{ runner.os }}-deriveddata-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-deriveddata-
+
+    - name: Cache venvstacks build/export
+      uses: actions/cache@v4
+      with:
+        path: |
+          packaging/_build
+          packaging/_export
+          packaging/_wheels
+        key: ${{ runner.os }}-venvstacks-${{ inputs.python-version }}-${{ hashFiles('pyproject.toml', 'uv.lock', 'packaging/venvstacks.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-venvstacks-${{ inputs.python-version }}-

@@ -184,7 +184,7 @@ enum ReleasesChecker {
         return trimmed.split(separator: ".").compactMap { Int($0) }
     }
 
-    /// PEP 440-style prerelease ordering for oMLX tags:
+    /// PEP 440-style prerelease ordering for One tags:
     /// dev < alpha < beta < rc < final.
     private static func parsePhase(_ version: String) -> (rank: Int, number: Int) {
         if let n = numberAfterFullMarker("dev", in: version) {

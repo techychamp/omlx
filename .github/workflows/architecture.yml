@@ -1,0 +1,53 @@
+name: Architecture Validation
+on:
+  workflow_call:
+
+jobs:
+  validate:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        python-version: ['3.12']
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache dependencies
+        uses: ./.github/actions/cache
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Linting dependencies
+        shell: bash
+        run: |
+          uv pip install --system ruff black isort mypy fastapi uvicorn Starlette pydantic pydantic-settings typing-extensions
+
+      - name: Python Ruff Linter
+        shell: bash
+        run: |
+          ruff check .
+
+      - name: Python Black Formatter Check
+        shell: bash
+        run: |
+          black --check .
+
+      - name: Python Isort Check
+        shell: bash
+        run: |
+          isort --check-only .
+
+      - name: Python mypy Type Checker
+        shell: bash
+        run: |
+          mypy omlx
+
+      - name: Run Platform Architecture & API Manifest Audit
+        shell: bash
+        run: |
+          python tests/run_005_platform_validation.py

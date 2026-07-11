@@ -61,20 +61,20 @@ class TestIntegrationCommands:
     def test_commands_quote_full_app_cli_prefix(self):
         with patch(
             "omlx.utils.install.get_cli_prefix",
-            return_value="/Users/me/My Apps/oMLX.app/Contents/MacOS/omlx-cli",
+            return_value="/Users/me/My Apps/One.app/Contents/MacOS/one-cli",
         ):
-            cmd = ClaudeCodeIntegration().get_command(ctx())
-
-        assert (
-            cmd == "'/Users/me/My Apps/oMLX.app/Contents/MacOS/omlx-cli' launch claude"
-        )
+            integration = get_integration("claude")
+            cmd = integration.get_command(ctx())
+            assert (
+                cmd == "'/Users/me/My Apps/One.app/Contents/MacOS/one-cli' launch claude"
+            )
 
 
 class TestCodexIntegration:
     def test_get_command(self):
         codex = CodexIntegration()
         cmd = codex.get_command(ctx(port=8000, api_key="test-key", model="qwen3.5"))
-        assert "omlx launch codex" in cmd
+        assert "one launch codex" in cmd
         assert "--model qwen3.5" in cmd
 
     def test_get_command_no_model(self):
@@ -247,7 +247,7 @@ class TestCodexAppIntegration:
     def test_get_command(self):
         codex_app = CodexAppIntegration()
         cmd = codex_app.get_command(ctx(port=8000, api_key="key", model="qwen3.5"))
-        assert "omlx launch codex_app" in cmd
+        assert "one launch codex_app" in cmd
         assert "--model qwen3.5" in cmd
 
     def test_configure(self, tmp_path):
@@ -310,7 +310,7 @@ class TestOpenCodeIntegration:
     def test_get_command(self):
         oc = OpenCodeIntegration()
         cmd = oc.get_command(ctx(port=8000, api_key="key", model="qwen3.5"))
-        assert "omlx launch opencode" in cmd
+        assert "one launch opencode" in cmd
         assert "--model qwen3.5" in cmd
 
     def test_configure_new_file(self, tmp_path):
@@ -517,7 +517,7 @@ class TestOpenClawIntegration:
     def test_get_command(self):
         ocl = OpenClawIntegration()
         cmd = ocl.get_command(ctx(port=8000, api_key="key", model="qwen3.5"))
-        assert "omlx launch openclaw" in cmd
+        assert "one launch openclaw" in cmd
         assert "--model qwen3.5" in cmd
 
     def test_configure_new_file(self, tmp_path):
@@ -715,7 +715,7 @@ class TestHermesIntegration:
     def test_get_command(self):
         hermes = HermesIntegration()
         cmd = hermes.get_command(ctx(port=8000, api_key="key", model="qwen3.5"))
-        assert "omlx launch hermes" in cmd
+        assert "one launch hermes" in cmd
         assert "--model qwen3.5" in cmd
 
     def test_get_command_no_model(self):
@@ -946,7 +946,7 @@ class TestPiIntegration:
     def test_get_command(self):
         pi = PiIntegration()
         cmd = pi.get_command(ctx(port=8000, api_key="key", model="qwen3.5"))
-        assert "omlx launch pi" in cmd
+        assert "one launch pi" in cmd
         assert "--model qwen3.5" in cmd
 
     def test_get_command_no_model(self):
@@ -1153,7 +1153,7 @@ class TestClaudeCodeIntegration:
     def test_get_command(self):
         cc = ClaudeCodeIntegration()
         cmd = cc.get_command(ctx(port=8000, api_key="key", model="qwen3.5"))
-        assert "omlx launch claude" in cmd
+        assert "one launch claude" in cmd
 
     def test_get_command_ignores_model(self):
         # Claude integration uses TUI selection so the rendered command
@@ -1386,7 +1386,7 @@ class TestCopilotIntegration:
     def test_get_command(self):
         copilot = CopilotIntegration()
         cmd = copilot.get_command(ctx(port=8000, api_key="key", model="qwen3.5"))
-        assert "omlx launch copilot" in cmd
+        assert "one launch copilot" in cmd
         assert "--model qwen3.5" in cmd
 
     def test_get_command_no_model(self):

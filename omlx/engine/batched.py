@@ -9,17 +9,17 @@ for better throughput when serving multiple concurrent requests.
 import copy
 import logging
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from omlx.registry.capability_registry import GenerationStrategyRegistry
+    from omlx.registry.model_info import ModelInfo
+    from omlx.runtime.capabilities import ActualCapabilities, EngineCapabilities, ModelCapabilities
 
 from ..api.tool_calling import convert_tools_for_template
 from ..api.utils import clean_special_tokens, detect_and_strip_partial
 from ..utils.tokenizer import get_tokenizer_config
-from .base import (
-    BaseEngine,
-    GenerationOutput,
-    _clear_teardown_references,
-    _warn_scheduler_unreachable_once,
-)
+from .base import BaseEngine, GenerationOutput, _warn_scheduler_unreachable_once
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +77,11 @@ class BatchedEngine(BaseEngine):
         self._loaded = False
         self._grammar_compiler = None
         self._grammar_compiler_init_attempted = False
+        
+        # Phase 1 tri-mode capabilities
+        self._actual_capabilities: Optional["ActualCapabilities"] = None
+        self._model_info: Optional["ModelInfo"] = None
+        self._strategy_registry: Optional["GenerationStrategyRegistry"] = None
 
     async def _preflight_or_raise_with_eviction(
         self,
@@ -104,6 +109,33 @@ class BatchedEngine(BaseEngine):
     def model_name(self) -> str:
         """Get the model name."""
         return self._model_name
+
+    @property
+    def model_info(self) -> Optional["ModelInfo"]:
+        return self._model_info
+        
+    @property
+    def model_capabilities(self) -> Optional["ModelCapabilities"]:
+        if self._model_info:
+            return self._model_info.capabilities
+        return None
+        
+    @property
+    def engine_capabilities(self) -> "EngineCapabilities":
+        from omlx.runtime.capabilities import EngineCapabilities
+        return EngineCapabilities(
+            supports_continuous_batching=True,
+            supports_chunked_prefill=True,
+            supports_paged_attention=True,
+        )
+        
+    @property
+    def actual_capabilities(self) -> Optional["ActualCapabilities"]:
+        return self._actual_capabilities
+        
+    @property
+    def strategy_registry(self) -> Optional["GenerationStrategyRegistry"]:
+        return self._strategy_registry
 
     @property
     def tokenizer(self) -> Any:
@@ -232,10 +264,11 @@ class BatchedEngine(BaseEngine):
 
         import asyncio
 
+        from mlx_lm import load
+
         from ..engine_core import AsyncEngineCore, EngineConfig
         from ..scheduler import SchedulerConfig
         from ..utils.model_loading import (
-            lm_load_compat,
             maybe_apply_pre_load_patches,
             maybe_load_custom_quantization,
         )
@@ -267,7 +300,7 @@ class BatchedEngine(BaseEngine):
                 model, processor = custom_loaded
                 return model, getattr(processor, "tokenizer", processor)
 
-            return lm_load_compat(
+            return load(
                 self._model_name,
                 tokenizer_config=tokenizer_config,
                 trust_remote_code=self._trust_remote_code,
@@ -349,6 +382,9 @@ class BatchedEngine(BaseEngine):
 
         # TurboQuant KV cache: propagate bits to scheduler
         scheduler = self._engine.engine.scheduler
+        scheduler._actual_capabilities = self._actual_capabilities
+        scheduler._strategy_registry = self._strategy_registry
+        
         if self._model_settings is not None:
             tq_enabled = getattr(self._model_settings, "turboquant_kv_enabled", False)
             if tq_enabled:
@@ -387,7 +423,7 @@ class BatchedEngine(BaseEngine):
                                 specprefill_draft,
                                 trust_remote_code=self._trust_remote_code,
                             )
-                            draft_model, _ = lm_load_compat(
+                            draft_model, _ = load(
                                 specprefill_draft,
                                 tokenizer_config=draft_tokenizer_config,
                                 trust_remote_code=self._trust_remote_code,
@@ -418,6 +454,34 @@ class BatchedEngine(BaseEngine):
                 except Exception as e:
                     logger.error(f"SpecPrefill: draft model load failed: {e}")
 
+        # Phase 1: Initialize capability registry
+        from omlx.runtime.feature_flags import FeatureFlags
+        from omlx.runtime.capabilities import ActualCapabilities, ModelCapabilities
+        from omlx.registry.capability_registry import GenerationStrategyRegistry, register_default_strategies
+        from omlx.registry.plugin_discovery import discover_plugins
+        from omlx.registry.model_info import build_model_info
+
+        # Infer basic model capabilities
+        model_caps = ModelCapabilities()  # In a full implementation, we'd inspect the model structure here
+        
+        flags = FeatureFlags.from_env()
+        self._actual_capabilities = ActualCapabilities.resolve(
+            model=model_caps,
+            engine=self.engine_capabilities,
+            flags=flags
+        )
+        
+        self._model_info = build_model_info(
+            model_path=self._model_name,
+            model=self._model,
+            tokenizer=self._tokenizer,
+            capabilities=model_caps,
+        )
+        
+        self._strategy_registry = GenerationStrategyRegistry()
+        register_default_strategies(self._strategy_registry)
+        discover_plugins(self._strategy_registry)
+
         self._loaded = True
         logger.info(f"BatchedEngine loaded: {self._model_name}")
 
@@ -430,16 +494,9 @@ class BatchedEngine(BaseEngine):
                     self._engine.engine.close()
                 except Exception as e:
                     logger.warning(f"Error closing engine: {e}")
-        _clear_teardown_references(
-            self,
-            none_attrs=(
-                "_engine",
-                "_model",
-                "_tokenizer",
-                "_grammar_compiler",
-            ),
-            false_attrs=("_grammar_compiler_init_attempted",),
-        )
+        self._engine = None
+        self._model = None
+        self._tokenizer = None
         self._loaded = False
         logger.info("BatchedEngine stopped")
 

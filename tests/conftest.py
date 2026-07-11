@@ -177,3 +177,26 @@ def real_model_dir() -> Path:
     and should be marked with @pytest.mark.slow.
     """
     return Path.home() / "Workspace" / "models"
+
+import sys
+import importlib
+@pytest.fixture(autouse=True)
+def cleanup_mlx_cache():
+    yield
+    # STABILIZE-001-01 Fix: Clear singleton caches to avoid cross-test state leakage
+    try:
+        from mlx.core import metal
+        metal.clear_cache()
+    except Exception:
+        pass
+
+    # Reload server to reset state
+    if "omlx.server" in sys.modules:
+        importlib.reload(sys.modules["omlx.server"])
+
+    # Clean up model registries
+    if "omlx.framework.model_intelligence.registry" in sys.modules:
+        importlib.reload(sys.modules["omlx.framework.model_intelligence.registry"])
+
+    if "omlx.framework.quantization.registry" in sys.modules:
+        importlib.reload(sys.modules["omlx.framework.quantization.registry"])

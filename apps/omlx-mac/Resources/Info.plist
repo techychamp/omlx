@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>oMLX</string>
+	<string>One</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -46,10 +46,10 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>app.omlx.url</string>
+			<string>app.one.url</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>omlxapp</string>
+				<string>oneapp</string>
 			</array>
 		</dict>
 	</array>

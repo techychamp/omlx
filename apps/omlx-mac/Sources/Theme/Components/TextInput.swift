@@ -1,5 +1,3 @@
-// PR 3 — text field with focus ring matching the JSX `TextInput` / `BoxedInput`.
-
 import SwiftUI
 
 struct TextInput: View {
@@ -14,7 +12,9 @@ struct TextInput: View {
     var suffix: String?
     var width: CGFloat?
 
+    @FocusState private var isFocused: Bool
     @Environment(\.omlxTheme) private var theme
+    @Environment(\.omlxPageRole) private var pageRole
 
     init(_ titleKey: LocalizedStringKey = "", text: Binding<String>, placeholder: String = "", isSecure: Bool = false, mono: Bool = false, isNumeric: Bool = false, range: ClosedRange<Double>? = nil, step: Double? = nil, suffix: String? = nil, width: CGFloat? = nil) {
         self._text = text
@@ -37,33 +37,62 @@ struct TextInput: View {
     }
 
     var body: some View {
-        field
-            .lineLimit(1)
-            .textFieldStyle(.roundedBorder)
-            .font(mono ? .omlxMono(13, weight: .medium) : .omlxText(13, weight: .medium))
-            .foregroundStyle(theme.text)
-            .overlay(alignment: .trailing) {
-                HStack(spacing: 0) {
-                    if let suffix {
-                        Text(suffix)
-                            .font(.omlxText(11))
-                            .foregroundStyle(theme.textSecondary)
-                            .padding(.horizontal, 10)
-                    }
-                    if isNumeric {
-                        stepper
-                    }
+        let atmosphere = OneDesign.SemanticRoles.resolveAtmosphere(for: pageRole, isDark: theme.isDark)
+        let strokeColor: Color = {
+            if isFocused {
+                return atmosphere.accent
+            } else {
+                return theme.inputBorder
+            }
+        }()
+        
+        let shadowColor: Color = {
+            if isFocused {
+                return atmosphere.glowColor
+            } else {
+                return .clear
+            }
+        }()
+        
+        return HStack(spacing: 0) {
+            field
+                .textFieldStyle(.plain)
+                .font(mono ? OneDesign.Typography.omlxCode() : OneDesign.Typography.omlxBody())
+                .focused($isFocused)
+                .foregroundStyle(theme.text)
+            
+            HStack(spacing: 0) {
+                if let suffix {
+                    Text(suffix)
+                        .font(OneDesign.Typography.omlxCaption())
+                        .foregroundStyle(theme.textSecondary)
+                        .padding(.horizontal, OneDesign.Spacing.spacingS)
+                }
+                if isNumeric {
+                    stepper
                 }
             }
-            .frame(maxWidth: width)
+        }
+        .padding(.horizontal, OneDesign.Spacing.spacingS)
+        .padding(.vertical, 5)
+        .frame(height: 28)
+        .background(theme.inputBg)
+        .clipShape(RoundedRectangle(cornerRadius: OneDesign.Layout.controlRadius, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: OneDesign.Layout.controlRadius, style: .continuous)
+                .stroke(strokeColor, lineWidth: isFocused ? 1.2 : 0.8)
+        )
+        .shadow(color: shadowColor, radius: isFocused ? 3 : 0)
+        .animation(OneDesign.Motion.fast, value: isFocused)
+        .frame(maxWidth: width)
     }
 
     private var field: some View {
         Group {
             if isSecure {
-                SecureField(titleKey, text: $text, prompt: Text(placeholder))
+                SecureField(titleKey, text: $text, prompt: Text(placeholder).foregroundColor(theme.textTertiary))
             } else {
-                TextField(titleKey, text: $text, prompt: Text(placeholder))
+                TextField(titleKey, text: $text, prompt: Text(placeholder).foregroundColor(theme.textTertiary))
             }
         }
     }
@@ -83,32 +112,4 @@ struct TextInput: View {
         .controlSize(.small)
         .padding(.trailing, 1)
     }
-}
-
-#Preview("TextInput") {
-    @Previewable @State var port = "8000"
-    @Previewable @State var qty = "1024"
-    @Previewable @State var temperature = "0.3"
-    @Previewable @State var pwd = "sk-omlx-2k4j8"
-    @Previewable @State var showKey = false
-    @Previewable @State var alias = ""
-    VStack(alignment: .leading, spacing: 14) {
-        TextInput(text: $port, placeholder: "Port", mono: true, width: 110)
-        TextInput(text: $qty, placeholder: "Quantity", isNumeric: true, suffix: "qty", width: 160)
-        TextInput(text: $temperature, placeholder: "Temperature", isNumeric: true, range: 0...2, step: 0.1, width: 160)
-        HStack {
-            TextInput(text: $pwd, placeholder: "Admin password", isSecure: !showKey, width: 200)
-            Button {
-                showKey.toggle()
-            } label: {
-                Image(systemName: "eye")
-                    .symbolVariant(showKey ? .slash : .none)
-            }
-            .buttonStyle(.plain)
-        }
-        TextInput(text: $alias, placeholder: "model-id-suffix", mono: true,
-                  suffix: "alias", width: 240)
-    }
-    .padding(24)
-    .omlxThemed()
 }

@@ -44,6 +44,45 @@ final class MenubarControllerPortTests: XCTestCase {
         XCTAssertEqual(env["OMLX_SUPERVISED"], "menubar")
     }
 
+    func testServerStartAttachesToExistingOMLXServerOnConfiguredPort() async throws {
+        let healthServer = try TinyHealthServer()
+        try healthServer.start()
+        addTeardownBlock {
+            healthServer.stop()
+        }
+
+        let tempBase = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ServerAttachTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempBase, withIntermediateDirectories: true)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: tempBase)
+        }
+
+        let server = ServerProcess(
+            runtime: makeRuntime(),
+            bindAddress: "127.0.0.1",
+            port: healthServer.port,
+            basePath: tempBase
+        )
+
+        let result = try server.start()
+
+        if case .alreadyRunning = result {
+            // Expected.
+        } else {
+            XCTFail("Expected .alreadyRunning when /health already responds, got \(result)")
+        }
+        if case .running = server.state {
+            // Expected: the app attached to the healthy server instead of
+            // reporting a port conflict and asking the user to start again.
+        } else {
+            XCTFail("Expected .running after attaching to existing server, got \(server.state)")
+        }
+        XCTAssertNil(server.pid, "Attached external servers are tracked by health, not owned as child processes.")
+
+        await server.stop(timeout: 1)
+    }
+
     // MARK: - displayPort
 
     func testDisplayPortFallsBackToConfigWhenNoServer() {
@@ -238,5 +277,87 @@ final class MenubarControllerPortTests: XCTestCase {
                 logTail: "ValueError: no models found"
             )
         )
+    }
+}
+
+private final class TinyHealthServer: @unchecked Sendable {
+    let port: Int
+    private let fd: Int32
+    private let queue = DispatchQueue(label: "TinyHealthServer")
+
+    init() throws {
+        let socketFD = socket(AF_INET, SOCK_STREAM, 0)
+        guard socketFD >= 0 else {
+            throw POSIXError(.EIO)
+        }
+
+        var reuse: Int32 = 1
+        setsockopt(socketFD, SOL_SOCKET, SO_REUSEADDR, &reuse, socklen_t(MemoryLayout<Int32>.size))
+
+        var addr = sockaddr_in()
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_port = 0
+        addr.sin_addr.s_addr = inet_addr("127.0.0.1")
+
+        let size = socklen_t(MemoryLayout<sockaddr_in>.size)
+        let bound = withUnsafePointer(to: &addr) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                Darwin.bind(socketFD, $0, size)
+            }
+        }
+        guard bound == 0 else {
+            close(socketFD)
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
+
+        var picked = sockaddr_in()
+        var pickedSize = socklen_t(MemoryLayout<sockaddr_in>.size)
+        let got = withUnsafeMutablePointer(to: &picked) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                Darwin.getsockname(socketFD, $0, &pickedSize)
+            }
+        }
+        guard got == 0 else {
+            close(socketFD)
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
+        fd = socketFD
+        port = Int(UInt16(bigEndian: picked.sin_port))
+    }
+
+    func start() throws {
+        guard listen(fd, 8) == 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
+
+        queue.async { [fd] in
+            while true {
+                let client = accept(fd, nil, nil)
+                if client < 0 {
+                    break
+                }
+                var buffer = [UInt8](repeating: 0, count: 1024)
+                let bufferCount = buffer.count
+                _ = buffer.withUnsafeMutableBytes {
+                    Darwin.read(client, $0.baseAddress, bufferCount)
+                }
+                let response = """
+                HTTP/1.1 200 OK\r
+                Content-Length: 20\r
+                Content-Type: application/json\r
+                Connection: close\r
+                \r
+                {"status":"healthy"}
+                """
+                response.withCString {
+                    _ = Darwin.write(client, $0, strlen($0))
+                }
+                close(client)
+            }
+        }
+    }
+
+    func stop() {
+        close(fd)
     }
 }

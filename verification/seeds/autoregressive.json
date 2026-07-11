@@ -1,0 +1,21 @@
+{
+  "comment": "Deterministic seed configurations for Autoregressive models (Dense AR: Llama, Gemma, Qwen)",
+  "default_seed": 42,
+  "profiles": {
+    "zero_temperature": {
+      "seed": 42,
+      "temperature": 0.0,
+      "top_p": 1.0
+    },
+    "reasoning_deep_dive": {
+      "seed": 1337,
+      "temperature": 0.0,
+      "top_p": 1.0
+    },
+    "structured_extraction": {
+      "seed": 2026,
+      "temperature": 0.0,
+      "top_p": 1.0
+    }
+  }
+}

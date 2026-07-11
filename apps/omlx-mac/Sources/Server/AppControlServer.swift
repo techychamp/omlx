@@ -64,7 +64,7 @@ final class AppControlServer: @unchecked Sendable {
 
     weak var handler: AppControlHandling?
     private let socketURL: URL
-    private let queue = DispatchQueue(label: "app.omlx.control")
+    private let queue = DispatchQueue(label: "app.one.control")
     private var listenFD: Int32 = -1
     private var running = false
 

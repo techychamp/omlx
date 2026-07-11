@@ -8,7 +8,7 @@
 //     status-item's "Admin Panel" command (or the Welcome wizard on first
 //     run, which lives in its own manual NSWindow controller).
 //   • `.handlesExternalEvents(matching: ["main"])` lets AppDelegate trigger
-//     the window the FIRST time via `NSWorkspace.shared.open(omlxapp://main)`
+//     the window the FIRST time via `NSWorkspace.shared.open(oneapp://main)`
 //     when no NSWindow instance has been created yet. Subsequent shows
 //     just `makeKeyAndOrderFront` the cached window.
 //   • Dock-icon toggle (regular when visible, accessory when closed) is
@@ -18,26 +18,33 @@
 import SwiftUI
 
 @main
-struct OMLXApp: App {
+struct OneApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @StateObject private var appearanceManager = AppearanceManager()
+    @StateObject private var shortcutManager = KeyboardShortcutManager()
+    @StateObject private var windowStateManager = WindowStateManager()
 
     var body: some Scene {
-        // Empty title string keeps the toolbar zone free of "oMLX" text
+        // Empty title string keeps the toolbar zone free of "One" text
         // (SwiftUI macOS 26 renders the Window title in the unified toolbar
         // regardless of NSWindow.titleVisibility). The Window menu / Dock
-        // right-click menu show the bundle display name ("oMLX") as a
+        // right-click menu show the bundle display name ("One") as a
         // fallback when title is empty, so we don't lose the in-menu name.
         Window("", id: "main") {
             AppView()
                 .environment(appDelegate.services)
+                .environmentObject(appearanceManager)
+                .environmentObject(shortcutManager)
+                .environmentObject(windowStateManager)
+                .preferredColorScheme(appearanceManager.appearanceMode.colorScheme)
         }
         .defaultLaunchBehavior(.suppressed)
         .handlesExternalEvents(matching: ["main"])
         .windowResizability(.contentMinSize)
-        // Replace the system "Quit oMLX" command (Cmd-Q from the in-app
+        // Replace the system "Quit One" command (Cmd-Q from the in-app
         // menu). Cmd-Q hides every visible window AND drops the Dock icon
         // — same path as Dock → Quit (`applicationShouldTerminate`). The
-        // menubar status item's "Quit oMLX" remains the only path to fully
+        // menubar status item's "Quit One" remains the only path to fully
         // terminate.
         .commands {
             CommandGroup(replacing: .appTermination) {
@@ -46,6 +53,19 @@ struct OMLXApp: App {
                 }
                 .keyboardShortcut("q", modifiers: .command)
             }
+            
+            CommandGroup(after: .appInfo) {
+                Button("Preferences...") {
+                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
+        }
+        
+        Settings {
+            PreferencesView()
+                .environmentObject(appearanceManager)
+                .preferredColorScheme(appearanceManager.appearanceMode.colorScheme)
         }
     }
 }

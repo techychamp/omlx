@@ -54,14 +54,15 @@ final class ServerScreenVM {
     private var baselineHfCacheEnabled: Bool = true
 
     @ObservationIgnored
-    private weak var client: OMLXClient?
+    @ObservationIgnored
+    private var platformService: PlatformServiceProtocol?
     @ObservationIgnored
     private var hasLoaded = false
 
-    func load(client: OMLXClient) async {
-        self.client = client
+    func load(platformService: PlatformServiceProtocol) async {
+        self.platformService = platformService
         do {
-            let dto = try await client.getGlobalSettings()
+            let dto = try await platformService.getGlobalSettings()
             self.host = dto.server.host
             self.portText = String(dto.server.port)
             self.logLevel = canonicalize(level: dto.server.logLevel)
@@ -259,8 +260,8 @@ final class ServerScreenVM {
             }
             do {
                 let oldBase = services.config.basePath
-                if patchHasFields, let client {
-                    _ = try await client.updateGlobalSettings(patch)
+                if patchHasFields, let platformService {
+                    _ = try await platformService.updateGlobalSettings(patch)
                 }
                 if diff.baseChanged {
                     // Hand the bundled port to the storage flow so its single
@@ -554,9 +555,9 @@ final class ServerScreenVM {
 
     @discardableResult
     private func commit(_ patch: GlobalSettingsPatch) async -> Bool {
-        guard let client else { return false }
+        guard let platformService else { return false }
         do {
-            _ = try await client.updateGlobalSettings(patch)
+            _ = try await platformService.updateGlobalSettings(patch)
             self.lastError = nil
             return true
         } catch {

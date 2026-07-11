@@ -126,7 +126,9 @@ def validate_config(data: Dict[str, Any]) -> MCPConfig:
             if isinstance(server_data, dict):
                 server_data = server_data.copy()
                 server_data["name"] = name
-                servers[name] = MCPServerConfig(**server_data)
+                valid_keys = {"name", "transport", "command", "args", "env", "url", "headers", "enabled", "timeout", "cwd"}
+                filtered_data = {k: v for k, v in server_data.items() if k in valid_keys}
+                servers[name] = MCPServerConfig(**filtered_data)
             else:
                 raise ValueError(f"Server '{name}' config must be a dictionary")
         except TypeError as e:

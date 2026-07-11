@@ -93,7 +93,7 @@ enum ModelCardTab: Hashable, CaseIterable {
 @MainActor
 struct ModelCardSheet: View {
     let target: ModelCardTarget
-    let client: OMLXClient
+    let modelManagementService: ModelManagementServiceProtocol
     /// Triggered by the in-sheet Download button. The host wires this
     /// to `vm.startDownload(repo:)` so the action plays nicely with
     /// the existing source-routed downloader plumbing. Sheet dismisses
@@ -551,9 +551,9 @@ struct ModelCardSheet: View {
             let dto: ModelCardDTO
             switch target.source {
             case .huggingFace:
-                dto = try await client.getHFModelCard(repoId: target.repoId)
+                dto = try await modelManagementService.getHFModelCard(repoId: target.repoId)
             case .modelScope:
-                dto = try await client.getMSModelCard(modelId: target.repoId)
+                dto = try await modelManagementService.getMSModelCard(modelId: target.repoId)
             }
             state = .loaded(dto)
         } catch {

@@ -435,6 +435,7 @@ class ModelUnavailableError(EnginePoolError):
         super().__init__(message or f"Model '{model_id}' is unavailable")
 
 
+
 class ModelBusyError(EnginePoolError):
     """Raised when an operation would unload a model that is currently in use."""
 

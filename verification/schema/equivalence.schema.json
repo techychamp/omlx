@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "HuggingFaceEquivalenceResult",
+  "type": "object",
+  "properties": {
+    "model_id": { "type": "string" },
+    "execution_family": { "type": "string" },
+    "layers_tested": { "type": "integer" },
+    "cosine_similarity": {
+      "type": "object",
+      "properties": {
+        "mean": { "type": "number" },
+        "min": { "type": "number" }
+      },
+      "required": ["mean", "min"]
+    },
+    "l2_distance": {
+      "type": "object",
+      "properties": {
+        "mean": { "type": "number" },
+        "max": { "type": "number" }
+      },
+      "required": ["mean", "max"]
+    },
+    "logits_divergence": {
+      "type": "object",
+      "properties": {
+        "max_absolute_diff": { "type": "number" },
+        "kl_divergence": { "type": "number" }
+      },
+      "required": ["max_absolute_diff", "kl_divergence"]
+    },
+    "status": { "type": "string", "enum": ["equivalent", "diverged"] }
+  },
+  "required": ["model_id", "execution_family", "layers_tested", "cosine_similarity", "l2_distance", "logits_divergence", "status"]
+}

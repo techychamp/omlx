@@ -18,7 +18,7 @@ import SwiftUI
 
 @MainActor
 final class WelcomeWindowController: NSObject, NSWindowDelegate {
-    static let willCloseNotification = Notification.Name("OMLXWelcomeWillClose")
+    static let willCloseNotification = Notification.Name("OneWelcomeWillClose")
 
     private var window: NSWindow?
     private var vm: WelcomeViewModel?
@@ -71,7 +71,7 @@ final class WelcomeWindowController: NSObject, NSWindowDelegate {
             defer: false
         )
         win.title = String(localized: "welcome.window.title",
-                           defaultValue: "Welcome to oMLX",
+                           defaultValue: "Welcome to One",
                            comment: "Window title bar text for the Welcome wizard")
         win.titleVisibility = .hidden
         win.titlebarAppearsTransparent = true
@@ -228,10 +228,10 @@ final class WelcomeViewModel: ObservableObject {
                               defaultValue: "Select",
                               comment: "NSOpenPanel button label for the Welcome wizard's folder pickers")
         panel.message = String(localized: "welcome.browse.base_message",
-                               defaultValue: "Choose a parent folder. An .omlx directory will be created inside it.",
-                               comment: "NSOpenPanel message when picking the Base Directory in Welcome wizard")
+                               defaultValue: "Choose a parent folder. An .one directory will be created inside it.",
+                               comment: "Sub-label for folder path row in storage view")
         if panel.runModal() == .OK, let url = panel.url {
-            basePath = url.appendingPathComponent(".omlx", isDirectory: true).path
+            basePath = url.appendingPathComponent(".one", isDirectory: true).path
         }
     }
 
@@ -246,7 +246,7 @@ final class WelcomeViewModel: ObservableObject {
                               comment: "NSOpenPanel button label for the Welcome wizard's folder pickers")
         panel.message = String(localized: "welcome.browse.model_message",
                                defaultValue: "Choose the directory containing your model files.",
-                               comment: "NSOpenPanel message when picking the Model Directory in Welcome wizard")
+                               comment: "Welcome wizard: Model Directory selection help")
         if panel.runModal() == .OK, let url = panel.url {
             modelDir = url.path
         }
@@ -302,7 +302,7 @@ final class WelcomeViewModel: ObservableObject {
             return false
         }
 
-        // When the user kept the default ~/.omlx, clear every override.
+        // When the user kept the default ~/.one, clear every override.
         let isDefault = (resolvedBase == AppConfig.defaultBasePath())
         AppConfig.persistBasePath(isDefault ? nil : resolvedBase)
 
@@ -348,8 +348,8 @@ final class WelcomeViewModel: ObservableObject {
             case .portConflict(let conflict):
                 lastError = conflict.isOMLX
                     ? String(localized: "welcome.error.port_in_use_omlx",
-                             defaultValue: "Port \(String(config.port)) is already in use (oMLX server already running).",
-                             comment: "Welcome wizard: bind() failed because another oMLX instance owns the port")
+                             defaultValue: "Port \(String(config.port)) is already in use by another One instance.",
+                             comment: "Welcome wizard: bind() failed because another One instance owns the port")
                     : String(localized: "welcome.error.port_in_use",
                              defaultValue: "Port \(String(config.port)) is already in use.",
                              comment: "Welcome wizard: bind() failed because some other process owns the port")
@@ -478,7 +478,7 @@ private struct WelcomeIntroBody: View {
 
             VStack(spacing: 14) {
                 Text(String(localized: "welcome.header.title",
-                            defaultValue: "oMLX",
+                            defaultValue: "One",
                             comment: "Main heading shown on the Welcome wizard"))
                     .font(.omlxDisplay(48, weight: .semibold))
                     .foregroundStyle(WelcomeStyle.text)
@@ -552,7 +552,7 @@ private struct WelcomeSetupBody: View {
                                   defaultValue: "Local server",
                                   comment: "Title for the local server setup card"),
                     text: String(localized: "welcome.setup.local.body",
-                                 defaultValue: "oMLX binds to 127.0.0.1 on first run, so clients on this Mac can use it without exposing the server to your network.",
+                                 defaultValue: "One binds to 127.0.0.1 on first run, so clients on this Mac can use it without exposing the server to your network.",
                                  comment: "Body for the local server setup card")
                 )
 
@@ -615,7 +615,7 @@ private struct WelcomeSetupBody: View {
                                          comment: "Sublabel explaining API key usage")
                     ) {
                         HStack(spacing: 0) {
-                            TextInput("welcome.api_key.placeholder", text: $vm.apiKey, placeholder: "sk-omlx-…", isSecure: !keyVisible, mono: true, width: 210)
+                            TextInput("welcome.api_key.placeholder", text: $vm.apiKey, placeholder: "sk-one-…", isSecure: !keyVisible, mono: true, width: 210)
                             Button {
                                 keyVisible.toggle()
                             } label: {
@@ -652,7 +652,7 @@ private struct WelcomeSetupBody: View {
                 )
 
                 Text(String(localized: "welcome.hint.settings_path",
-                            defaultValue: "Settings are stored in ~/.omlx/settings.json.",
+                            defaultValue: "Settings are stored in ~/.one/settings.json.",
                             comment: "Hint line under the API key section pointing to settings.json"))
                     .font(.omlxText(11))
                     .foregroundStyle(WelcomeStyle.faint)
@@ -687,7 +687,7 @@ private struct WelcomeCompleteBody: View {
                     .font(.omlxDisplay(30, weight: .semibold))
                     .foregroundStyle(WelcomeStyle.text)
                 Text(String(localized: "welcome.complete.description",
-                            defaultValue: "oMLX is running locally at http://127.0.0.1:\(vm.portText). Open the web dashboard to download your first model, manage settings, and connect your coding tools.",
+                            defaultValue: "One is running locally at http://127.0.0.1:\(vm.portText). Open the web dashboard to download your first model, manage settings, and connect your coding tools.",
                             comment: "Description on the Welcome completion page"))
                     .font(.omlxText(14))
                     .foregroundStyle(WelcomeStyle.muted)
@@ -825,7 +825,7 @@ private struct WelcomeCTA: View {
                         .font(.system(size: 12, weight: .semibold))
                 }
             }
-            .foregroundStyle(Color.white)
+            .foregroundStyle(Color.primary)
             .frame(width: width, height: 32)
             .background(WelcomeStyle.accent)
             .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
@@ -844,8 +844,8 @@ private struct WelcomeIcon: View {
             .interpolation(.high)
             .frame(width: size, height: size)
             .clipShape(RoundedRectangle(cornerRadius: size * 0.22, style: .continuous))
-            .shadow(color: Color.black.opacity(0.10), radius: 12, y: 6)
-            .accessibilityLabel("oMLX")
+            .shadow(color: Color.primary.opacity(0.10), radius: 12, y: 6)
+            .accessibilityLabel("One")
     }
 }
 

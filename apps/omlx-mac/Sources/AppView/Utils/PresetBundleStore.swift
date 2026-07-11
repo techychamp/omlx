@@ -39,20 +39,18 @@ final class PresetBundleStore {
     /// POST /admin/api/presets/refresh, persist the response, swap in the
     /// new entries. On failure, `lastError` is set and `entries` is left
     /// untouched so the chip strip keeps its current contents.
-    func refresh(client: OMLXClient) async {
+    func refresh(modelManagementService: ModelManagementServiceProtocol) async {
         guard !isRefreshing else { return }
         isRefreshing = true
         defer { isRefreshing = false }
 
         do {
-            let bundle = try await client.refreshPresetBundle()
+            let bundle = try await modelManagementService.refreshPresetBundle()
             self.entries = bundle.presets
             self.lastError = nil
             Self.writeDisk(bundle, to: cacheURL)
         } catch {
-            self.lastError = (error as? OMLXClientError)
-                .map { String(describing: $0) }
-                ?? error.localizedDescription
+            self.lastError = String(describing: error)
         }
     }
 
@@ -62,7 +60,7 @@ final class PresetBundleStore {
         let base = FileManager.default.urls(
             for: .applicationSupportDirectory, in: .userDomainMask
         ).first ?? FileManager.default.temporaryDirectory
-        let dir = base.appendingPathComponent("oMLX", isDirectory: true)
+        let dir = base.appendingPathComponent("One", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("preset_cache.json")
     }

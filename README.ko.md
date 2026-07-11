@@ -376,11 +376,11 @@ apps/omlx-mac/Scripts/build.sh release --rebuild-donor
 apps/omlx-mac/Scripts/build.sh release --with-custom-kernel
 ```
 
-첫 cold 빌드는 10–20분 소요됩니다 (venvstacks Python 레이어 어셈블리). 이후 빌드는 `packaging/_export/` 캐시를 재사용해 약 4분에 끝납니다. 레이어 구성은 [packaging/README.md](packaging/README.md), Swift 소스는 [apps/omlx-mac/](apps/omlx-mac/) 를 참조하세요.
+첫 cold 빌드는 10–20분 소요됩니다 (venvstacks Python 레이어 어셈블리). 이후 빌드는 `packaging/_export/` 캐시를 재사용해 약 4분에 끝납니다. 레이어 구성은 [packaging guide](docs/guides/packaging-guide.md), Swift 소스는 [apps/omlx-mac/](apps/omlx-mac) 를 참조하세요.
 
 ## 기여하기
 
-기여를 환영합니다! 자세한 내용은 [기여 가이드](docs/CONTRIBUTING.md)를 참조하세요.
+기여를 환영합니다! 자세한 내용은 [기여 가이드](docs/guides/CONTRIBUTING.md)를 참조하세요.
 
 - 버그 수정 및 개선
 - 성능 최적화

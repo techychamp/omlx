@@ -30,7 +30,7 @@ struct NetworkScreen: View {
                 Button(String(localized: "network.button.apply",
                               defaultValue: "Apply",
                               comment: "Footer button on the Network screen that commits the edited proxy/TLS values to the server")) {
-                    Task { await vm.save(client: services.client) }
+                    Task { await vm.save(platformService: services.platformService) }
                 }
                 .buttonStyle(.omlx(.primary))
                 .disabled(!vm.hasPendingChanges || vm.isSaving)
@@ -40,7 +40,7 @@ struct NetworkScreen: View {
 
             HintFooter(error: vm.lastError)
         }
-        .task { await vm.load(client: services.client) }
+        .task { await vm.load(platformService: services.platformService) }
     }
 }
 

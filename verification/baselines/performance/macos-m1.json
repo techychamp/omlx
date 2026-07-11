@@ -1,0 +1,10 @@
+{
+  "device": "macos-m1",
+  "metrics": {
+    "import_time_s": 2.50,
+    "bundle_size_mb": 1500.0,
+    "startup_time_s": 3.00,
+    "ttft_ms": 120.0,
+    "tps": 50.0
+  }
+}

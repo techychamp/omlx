@@ -16,26 +16,26 @@ class TestInstallDetection:
     def test_not_app_bundle_in_dev(self):
         """Dev/pip install should not detect as app bundle."""
         assert not is_app_bundle()
-        assert get_cli_prefix() == "omlx"
+        assert get_cli_prefix() == "one"
 
     def test_app_bundle_detected(self, tmp_path):
         """Simulate running inside .app bundle."""
-        fake = "/Applications/oMLX.app/Contents/Resources/omlx/utils/install.py"
+        fake = "/Applications/One.app/Contents/Resources/omlx/utils/install.py"
         with (
             patch("omlx.utils.install.__file__", fake),
             patch("omlx.utils.install.Path.home", return_value=tmp_path),
             patch("omlx.utils.install.shutil.which", return_value=None),
         ):
             assert is_app_bundle()
-            assert get_cli_prefix() == "/Applications/oMLX.app/Contents/MacOS/omlx-cli"
+            assert get_cli_prefix() == "/Applications/One.app/Contents/MacOS/one-cli"
             assert (
                 str(get_app_bundle_cli_path())
-                == "/Applications/oMLX.app/Contents/MacOS/omlx-cli"
+                == "/Applications/One.app/Contents/MacOS/one-cli"
             )
 
     def test_custom_app_location(self, tmp_path):
         """App bundle installed in non-standard location."""
-        fake = "/Users/me/Apps/oMLX.app/Contents/Resources/omlx/utils/install.py"
+        fake = "/Users/me/Apps/One.app/Contents/Resources/omlx/utils/install.py"
         with (
             patch("omlx.utils.install.__file__", fake),
             patch("omlx.utils.install.Path.home", return_value=tmp_path),
@@ -44,13 +44,13 @@ class TestInstallDetection:
             assert is_app_bundle()
             assert (
                 get_cli_prefix()
-                == "/Users/me/Apps/oMLX.app/Contents/MacOS/omlx-cli"
+                == "/Users/me/Apps/One.app/Contents/MacOS/one-cli"
             )
 
     def test_app_bundle_uses_full_path_when_user_shim_is_not_on_path(self, tmp_path):
         """Installed app should not render bare omlx unless PATH resolves it."""
-        fake = "/Applications/oMLX.app/Contents/Resources/omlx/utils/install.py"
-        shim = tmp_path / ".omlx" / "bin" / "omlx"
+        fake = "/Applications/One.app/Contents/Resources/omlx/utils/install.py"
+        shim = tmp_path / ".one" / "bin" / "one"
         shim.parent.mkdir(parents=True)
         shim.write_text("#!/bin/sh\n")
         shim.chmod(0o755)
@@ -59,12 +59,12 @@ class TestInstallDetection:
             patch("omlx.utils.install.Path.home", return_value=tmp_path),
             patch("omlx.utils.install.shutil.which", return_value=None),
         ):
-            assert get_cli_prefix() == "/Applications/oMLX.app/Contents/MacOS/omlx-cli"
+            assert get_cli_prefix() == "/Applications/One.app/Contents/MacOS/one-cli"
 
     def test_app_bundle_uses_bare_omlx_when_path_resolves_user_shim(self, tmp_path):
         """Installed app should render the short command when PATH points at its shim."""
-        fake = "/Applications/oMLX.app/Contents/Resources/omlx/utils/install.py"
-        shim = tmp_path / ".omlx" / "bin" / "omlx"
+        fake = "/Applications/One.app/Contents/Resources/omlx/utils/install.py"
+        shim = tmp_path / ".one" / "bin" / "one"
         shim.parent.mkdir(parents=True)
         shim.write_text("#!/bin/sh\n")
         shim.chmod(0o755)
@@ -73,16 +73,16 @@ class TestInstallDetection:
             patch("omlx.utils.install.Path.home", return_value=tmp_path),
             patch("omlx.utils.install.shutil.which", return_value=str(shim)),
         ):
-            assert get_cli_prefix() == "omlx"
+            assert get_cli_prefix() == "one"
 
     def test_app_bundle_uses_bare_omlx_when_path_resolves_public_symlink(self, tmp_path):
         """Public symlink to the user shim is app-managed."""
-        fake = "/Applications/oMLX.app/Contents/Resources/omlx/utils/install.py"
-        shim = tmp_path / ".omlx" / "bin" / "omlx"
+        fake = "/Applications/One.app/Contents/Resources/omlx/utils/install.py"
+        shim = tmp_path / ".one" / "bin" / "one"
         shim.parent.mkdir(parents=True)
         shim.write_text("#!/bin/sh\n")
         shim.chmod(0o755)
-        public = tmp_path / "bin" / "omlx"
+        public = tmp_path / "bin" / "one"
         public.parent.mkdir()
         public.symlink_to(shim)
         with (
@@ -90,10 +90,10 @@ class TestInstallDetection:
             patch("omlx.utils.install.Path.home", return_value=tmp_path),
             patch("omlx.utils.install.shutil.which", return_value=str(public)),
         ):
-            assert get_cli_prefix() == "omlx"
+            assert get_cli_prefix() == "one"
 
     def test_cli_command_prefix_quotes_full_app_path(self, tmp_path):
-        fake = "/Users/me/My Apps/oMLX.app/Contents/Resources/omlx/utils/install.py"
+        fake = "/Users/me/My Apps/One.app/Contents/Resources/omlx/utils/install.py"
         with (
             patch("omlx.utils.install.__file__", fake),
             patch("omlx.utils.install.Path.home", return_value=tmp_path),
@@ -101,7 +101,7 @@ class TestInstallDetection:
         ):
             assert (
                 get_cli_command_prefix()
-                == "'/Users/me/My Apps/oMLX.app/Contents/MacOS/omlx-cli'"
+                == "'/Users/me/My Apps/One.app/Contents/MacOS/one-cli'"
             )
 
 
@@ -132,7 +132,7 @@ class TestIsHomebrew:
 class TestGetInstallMethod:
     def test_dmg_takes_priority(self):
         """App bundle detection takes priority over Homebrew."""
-        fake = "/Applications/oMLX.app/Contents/Resources/omlx/utils/install.py"
+        fake = "/Applications/One.app/Contents/Resources/omlx/utils/install.py"
         with patch("omlx.utils.install.__file__", fake):
             assert get_install_method() == "dmg"
 

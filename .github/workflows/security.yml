@@ -1,0 +1,93 @@
+name: Security Scanning
+on:
+  workflow_call:
+
+jobs:
+  dependency-audit:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: ./.github/actions/setup-python
+        with:
+          python-version: '3.12'
+
+      - name: Cache dependencies
+        uses: ./.github/actions/cache
+        with:
+          python-version: '3.12'
+
+      - name: Install pip-audit
+        shell: bash
+        run: |
+          uv pip install --system pip-audit
+          uv pip install --system -e ".[dev,mcp,modelscope]"
+
+      - name: Run Dependency Audit
+        shell: bash
+        run: |
+          # Allow system-level audit of installed dependencies
+          pip-audit --local
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Secret Scan
+        shell: bash
+        run: |
+          violations=0
+          if git grep -qiE "BEGIN PRIVATE KEY" -- "*"; then
+            echo "Error: Found committed private keys!" >&2
+            violations=$((violations + 1))
+          fi
+          if [ $violations -ne 0 ]; then
+            exit 1
+          fi
+          echo "Secret scan passed."
+
+  bandit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run Bandit
+        shell: bash
+        run: |
+          pip install bandit
+          bandit -r omlx -lll -ii
+
+  license-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run License Audit
+        shell: bash
+        run: |
+          if [ ! -f "LICENSE" ]; then
+            echo "Error: LICENSE file is missing!" >&2
+            exit 1
+          fi
+          
+          # Verify that at least 80% of python files contain a licensing keyword
+          total=$(find omlx -name "*.py" | wc -l)
+          licensed=$(find omlx -name "*.py" -exec grep -l -E "SPDX-License-Identifier|Apache" {} + | wc -l)
+          pct=$((100 * licensed / total))
+          echo "Licensed: $licensed / $total ($pct%)"
+          if [ $pct -lt 80 ]; then
+            echo "Error: Licensing headers coverage is under 80%!" >&2
+            exit 1
+          fi
+          echo "License audit passed."

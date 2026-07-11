@@ -13,7 +13,9 @@ final class StatusScreenVM {
     var metrics = SystemMetricsPoller()
 
     @ObservationIgnored
-    private weak var client: OMLXClient?
+    private var platformService: PlatformServiceProtocol?
+    @ObservationIgnored
+    private var diagnosticsService: DiagnosticsServiceProtocol?
     @ObservationIgnored
     private var pollTask: Task<Void, Never>?
 
@@ -64,12 +66,13 @@ final class StatusScreenVM {
         String(format: "%d%%", Int(gpuUtilizationPercent.rounded()))
     }
 
-    func start(client: OMLXClient) async {
-        self.client = client
+    func start(platformService: PlatformServiceProtocol, diagnosticsService: DiagnosticsServiceProtocol) async {
+        self.platformService = platformService
+        self.diagnosticsService = diagnosticsService
         metrics.start()
         // Load the scheduler cap once; failing silently is fine — the
         // default keeps the % column readable until the server responds.
-        if let settings = try? await client.getGlobalSettings(),
+        if let settings = try? await platformService.getGlobalSettings(),
            let max = settings.scheduler?.maxConcurrentRequests {
             self.maxConcurrent = max
         }
@@ -90,9 +93,9 @@ final class StatusScreenVM {
     }
 
     private func tick() async {
-        guard let client else { return }
+        guard let diagnosticsService else { return }
         do {
-            self.stats = try await client.getStats(scope: scope)
+            self.stats = try await diagnosticsService.getStats(scope: scope, model: "")
             self.lastError = nil
         } catch {
             self.lastError = error.omlxDescription
@@ -103,12 +106,12 @@ final class StatusScreenVM {
     /// values immediately afterwards so the user sees the zeroed state
     /// without waiting for the next poll.
     func clearStats() async {
-        guard let client else { return }
+        guard let diagnosticsService else { return }
         do {
             if scope == "alltime" {
-                try await client.clearAlltimeStats()
+                try await diagnosticsService.clearAlltimeStats()
             } else {
-                try await client.clearStats()
+                try await diagnosticsService.clearStats()
             }
             await tick()
         } catch {
@@ -119,9 +122,9 @@ final class StatusScreenVM {
     /// Drop all SSD KV cache files (loaded models + direct disk sweep).
     /// Refreshes stats so the Runtime Cache counters reset to zero.
     func clearSsdCache() async {
-        guard let client else { return }
+        guard let diagnosticsService else { return }
         do {
-            _ = try await client.clearSsdCache()
+            _ = try await diagnosticsService.clearSsdCache()
             await tick()
         } catch {
             self.lastError = error.omlxDescription
@@ -131,9 +134,9 @@ final class StatusScreenVM {
     /// Drop the in-memory (hot) KV cache for all loaded models. Subsequent
     /// requests re-fault from SSD or recompute.
     func clearHotCache() async {
-        guard let client else { return }
+        guard let diagnosticsService else { return }
         do {
-            _ = try await client.clearHotCache()
+            _ = try await diagnosticsService.clearHotCache()
             await tick()
         } catch {
             self.lastError = error.omlxDescription

@@ -119,7 +119,9 @@ final class DownloadsScreenVM {
     }
 
     @ObservationIgnored
-    private weak var client: OMLXClient?
+    private var modelManagementService: ModelManagementServiceProtocol?
+    @ObservationIgnored
+    private var platformService: PlatformServiceProtocol?
     @ObservationIgnored
     private var pollTask: Task<Void, Never>?
     @ObservationIgnored
@@ -134,8 +136,9 @@ final class DownloadsScreenVM {
         (source == .hf ? tasks : msTasks).filter { !$0.isActive }
     }
 
-    func start(client: OMLXClient) async {
-        self.client = client
+    func start(modelManagementService: ModelManagementServiceProtocol, platformService: PlatformServiceProtocol) async {
+        self.modelManagementService = modelManagementService
+        self.platformService = platformService
         pollTask?.cancel()
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -144,9 +147,9 @@ final class DownloadsScreenVM {
                 try? await Task.sleep(for: .seconds(1))
             }
         }
-        await refreshMirrors(client: client)
-        await refreshMsAvailability(client: client)
-        await loadActiveRecommendedIfNeeded(client: client)
+        await refreshMirrors()
+        await refreshMsAvailability()
+        await loadActiveRecommendedIfNeeded()
     }
 
     /// Source-switch hook. When the user picks the other source, kick a
@@ -154,33 +157,33 @@ final class DownloadsScreenVM {
     /// already lives in the VM, so the new form's preview values are ready
     /// instantly.
     private func sourceDidChange() {
-        guard let client else { return }
         Task { [weak self] in
             await self?.refreshTasks()
-            await self?.loadActiveRecommendedIfNeeded(client: client)
+            await self?.loadActiveRecommendedIfNeeded()
         }
     }
 
-    private func loadActiveRecommendedIfNeeded(client: OMLXClient) async {
+    private func loadActiveRecommendedIfNeeded() async {
         switch source {
         case .hf:
             if !hasLoadedHFRecommended {
                 hasLoadedHFRecommended = true
-                await loadRecommended(client: client)
+                await loadRecommended()
             }
         case .ms:
             if !hasLoadedMSRecommended {
                 hasLoadedMSRecommended = true
-                await loadRecommended(client: client)
+                await loadRecommended()
             }
         }
     }
 
-    private func refreshMirrors(client: OMLXClient) async {
+    private func refreshMirrors() async {
         // Load both mirror endpoints once so the inactive source's form
         // reads correctly the moment the user switches.
         do {
-            let settings = try await client.getGlobalSettings()
+            guard let platformService else { return }
+            let settings = try await platformService.getGlobalSettings()
             self.mirrorEndpoint = settings.huggingface?.endpoint ?? ""
             self.msMirrorEndpoint = settings.modelscope?.endpoint ?? ""
         } catch {
@@ -188,9 +191,10 @@ final class DownloadsScreenVM {
         }
     }
 
-    private func refreshMsAvailability(client: OMLXClient) async {
+    private func refreshMsAvailability() async {
         do {
-            let resp = try await client.getMSStatus()
+            guard let modelManagementService else { return }
+            let resp = try await modelManagementService.getMSStatus()
             self.msAvailable = resp.available
             if !resp.available && source == .ms {
                 self.source = .hf
@@ -200,15 +204,15 @@ final class DownloadsScreenVM {
         }
     }
 
-    func saveMirror(client: OMLXClient) {
+    func saveMirror() {
         let draft = mirrorDraft.trimmingCharacters(in: .whitespaces)
         // Server treats empty string as "reset to default" — pass it through.
         Task { [weak self] in
-            guard let self else { return }
+            guard let self, let platformService = self.platformService else { return }
             self.mirrorBusy = true
             defer { Task { @MainActor [weak self] in self?.mirrorBusy = false } }
             do {
-                _ = try await client.updateGlobalSettings(
+                _ = try await platformService.updateGlobalSettings(
                     GlobalSettingsPatch(hfEndpoint: draft)
                 )
                 self.mirrorEndpoint = draft
@@ -221,19 +225,19 @@ final class DownloadsScreenVM {
         }
     }
 
-    func resetMirror(client: OMLXClient) {
+    func resetMirror() {
         mirrorDraft = ""
-        saveMirror(client: client)
+        saveMirror()
     }
 
-    func saveMsMirror(client: OMLXClient) {
+    func saveMsMirror() {
         let draft = msMirrorDraft.trimmingCharacters(in: .whitespaces)
         Task { [weak self] in
-            guard let self else { return }
+            guard let self, let platformService = self.platformService else { return }
             self.msMirrorBusy = true
             defer { Task { @MainActor [weak self] in self?.msMirrorBusy = false } }
             do {
-                _ = try await client.updateGlobalSettings(
+                _ = try await platformService.updateGlobalSettings(
                     GlobalSettingsPatch(msEndpoint: draft)
                 )
                 self.msMirrorEndpoint = draft
@@ -246,9 +250,9 @@ final class DownloadsScreenVM {
         }
     }
 
-    func resetMsMirror(client: OMLXClient) {
+    func resetMsMirror() {
         msMirrorDraft = ""
-        saveMsMirror(client: client)
+        saveMsMirror()
     }
 
     // MARK: Autocomplete
@@ -257,7 +261,7 @@ final class DownloadsScreenVM {
     /// flight search, debounces 300 ms, then fires GET /admin/api/hf/search.
     /// Stays quiet when input is < 2 chars or matches the previous result
     /// (avoids hammering the API for trivial keystrokes).
-    func updateSearch(query rawQuery: String, client: OMLXClient) {
+    func updateSearch(query rawQuery: String) {
         let q = rawQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         searchTask?.cancel()
         if q.isEmpty {
@@ -278,11 +282,11 @@ final class DownloadsScreenVM {
         searchTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(300))
             if Task.isCancelled { return }
-            guard let self else { return }
+            guard let self, let modelManagementService = self.modelManagementService else { return }
             self.searchLoading = true
             defer { Task { @MainActor [weak self] in self?.searchLoading = false } }
             do {
-                let resp = try await client.searchHFModels(query: q, limit: 20)
+                let resp = try await modelManagementService.searchHFModels(query: q, sort: "trending", limit: 20, mlxOnly: true)
                 if Task.isCancelled { return }
                 self.searchResults = resp.models
                 self.lastSearchQuery = q
@@ -316,7 +320,7 @@ final class DownloadsScreenVM {
 
     /// Mirror of `updateSearch` for the ModelScope source. Same debounce,
     /// same min-length, same cancel semantics — only the endpoint changes.
-    func updateMsSearch(query rawQuery: String, client: OMLXClient) {
+    func updateMsSearch(query rawQuery: String) {
         let q = rawQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         msSearchTask?.cancel()
         if q.isEmpty {
@@ -332,11 +336,11 @@ final class DownloadsScreenVM {
         msSearchTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(300))
             if Task.isCancelled { return }
-            guard let self else { return }
+            guard let self, let modelManagementService = self.modelManagementService else { return }
             self.msSearchLoading = true
             defer { Task { @MainActor [weak self] in self?.msSearchLoading = false } }
             do {
-                let resp = try await client.searchMSModels(query: q, limit: 20)
+                let resp = try await modelManagementService.searchMSModels(query: q, sort: "trending", limit: 20, mlxOnly: true)
                 if Task.isCancelled { return }
                 self.msSearchResults = resp.models
                 self.lastMsSearchQuery = q
@@ -372,91 +376,92 @@ final class DownloadsScreenVM {
     /// Starts a download against the active source. `repo` lets the
     /// suggested-models grid pass a repo id without having to first stuff
     /// it into the input box.
-    func startDownload(repo: String? = nil, client: OMLXClient) {
+    func startDownload(repo: String? = nil) {
         let target = (repo ?? (source == .hf ? repoText : msRepoText))
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !target.isEmpty else { return }
         isStarting = true
         let activeSource = source
         Task { [weak self] in
-            defer { Task { @MainActor in self?.isStarting = false } }
+            guard let self, let modelManagementService = self.modelManagementService else { return }
+            defer { Task { @MainActor in self.isStarting = false } }
             do {
                 switch activeSource {
                 case .hf:
-                    _ = try await client.startHFDownload(repoId: target)
-                    if repo == nil { self?.repoText = "" }
+                    _ = try await modelManagementService.startHFDownload(repoId: target, hfToken: "")
+                    if repo == nil { self.repoText = "" }
                 case .ms:
-                    _ = try await client.startMSDownload(modelId: target)
-                    if repo == nil { self?.msRepoText = "" }
+                    _ = try await modelManagementService.startMSDownload(modelId: target, msToken: "")
+                    if repo == nil { self.msRepoText = "" }
                 }
-                await self?.refreshTasks()
+                await self.refreshTasks()
             } catch {
-                guard let self else { return }
                 self.lastError = error.omlxDescription
             }
         }
     }
 
-    func cancel(taskId: String, client: OMLXClient) {
+    func cancel(taskId: String) {
         let activeSource = source
         Task { [weak self] in
+            guard let self, let modelManagementService = self.modelManagementService else { return }
             do {
                 switch activeSource {
-                case .hf: _ = try await client.cancelHFDownload(taskId: taskId)
-                case .ms: _ = try await client.cancelMSDownload(taskId: taskId)
+                case .hf: _ = try await modelManagementService.cancelHFDownload(taskId: taskId)
+                case .ms: _ = try await modelManagementService.cancelMSDownload(taskId: taskId)
                 }
-                await self?.refreshTasks()
+                await self.refreshTasks()
             } catch {
-                guard let self else { return }
                 self.lastError = error.omlxDescription
             }
         }
     }
 
-    func retry(taskId: String, client: OMLXClient) {
+    func retry(taskId: String) {
         let activeSource = source
         Task { [weak self] in
+            guard let self, let modelManagementService = self.modelManagementService else { return }
             do {
                 switch activeSource {
-                case .hf: _ = try await client.retryHFDownload(taskId: taskId)
-                case .ms: _ = try await client.retryMSDownload(taskId: taskId)
+                case .hf: _ = try await modelManagementService.retryHFDownload(taskId: taskId)
+                case .ms: _ = try await modelManagementService.retryMSDownload(taskId: taskId)
                 }
-                await self?.refreshTasks()
+                await self.refreshTasks()
             } catch {
-                guard let self else { return }
                 self.lastError = error.omlxDescription
             }
         }
     }
 
-    func remove(taskId: String, client: OMLXClient) {
+    func remove(taskId: String) {
         let activeSource = source
         Task { [weak self] in
+            guard let self, let modelManagementService = self.modelManagementService else { return }
             do {
                 switch activeSource {
-                case .hf: _ = try await client.removeHFTask(taskId: taskId)
-                case .ms: _ = try await client.removeMSTask(taskId: taskId)
+                case .hf: _ = try await modelManagementService.removeHFTask(taskId: taskId)
+                case .ms: _ = try await modelManagementService.removeMSTask(taskId: taskId)
                 }
-                await self?.refreshTasks()
+                await self.refreshTasks()
             } catch {
-                guard let self else { return }
                 self.lastError = error.omlxDescription
             }
         }
     }
 
-    func loadRecommended(client: OMLXClient) async {
+    func loadRecommended() async {
         self.recommendedLoading = true
         defer { self.recommendedLoading = false }
         do {
+            guard let modelManagementService else { return }
             // Trending-first, then popular, deduped by repoId. Mirrors how
             // the original dashboard surfaces both lists side-by-side.
             switch source {
             case .hf:
-                let resp = try await client.getHFRecommended()
+                let resp = try await modelManagementService.getHFRecommended(mlxOnly: true)
                 self.recommended = Self.merge(trending: resp.trending, popular: resp.popular)
             case .ms:
-                let resp = try await client.getMSRecommended()
+                let resp = try await modelManagementService.getMSRecommended(mlxOnly: true)
                 self.msRecommended = Self.merge(trending: resp.trending, popular: resp.popular)
             }
             self.lastError = nil
@@ -477,11 +482,11 @@ final class DownloadsScreenVM {
     }
 
     private func refreshTasks() async {
-        guard let client else { return }
+        guard let modelManagementService else { return }
         do {
             switch source {
-            case .hf: self.tasks   = try await client.listHFTasks().tasks
-            case .ms: self.msTasks = try await client.listMSTasks().tasks
+            case .hf: self.tasks   = try await modelManagementService.listHFTasks().tasks
+            case .ms: self.msTasks = try await modelManagementService.listMSTasks().tasks
             }
             self.lastError = nil
         } catch {

@@ -16,10 +16,12 @@ struct AppView: View {
 
     @Environment(\.colorScheme) private var scheme
     @Environment(AppServices.self) private var services
+    @EnvironmentObject private var shortcutManager: KeyboardShortcutManager
+    @EnvironmentObject private var windowStateManager: WindowStateManager
 
     var body: some View {
         let theme = scheme == .dark ? OMLXTheme.dark : OMLXTheme.light
-        let section = selectedSection
+        let section = AppSection(rawValue: windowStateManager.selectedWorkspace) ?? .status
 
         NavigationSplitView {
             SettingsSidebar(selection: bindingForSelection())
@@ -65,6 +67,26 @@ struct AppView: View {
             )
                 .environment(\.omlxTheme, theme)
         }
+        .overlay {
+            if shortcutManager.showGlobalSearch {
+                ZStack {
+                    Color.primary.opacity(0.3)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            shortcutManager.showGlobalSearch = false
+                        }
+                    
+                    GlobalSearchView(services: services)
+                }
+            }
+        }
+        .background {
+            Button("") {
+                shortcutManager.showGlobalSearch.toggle()
+            }
+            .keyboardShortcut("k", modifiers: .command)
+            .opacity(0)
+        }
     }
 
     /// Drilling out of ModelSettingsScreen via the sidebar (changing section)
@@ -72,17 +94,17 @@ struct AppView: View {
     /// the detail when the user returns to Models.
     private func bindingForSelection() -> Binding<AppSection?> {
         Binding(
-            get: { selection },
+            get: { AppSection(rawValue: windowStateManager.selectedWorkspace) },
             set: { newValue in
                 guard let newValue else { return }
                 if newValue != .models { services.modelDetailID = nil }
-                selection = newValue
+                windowStateManager.navigate(to: newValue.rawValue)
             }
         )
     }
 
     private var selectedSection: AppSection {
-        selection ?? .status
+        AppSection(rawValue: windowStateManager.selectedWorkspace) ?? .status
     }
 
     private var detailTitle: String? {
@@ -94,25 +116,34 @@ struct AppView: View {
 
     @ViewBuilder
     private func screen(for section: AppSection) -> some View {
-        switch section {
-        case .server:       ServerScreen()
-        case .network:      NetworkScreen()
-        case .performance:  PerformanceScreen()
-        case .status:       StatusScreen()
-        case .logs:         LogsScreen()
-        case .models:
-            if let id = services.modelDetailID {
-                ModelSettingsScreen(modelID: id)
-            } else {
-                ModelsScreen()
+        Group {
+            switch section {
+            case .server:       ServerScreen().omlxPageRole(.execution)
+            case .network:      NetworkScreen().omlxPageRole(.runtime)
+            case .performance:  PerformanceScreen().omlxPageRole(.execution)
+            case .diagnostics:  PerformanceDashboardView(diagnosticsService: services.diagnosticsService).omlxPageRole(.observation)
+            case .status:       StatusScreen().omlxPageRole(.observation)
+            case .logs:         LogsScreen().omlxPageRole(.observation)
+            case .models:
+                Group {
+                    if let id = services.modelDetailID {
+                        ModelSettingsScreen(modelID: id)
+                    } else {
+                        ModelsScreen()
+                    }
+                }
+                .omlxPageRole(.runtime)
+            case .downloads:    DownloadsScreen().omlxPageRole(.runtime)
+            case .integrations: IntegrationsScreen().omlxPageRole(.runtime)
+            case .quantization: QuantizationScreen().omlxPageRole(.planning)
+            case .throughputBench: ThroughputBenchScreen(vm: services.throughputBench).omlxPageRole(.execution)
+            case .accuracyBench:   AccuracyBenchScreen(vm: services.accuracyBench).omlxPageRole(.analytics)
+            case .security:     SecurityScreen().omlxPageRole(.runtime)
+            case .about:        AboutScreen().omlxPageRole(.runtime)
+            case .developer:    DeveloperStudioScreen(services: services).omlxPageRole(.planning)
+            case .modelManagement: ModelManagementView(services: services).omlxPageRole(.runtime)
+            case .runtimeAdministration: RuntimeAdministrationView(services: services).omlxPageRole(.execution)
             }
-        case .downloads:    DownloadsScreen()
-        case .integrations: IntegrationsScreen()
-        case .quantization: QuantizationScreen()
-        case .throughputBench: ThroughputBenchScreen(vm: services.throughputBench)
-        case .accuracyBench:   AccuracyBenchScreen(vm: services.accuracyBench)
-        case .security:     SecurityScreen()
-        case .about:        AboutScreen()
         }
     }
 }
@@ -438,37 +469,41 @@ private struct SettingsSidebar: View {
     var body: some View {
         List(selection: $selection) {
             Section {
-                SidebarRow(section: .status)
-                SidebarRow(section: .server)
-                SidebarRow(section: .network)
-                SidebarRow(section: .performance)
-                SidebarRow(section: .logs)
+                SidebarRow(section: .status, selection: $selection)
+                SidebarRow(section: .server, selection: $selection)
+                SidebarRow(section: .network, selection: $selection)
+                SidebarRow(section: .performance, selection: $selection)
+                SidebarRow(section: .diagnostics, selection: $selection)
+                SidebarRow(section: .logs, selection: $selection)
+                SidebarRow(section: .runtimeAdministration, selection: $selection)
             } header: {
                 Text(String(localized: "sidebar.group.server",
                             defaultValue: "Server",
                             comment: "Sidebar group heading for server-related screens"))
             }
             Section {
-                SidebarRow(section: .models)
-                SidebarRow(section: .downloads)
-                SidebarRow(section: .integrations)
-                SidebarRow(section: .quantization)
+                SidebarRow(section: .models, selection: $selection)
+                SidebarRow(section: .downloads, selection: $selection)
+                SidebarRow(section: .integrations, selection: $selection)
+                SidebarRow(section: .quantization, selection: $selection)
+                SidebarRow(section: .modelManagement, selection: $selection)
             } header: {
                 Text(String(localized: "sidebar.group.models",
                             defaultValue: "Models",
                             comment: "Sidebar group heading for models/downloads/quant screens"))
             }
             Section {
-                SidebarRow(section: .throughputBench)
-                SidebarRow(section: .accuracyBench)
+                SidebarRow(section: .throughputBench, selection: $selection)
+                SidebarRow(section: .accuracyBench, selection: $selection)
             } header: {
                 Text(String(localized: "sidebar.group.benchmark",
                             defaultValue: "Benchmark",
                             comment: "Sidebar group heading for accuracy + throughput bench screens"))
             }
             Section {
-                SidebarRow(section: .security)
-                SidebarRow(section: .about)
+                SidebarRow(section: .security, selection: $selection)
+                SidebarRow(section: .about, selection: $selection)
+                SidebarRow(section: .developer, selection: $selection)
             } header: {
                 Text(String(localized: "sidebar.group.general",
                             defaultValue: "General",
@@ -482,10 +517,26 @@ private struct SettingsSidebar: View {
 
 private struct SidebarRow: View {
     let section: AppSection
+    @Binding var selection: AppSection?
+    @State private var isHovered = false
+    @Environment(\.omlxTheme) private var theme
 
     var body: some View {
+        let isSelected = selection == section
         NavigationLink(value: section) {
             Label(section.title, systemImage: section.symbol)
+                .font(OneDesign.Typography.omlxBody(isSelected ? .semibold : .medium))
+                .foregroundColor(isSelected ? Color.white : theme.text)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+        }
+        .listRowBackground(
+            RoundedRectangle(cornerRadius: OneDesign.Layout.controlRadius, style: .continuous)
+                .fill(isSelected ? theme.selBg : (isHovered ? theme.hoverBg : Color.clear))
+                .padding(.horizontal, 4)
+        )
+        .onHover { hovering in
+            isHovered = hovering
         }
     }
 }

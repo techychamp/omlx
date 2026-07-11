@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "VerificationConfidenceReport",
+  "type": "object",
+  "properties": {
+    "checkpoint_id": { "type": "string" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "omlx_commit_sha": { "type": "string" },
+    "scores": {
+      "type": "object",
+      "properties": {
+        "architecture": { "type": "number", "minimum": 0, "maximum": 100 },
+        "correctness": { "type": "number", "minimum": 0, "maximum": 100 },
+        "regression": { "type": "number", "minimum": 0, "maximum": 100 },
+        "performance": { "type": "number", "minimum": 0, "maximum": 100 },
+        "coverage": { "type": "number", "minimum": 0, "maximum": 100 }
+      },
+      "required": ["architecture", "correctness", "regression", "performance", "coverage"]
+    },
+    "weighted_confidence_score": { "type": "number", "minimum": 0, "maximum": 100 },
+    "verification_level": { "type": "integer", "minimum": 0, "maximum": 5 }
+  },
+  "required": ["checkpoint_id", "timestamp", "omlx_commit_sha", "scores", "weighted_confidence_score", "verification_level"]
+}

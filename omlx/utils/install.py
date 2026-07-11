@@ -6,9 +6,9 @@ import shutil
 import sys
 from pathlib import Path
 
-_APP_BUNDLE_CLI_NAME = "omlx-cli"
-_PATH_CLI = "omlx"
-_USER_CLI_SHIM = Path(".omlx") / "bin" / "omlx"
+_APP_BUNDLE_CLI_NAME = "one-cli"
+_PATH_CLI = "one"
+_USER_CLI_SHIM = Path(".one") / "bin" / "one"
 
 
 def is_app_bundle() -> bool:
@@ -24,7 +24,7 @@ def get_app_bundle_cli_path() -> Path:
     path = str(here)
     idx = path.find(marker)
     if idx == -1:
-        return Path("/Applications/oMLX.app/Contents/MacOS") / _APP_BUNDLE_CLI_NAME
+        return Path("/Applications/One.app/Contents/MacOS") / _APP_BUNDLE_CLI_NAME
     app_root = Path(path[: idx + len(".app")])
     return app_root / "Contents" / "MacOS" / _APP_BUNDLE_CLI_NAME
 

@@ -3,7 +3,7 @@
 // Drives the AppView's Status screen: the check state (idle / checking /
 // available), the channel (Stable / Release Candidate / Dev), and two background
 // prefs (autoCheck + autoNotify). Channel + prefs persist to
-// `~/Library/Application Support/oMLX/update-prefs.json` so they survive
+// `~/Library/Application Support/One/update-prefs.json` so they survive
 // a relaunch.
 //
 // Update mechanism: GitHub Releases is the single source of truth. The
@@ -301,7 +301,7 @@ final class UpdateController {
         } catch is CancellationError {
             // Quietly drop — a fresh check is in flight or app is shutting down.
         } catch {
-            NSLog("oMLX: update check failed — %@", String(describing: error))
+            NSLog("One: update check failed — %@", String(describing: error))
             await MainActor.run {
                 if userInitiated {
                     self.lastError = String(describing: error)

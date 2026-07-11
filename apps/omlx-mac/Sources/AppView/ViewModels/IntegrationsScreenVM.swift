@@ -138,10 +138,14 @@ final class IntegrationsScreenVM {
         )
     }
 
-    func load(client: OMLXClient) async {
+    func load(
+        platformService: PlatformServiceProtocol,
+        modelManagementService: ModelManagementServiceProtocol,
+        diagnosticsService: DiagnosticsServiceProtocol
+    ) async {
         do {
             // Settings
-            let settings = try await client.getGlobalSettings()
+            let settings = try await platformService.getGlobalSettings()
             if let cc = settings.claudeCode {
                 self.claudeMode      = cc.mode ?? "cloud"
                 self.opusModel       = cc.opusModel ?? ""
@@ -170,13 +174,20 @@ final class IntegrationsScreenVM {
             }
 
             // Available models
-            let models = try await client.listModels().models
+            let models = try await modelManagementService.listModels().models
             self.availableModels = models.map { $0.id }
+            let availSet = Set(self.availableModels)
+            if !self.codexModel.isEmpty, !availSet.contains(self.codexModel) { self.codexModel = "" }
+            if !self.opencodeModel.isEmpty, !availSet.contains(self.opencodeModel) { self.opencodeModel = "" }
+            if !self.openclawModel.isEmpty, !availSet.contains(self.openclawModel) { self.openclawModel = "" }
+            if !self.piModel.isEmpty, !availSet.contains(self.piModel) { self.piModel = "" }
+            if !self.hermesModel.isEmpty, !availSet.contains(self.hermesModel) { self.hermesModel = "" }
+            if !self.copilotModel.isEmpty, !availSet.contains(self.copilotModel) { self.copilotModel = "" }
 
             // Stats — host/port/api_key/cli_prefix for the command builders.
             // Failure here is non-fatal: the screen still works against the
             // default `omlx` prefix and 127.0.0.1:8000.
-            if let stats = try? await client.getStats() {
+            if let stats = try? await diagnosticsService.getStats(scope: "session", model: "") {
                 if let host = stats.host, !host.isEmpty { self.serverHost = host }
                 if let port = stats.port               { self.serverPort = port }
                 self.serverApiKey = stats.apiKey ?? ""
@@ -190,7 +201,7 @@ final class IntegrationsScreenVM {
         }
     }
 
-    func save(_ field: Field, client: OMLXClient) async {
+    func save(_ field: Field, platformService: PlatformServiceProtocol) async {
         var patch = GlobalSettingsPatch()
         switch field {
         case .claudeMode:           patch.claudeCodeMode = claudeMode
@@ -218,7 +229,7 @@ final class IntegrationsScreenVM {
             patch.mcpConfig = mcpConfigPath.trimmingCharacters(in: .whitespaces)
         }
         do {
-            _ = try await client.updateGlobalSettings(patch)
+            _ = try await platformService.updateGlobalSettings(patch)
             self.lastError = nil
             switch field {
             case .mcpConfig:

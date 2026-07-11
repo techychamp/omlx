@@ -23,7 +23,7 @@ from omlx.api.openai_models import StructuredOutputOptions
 try:
     import xgrammar  # noqa: F401
     HAS_XGRAMMAR = True
-except ImportError:
+except (ImportError, Exception, BaseException):
     HAS_XGRAMMAR = False
 
 requires_xgrammar = pytest.mark.skipif(

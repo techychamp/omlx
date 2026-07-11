@@ -296,6 +296,7 @@ class DiscoveredModel:
     model_context_length: int | None = None  # Declared context length from config.json (None if unknown)
     source_type: str = "local"  # "local" or "hf_cache"
     source_repo_id: str | None = None  # HuggingFace repo id for cache-backed models
+    capabilities: list[str] | None = None  # List of capability names (e.g., 'diffusion', 'linear_speculation')
 
 
 @dataclass(frozen=True)
@@ -1122,6 +1123,7 @@ def _register_model(
             model_context_length=model_context_length,
             source_type=source_type,
             source_repo_id=source_repo_id,
+            capabilities=None,  # Populated when engine initializes or via heuristic
         )
 
         size_gb = estimated_size / (1024**3)

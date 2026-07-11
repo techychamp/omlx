@@ -20,10 +20,10 @@ struct IntegrationsScreen: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ClaudeCodeSection(vm: vm, client: services.client)
+            ClaudeCodeSection(vm: vm, platformService: services.platformService)
             ClaudeSetupCommandSection(vm: vm)
-            OtherIntegrationsSection(vm: vm, client: services.client)
-            MCPSection(vm: vm, client: services.client)
+            OtherIntegrationsSection(vm: vm, platformService: services.platformService)
+            MCPSection(vm: vm, platformService: services.platformService)
 
             if let error = vm.lastError {
                 Text(error)
@@ -33,7 +33,7 @@ struct IntegrationsScreen: View {
                     .padding(.top, 8)
             }
         }
-        .task { await vm.load(client: services.client) }
+        .task { await vm.load(platformService: services.platformService, modelManagementService: services.modelManagementService, diagnosticsService: services.diagnosticsService) }
     }
 }
 
@@ -41,7 +41,7 @@ struct IntegrationsScreen: View {
 
 private struct ClaudeCodeSection: View {
     @Bindable var vm: IntegrationsScreenVM
-    let client: OMLXClient
+    let platformService: PlatformServiceProtocol
 
     var body: some View {
         SectionHeader(
@@ -59,7 +59,7 @@ private struct ClaudeCodeSection: View {
                               comment: "Row label for the Claude Code mode segmented control")) {
                 Segmented(
                     selection: vm.bind($vm.claudeMode, save: {
-                        Task { await vm.save(.claudeMode, client: client) }
+                        Task { await vm.save(.claudeMode, platformService: platformService) }
                     }),
                     options: [
                         ("cloud", String(localized: "integrations.claude.mode.cloud",
@@ -77,7 +77,7 @@ private struct ClaudeCodeSection: View {
                                   comment: "Row label for the Opus model picker")) {
                     Popup(
                         selection: vm.bind($vm.opusModel, save: {
-                            Task { await vm.save(.opusModel, client: client) }
+                            Task { await vm.save(.opusModel, platformService: platformService) }
                         }),
                         width: 220,
                         options: vm.modelOptions
@@ -88,7 +88,7 @@ private struct ClaudeCodeSection: View {
                                   comment: "Row label for the Sonnet model picker")) {
                     Popup(
                         selection: vm.bind($vm.sonnetModel, save: {
-                            Task { await vm.save(.sonnetModel, client: client) }
+                            Task { await vm.save(.sonnetModel, platformService: platformService) }
                         }),
                         width: 220,
                         options: vm.modelOptions
@@ -104,7 +104,7 @@ private struct ClaudeCodeSection: View {
                 ) {
                     Popup(
                         selection: vm.bind($vm.haikuModel, save: {
-                            Task { await vm.save(.haikuModel, client: client) }
+                            Task { await vm.save(.haikuModel, platformService: platformService) }
                         }),
                         width: 220,
                         options: vm.modelOptions
@@ -121,7 +121,7 @@ private struct ClaudeCodeSection: View {
                 isLast: !vm.contextScaling
             ) {
                 Toggle("", isOn: vm.bind($vm.contextScaling, save: {
-                    Task { await vm.save(.contextScaling, client: client) }
+                    Task { await vm.save(.contextScaling, platformService: platformService) }
                 }))
                 .labelsHidden().toggleStyle(.switch)
             }
@@ -150,7 +150,7 @@ private struct ClaudeCodeSection: View {
                 Button(String(localized: "integrations.target_context.apply",
                               defaultValue: "Apply",
                               comment: "Apply button for the Claude Code target context size field")) {
-                    Task { await vm.save(.targetContextSize, client: client) }
+                    Task { await vm.save(.targetContextSize, platformService: platformService) }
                 }
                 .buttonStyle(.omlx(.primary))
                 .disabled(!vm.hasPendingContextSizeChange)
@@ -274,7 +274,7 @@ private struct CopyButton: View {
 
 private struct OtherIntegrationsSection: View {
     @Bindable var vm: IntegrationsScreenVM
-    let client: OMLXClient
+    let platformService: PlatformServiceProtocol
 
     var body: some View {
         SectionHeader(
@@ -292,7 +292,7 @@ private struct OtherIntegrationsSection: View {
                              defaultValue: "Codex",
                              comment: "Display name for the Codex integration"),
                 modelBinding: vm.bind($vm.codexModel, save: {
-                    Task { await vm.save(.codexModel, client: client) }
+                    Task { await vm.save(.codexModel, platformService: platformService) }
                 }),
                 modelOptions: vm.modelOptions,
                 command: vm.codexCommand,
@@ -309,7 +309,7 @@ private struct OtherIntegrationsSection: View {
                              defaultValue: "OpenCode",
                              comment: "Display name for the OpenCode integration"),
                 modelBinding: vm.bind($vm.opencodeModel, save: {
-                    Task { await vm.save(.opencodeModel, client: client) }
+                    Task { await vm.save(.opencodeModel, platformService: platformService) }
                 }),
                 modelOptions: vm.modelOptions,
                 command: vm.opencodeCommand
@@ -319,12 +319,12 @@ private struct OtherIntegrationsSection: View {
                              defaultValue: "OpenClaw",
                              comment: "Display name for the OpenClaw integration"),
                 modelBinding: vm.bind($vm.openclawModel, save: {
-                    Task { await vm.save(.openclawModel, client: client) }
+                    Task { await vm.save(.openclawModel, platformService: platformService) }
                 }),
                 modelOptions: vm.modelOptions,
                 command: vm.openclawCommand,
                 profileBinding: vm.bind($vm.openclawToolsProfile, save: {
-                    Task { await vm.save(.openclawToolsProfile, client: client) }
+                    Task { await vm.save(.openclawToolsProfile, platformService: platformService) }
                 }),
                 profileSublabel: String(localized: "integrations.openclaw.profile_sub",
                                          defaultValue: "Built-in MCP tools the OpenClaw launcher exposes",
@@ -335,7 +335,7 @@ private struct OtherIntegrationsSection: View {
                              defaultValue: "Hermes Agent",
                              comment: "Display name for the Hermes Agent integration"),
                 modelBinding: vm.bind($vm.hermesModel, save: {
-                    Task { await vm.save(.hermesModel, client: client) }
+                    Task { await vm.save(.hermesModel, platformService: platformService) }
                 }),
                 modelOptions: vm.modelOptions,
                 command: vm.hermesCommand
@@ -345,7 +345,7 @@ private struct OtherIntegrationsSection: View {
                              defaultValue: "Pi",
                              comment: "Display name for the Pi integration"),
                 modelBinding: vm.bind($vm.piModel, save: {
-                    Task { await vm.save(.piModel, client: client) }
+                    Task { await vm.save(.piModel, platformService: platformService) }
                 }),
                 modelOptions: vm.modelOptions,
                 command: vm.piCommand
@@ -355,7 +355,7 @@ private struct OtherIntegrationsSection: View {
                              defaultValue: "Copilot CLI",
                              comment: "Display name for the Copilot CLI integration"),
                 modelBinding: vm.bind($vm.copilotModel, save: {
-                    Task { await vm.save(.copilotModel, client: client) }
+                    Task { await vm.save(.copilotModel, platformService: platformService) }
                 }),
                 modelOptions: vm.modelOptions,
                 command: vm.copilotCommand,
@@ -452,7 +452,7 @@ private struct IntegrationRow: View {
 /// would mislead.
 private struct MCPSection: View {
     @Bindable var vm: IntegrationsScreenVM
-    let client: OMLXClient
+    let platformService: PlatformServiceProtocol
 
     var body: some View {
         SectionHeader(
@@ -487,7 +487,7 @@ private struct MCPSection: View {
             Button(String(localized: "integrations.mcp.apply",
                           defaultValue: "Apply",
                           comment: "Apply button for the MCP config path")) {
-                Task { await vm.save(.mcpConfig, client: client) }
+                Task { await vm.save(.mcpConfig, platformService: platformService) }
             }
             .buttonStyle(.omlx(.primary))
             .disabled(!vm.hasPendingMCPChanges)

@@ -1,0 +1,44 @@
+name: Performance Regression Check
+on:
+  workflow_call:
+    inputs:
+      strict:
+        required: true
+        type: boolean
+        default: false
+
+jobs:
+  regression:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: ./.github/actions/setup-python
+        with:
+          python-version: '3.12'
+
+      - name: Cache dependencies
+        uses: ./.github/actions/cache
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          uv pip install --system -e ".[dev,mcp,modelscope]"
+
+      - name: Run Performance Regression tests
+        shell: bash
+        env:
+          OMLX_PERF_STRICT: ${{ inputs.strict && '1' || '0' }}
+        run: |
+          pytest -v tests/test_performance_regression.py
+
+      - name: Upload performance.json Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-report
+          path: performance.json
+          retention-days: 90

@@ -1947,3 +1947,112 @@ class TestJsonOutputParsing:
         data = response.json()
         output_text = data["output"][0]["content"][0]["text"]
         assert "Hello" in output_text
+
+
+class TestV1Routes:
+    """Tests for the new public v1 routes."""
+
+    def test_v1_models_standard_client(self, client):
+        response = client.get("/v1/models")
+        assert response.status_code == 200
+        data = response.json()
+        assert "data" in data
+        assert isinstance(data["data"], list)
+
+    def test_v1_models_omlx_client(self, client):
+        response = client.get("/v1/models", headers={"User-Agent": "omlx-mac/1.0"})
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+        if data:
+            entry = data[0]
+            assert "id" in entry
+            assert "ready" in entry
+            assert "apiVersion" in entry or "api_version" in entry
+
+    def test_v1_runtime_endpoints(self, client):
+        # GET /v1/runtime
+        response = client.get("/v1/runtime")
+        assert response.status_code == 200
+        data = response.json()
+        assert "status" in data
+        assert "uptime" in data
+        assert "apiVersion" in data or "api_version" in data
+
+        # GET /v1/runtime/capabilities
+        response = client.get("/v1/runtime/capabilities")
+        assert response.status_code == 200
+        data = response.json()
+        assert "supportsMoe" in data or "supports_moe" in data
+
+        # GET /v1/runtime/info
+        response = client.get("/v1/runtime/info")
+        assert response.status_code == 200
+        data = response.json()
+        assert "host" in data
+        assert "port" in data
+
+    def test_v1_sessions_endpoints(self, client):
+        # GET /v1/sessions
+        response = client.get("/v1/sessions")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+
+        # POST /v1/sessions
+        response = client.post("/v1/sessions", json={"sessionId": "test-session-1"})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["sessionId"] == "test-session-1"
+
+        # GET /v1/sessions/{id}
+        response = client.get("/v1/sessions/test-session-1")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["sessionId"] == "test-session-1"
+
+        # GET /v1/sessions/{id} 404
+        response = client.get("/v1/sessions/invalid-session-id")
+        assert response.status_code == 404
+
+    def test_v1_diagnostics_endpoints(self, client):
+        # GET /v1/diagnostics
+        response = client.get("/v1/diagnostics")
+        assert response.status_code == 200
+        data = response.json()
+        assert "compiler" in data
+        assert "execution" in data
+        assert "apple" in data
+
+        # GET /v1/diagnostics/compiler
+        response = client.get("/v1/diagnostics/compiler")
+        assert response.status_code == 200
+        data = response.json()
+        assert "compilerVersion" in data or "compiler_version" in data
+
+        # GET /v1/diagnostics/execution
+        response = client.get("/v1/diagnostics/execution")
+        assert response.status_code == 200
+        data = response.json()
+        assert "totalTokens" in data or "total_tokens" in data
+
+        # GET /v1/diagnostics/apple
+        response = client.get("/v1/diagnostics/apple")
+        assert response.status_code == 200
+        data = response.json()
+        assert "memoryUsed" in data or "memory_used" in data
+
+    def test_v1_benchmarks_endpoints(self, client):
+        # GET /v1/benchmarks
+        response = client.get("/v1/benchmarks")
+        assert response.status_code == 200
+        data = response.json()
+        assert "throughput" in data
+        assert "tokensPerSecond" in data or "tokens_per_second" in data
+
+        # POST /v1/benchmarks
+        response = client.post("/v1/benchmarks")
+        assert response.status_code == 200
+        data = response.json()
+        assert "status" in data
+        assert "bench_id" in data or "bench_id" in data

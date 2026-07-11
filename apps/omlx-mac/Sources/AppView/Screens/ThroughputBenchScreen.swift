@@ -67,8 +67,8 @@ struct ThroughputBenchScreen: View {
                 batchSizes: $vm.batchSizes,
                 running: vm.running,
                 canRun: vm.canRun,
-                onRun: { vm.runBenchmark(client: services.client) },
-                onCancel: { vm.cancelBenchmark(client: services.client) }
+                onRun: { vm.runBenchmark() },
+                onCancel: { vm.cancelBenchmark() }
             )
 
             if vm.running {
@@ -105,7 +105,11 @@ struct ThroughputBenchScreen: View {
         // leaves the running-bench state alone. The poll task stays alive
         // across screen unloads (see VM .stop comment), so navigation
         // doesn't lose progress.
-        .task { await vm.start(client: services.client) }
+        .task { await vm.start(
+            modelManagementService: services.modelManagementService,
+            platformService: services.platformService,
+            diagnosticsService: services.diagnosticsService
+        ) }
     }
 }
 

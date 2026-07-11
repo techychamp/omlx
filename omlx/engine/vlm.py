@@ -33,9 +33,14 @@ import logging
 import threading
 from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import mlx.core as mx
+
+if TYPE_CHECKING:
+    from omlx.registry.capability_registry import GenerationStrategyRegistry
+    from omlx.registry.model_info import ModelInfo
+    from omlx.runtime.capabilities import ActualCapabilities, EngineCapabilities, ModelCapabilities
 
 from ..api.tool_calling import convert_tools_for_template
 from ..api.utils import (
@@ -51,12 +56,7 @@ from ..utils.image import (
     compute_per_image_hashes,
     extract_images_from_messages,
 )
-from .base import (
-    BaseEngine,
-    GenerationOutput,
-    _clear_teardown_references,
-    _warn_scheduler_unreachable_once,
-)
+from .base import BaseEngine, GenerationOutput, _warn_scheduler_unreachable_once
 
 logger = logging.getLogger(__name__)
 
@@ -1150,9 +1150,13 @@ class VLMBatchedEngine(BaseEngine):
         self._grammar_compiler_init_attempted = False
         self._vision_cache = None
         self._vision_cache_enabled = True
-        # Holds the loaded gemma4_assistant drafter when vlm_mtp_enabled.
         # Phase 2A: attached but not yet wired into the decode path.
         self._vlm_mtp_drafter: Any | None = None
+        
+        # Phase 1 tri-mode capabilities
+        self._actual_capabilities: Optional["ActualCapabilities"] = None
+        self._model_info: Optional["ModelInfo"] = None
+        self._strategy_registry: Optional["GenerationStrategyRegistry"] = None
         self._diffusion_family: str | None = None
         self._diffusion_lock = asyncio.Lock()
         self._diffusion_active_requests = 0
@@ -1182,7 +1186,36 @@ class VLMBatchedEngine(BaseEngine):
 
     @property
     def model_name(self) -> str:
+        """Get the model name."""
         return self._model_name
+
+    @property
+    def model_info(self) -> Optional["ModelInfo"]:
+        return self._model_info
+
+    @property
+    def model_capabilities(self) -> Optional["ModelCapabilities"]:
+        if self._model_info:
+            return self._model_info.capabilities
+        return None
+
+    @property
+    def engine_capabilities(self) -> "EngineCapabilities":
+        from omlx.runtime.capabilities import EngineCapabilities
+        return EngineCapabilities(
+            supports_continuous_batching=True,
+            supports_chunked_prefill=True,
+            supports_paged_attention=True,
+            supports_vision=True,
+        )
+
+    @property
+    def actual_capabilities(self) -> Optional["ActualCapabilities"]:
+        return self._actual_capabilities
+
+    @property
+    def strategy_registry(self) -> Optional["GenerationStrategyRegistry"]:
+        return self._strategy_registry
 
     @property
     def tokenizer(self) -> Any:
@@ -1442,12 +1475,6 @@ class VLMBatchedEngine(BaseEngine):
             self._tokenizer = copy.deepcopy(self._processor.tokenizer)
         else:
             self._tokenizer = copy.deepcopy(self._processor)
-        if self._tokenizer is None or not callable(
-            getattr(self._tokenizer, "encode", None)
-        ):
-            raise RuntimeError(
-                f"VLM processor for {self._model_name} did not provide a usable tokenizer"
-            )
 
         if self.is_diffusion_model:
             self._inject_tool_calling(self._tokenizer)
@@ -1526,10 +1553,9 @@ class VLMBatchedEngine(BaseEngine):
             )
             if specprefill_enabled and specprefill_draft:
                 try:
-                    from ..utils.model_loading import (
-                        lm_load_compat as mlx_lm_load,
-                        maybe_load_custom_quantization,
-                    )
+                    from mlx_lm import load as mlx_lm_load
+
+                    from ..utils.model_loading import maybe_load_custom_quantization
                     from ..utils.tokenizer import get_tokenizer_config
 
                     def _load_draft():
@@ -1590,6 +1616,37 @@ class VLMBatchedEngine(BaseEngine):
         # Inject mlx-lm tool calling support into VLM tokenizer
         self._inject_tool_calling(self._tokenizer)
 
+        # Phase 1: Initialize capability registry
+        from omlx.runtime.feature_flags import FeatureFlags
+        from omlx.runtime.capabilities import ActualCapabilities, ModelCapabilities
+        from omlx.registry.capability_registry import GenerationStrategyRegistry, register_default_strategies
+        from omlx.registry.plugin_discovery import discover_plugins
+        from omlx.registry.model_info import build_model_info
+
+        # Infer basic model capabilities
+        model_caps = ModelCapabilities()
+        
+        flags = FeatureFlags.from_env()
+        self._actual_capabilities = ActualCapabilities.resolve(
+            model=model_caps,
+            engine=self.engine_capabilities,
+            flags=flags
+        )
+        
+        # Determine the base model for build_model_info
+        base_model = getattr(self._vlm_model, "language_model", self._vlm_model)
+        
+        self._model_info = build_model_info(
+            model_path=self._model_name,
+            model=base_model,
+            tokenizer=self._tokenizer,
+            capabilities=model_caps,
+        )
+        
+        self._strategy_registry = GenerationStrategyRegistry()
+        register_default_strategies(self._strategy_registry)
+        discover_plugins(self._strategy_registry)
+
         self._loaded = True
         logger.info(f"VLMBatchedEngine loaded: {self._model_name}")
 
@@ -1641,20 +1698,13 @@ class VLMBatchedEngine(BaseEngine):
         # final worker-thread MLX reclaim. Otherwise the VLM wrapper can keep
         # model weights or cached feature arrays alive until after the reclaim
         # pass has already run.
-        _clear_teardown_references(
-            self,
-            none_attrs=(
-                "_engine",
-                "_vlm_model",
-                "_processor",
-                "_adapter",
-                "_tokenizer",
-                "_grammar_compiler",
-                "_vlm_mtp_drafter",
-                "_diffusion_family",
-            ),
-            false_attrs=("_grammar_compiler_init_attempted",),
-        )
+        self._engine = None
+        self._vlm_model = None
+        self._processor = None
+        self._adapter = None
+        self._tokenizer = None
+        self._vlm_mtp_drafter = None
+        self._diffusion_family = None
 
         if engine:
             if hasattr(engine, "engine") and engine.engine is not None:

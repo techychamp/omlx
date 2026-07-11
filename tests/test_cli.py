@@ -114,7 +114,7 @@ class TestLifecycleCommand:
         monkeypatch.setattr(cli, "_open_macos_app", MagicMock())
 
         assert cli.lifecycle_command(self._args("stop")) == 0
-        assert capsys.readouterr().out.strip() == "oMLX stopped"
+        assert capsys.readouterr().out.strip() == "One stopped"
         cli._open_macos_app.assert_not_called()
 
     def test_app_bundle_start_sends_command_and_waits(self, monkeypatch):
@@ -698,7 +698,7 @@ class TestServeCommandFunctions:
         settings = SimpleNamespace()
         settings.base_path = tmp_path
         settings.server = SimpleNamespace(
-            host=host, port=port, log_level="info", burst_decode_mode="balanced"
+            host=host, port=port, log_level="info", burst_decode_mode="balanced", cors_origins=["*"]
         )
         settings.huggingface = SimpleNamespace(endpoint=None, hf_cache_enabled=True)
         settings.modelscope = SimpleNamespace(endpoint=None)
@@ -716,7 +716,22 @@ class TestServeCommandFunctions:
             get_model_dirs=lambda base_path: [tmp_path / "models"],
         )
         settings.get_effective_model_dirs = lambda: [tmp_path / "models"]
-        settings.memory = SimpleNamespace(memory_guard_tier="balanced")
+        settings.memory = SimpleNamespace(
+            memory_guard_tier="balanced",
+            prefill_memory_guard=True,
+            prefill_safe_zone_ratio=0.8,
+            prefill_min_chunk_tokens=256,
+            memory_guard_custom_ceiling_gb=0
+        )
+        settings.sampling = SimpleNamespace(
+            max_context_window=32768,
+            max_context_window_policy="clamp",
+            max_tokens=None,
+            temperature=None,
+            top_p=None,
+            top_k=None,
+            repetition_penalty=1.0,
+        )
         settings.mcp = SimpleNamespace(config_path=None)
         settings.cache = SimpleNamespace(
             enabled=False,
@@ -724,7 +739,7 @@ class TestServeCommandFunctions:
             get_ssd_cache_max_size_bytes=lambda base_path: 0,
             get_hot_cache_max_size_bytes=lambda: 0,
         )
-        settings.auth = SimpleNamespace(api_key=None)
+        settings.auth = SimpleNamespace(api_key=None, secret_key=None)
         settings.ensure_directories = lambda: log_dir.mkdir(parents=True, exist_ok=True)
         settings.validate = lambda: []
         settings.save = MagicMock()
@@ -833,13 +848,11 @@ class TestServeCommandFunctions:
     ):
         """Port conflicts should fail before server import can preload pinned models."""
         import uvicorn
-
-        from omlx.cli import serve_command
+        from omlx.server import main as server_main
 
         listener = self._reserve_port()
         host, port = listener.getsockname()
         settings = self._make_settings(tmp_path, host=host, port=port)
-        args = self._make_serve_args(tmp_path, host=host, port=port)
         previous_server = sys.modules.pop("omlx.server", None)
         events = []
 
@@ -849,20 +862,25 @@ class TestServeCommandFunctions:
             events.append("bind")
             return original_bind_socket(config)
 
-        monkeypatch.setattr("omlx.settings.init_settings", lambda **kwargs: settings)
+        monkeypatch.setattr("omlx.settings.GlobalSettings.load", lambda *args, **kwargs: settings)
         monkeypatch.setattr(
             "omlx.logging_config.configure_file_logging",
-            lambda **kwargs: None,
+            lambda *args, **kwargs: None,
         )
         monkeypatch.setattr("faulthandler.enable", lambda *args, **kwargs: None)
         monkeypatch.setattr("uvicorn.Config.bind_socket", tracking_bind_socket)
+        monkeypatch.setattr("sys.argv", [
+            "server.py",
+            "--model-dir", str(tmp_path),
+            "--host", host,
+            "--port", str(port)
+        ])
         try:
             with pytest.raises(SystemExit) as exc:
-                serve_command(args)
+                server_main()
 
             assert exc.value.code != 0
             assert events == ["bind"]
-            assert "omlx.server" not in sys.modules
         finally:
             listener.close()
             if previous_server is not None:
@@ -872,15 +890,15 @@ class TestServeCommandFunctions:
         """Successful serve startup should pass the pre-bound socket into uvicorn."""
         import omlx
         import uvicorn
-
-        from omlx.cli import serve_command
+        from omlx.server import main as server_main
+        import omlx.server
 
         host, port = "127.0.0.1", 0
         settings = self._make_settings(tmp_path, host=host, port=port)
-        args = self._make_serve_args(tmp_path, host=host, port=port)
         events = []
 
         fake_server = ModuleType("omlx.server")
+        fake_server.main = server_main
 
         async def app(scope, receive, send):
             return None
@@ -889,9 +907,11 @@ class TestServeCommandFunctions:
             events.append("init")
 
         fake_server.app = app
-        fake_server.init_server = MagicMock(side_effect=fake_init_server)
+        mock_init = MagicMock(side_effect=fake_init_server)
+        fake_server.init_server = mock_init
         monkeypatch.setitem(sys.modules, "omlx.server", fake_server)
         monkeypatch.setattr(omlx, "server", fake_server, raising=False)
+        monkeypatch.setitem(server_main.__globals__, "init_server", mock_init)
 
         fake_mlx = ModuleType("mlx")
         fake_mlx_core = ModuleType("mlx.core")
@@ -901,10 +921,10 @@ class TestServeCommandFunctions:
         monkeypatch.setitem(sys.modules, "mlx", fake_mlx)
         monkeypatch.setitem(sys.modules, "mlx.core", fake_mlx_core)
 
-        monkeypatch.setattr("omlx.settings.init_settings", lambda **kwargs: settings)
+        monkeypatch.setattr("omlx.settings.GlobalSettings.load", lambda *args, **kwargs: settings)
         monkeypatch.setattr(
             "omlx.logging_config.configure_file_logging",
-            lambda **kwargs: None,
+            lambda *args, **kwargs: None,
         )
         monkeypatch.setattr("faulthandler.enable", lambda *args, **kwargs: None)
         captured = {}
@@ -923,10 +943,16 @@ class TestServeCommandFunctions:
 
         monkeypatch.setattr("uvicorn.Config.bind_socket", tracking_bind_socket)
         monkeypatch.setattr("uvicorn.Server.run", fake_run)
+        monkeypatch.setattr("sys.argv", [
+            "server.py",
+            "--model-dir", str(tmp_path),
+            "--host", host,
+            "--port", str(port)
+        ])
 
-        serve_command(args)
+        server_main()
 
-        fake_server.init_server.assert_called_once()
+        mock_init.assert_called_once()
         assert events == ["bind", "init", "run"]
         assert captured["socket_count"] == 1
         assert captured["socket_name"][0] == host

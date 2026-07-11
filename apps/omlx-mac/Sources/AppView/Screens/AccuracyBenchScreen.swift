@@ -64,20 +64,20 @@ struct AccuracyBenchScreen: View {
                 sampleSizes: $vm.sampleSizes,
                 isAdding: vm.isAdding,
                 canSubmit: vm.canSubmit,
-                onSubmit: { vm.addToQueue(client: services.client) }
+                onSubmit: { vm.addToQueue() }
             )
 
             QueueSection(
                 status: vm.status,
-                onCancel: { vm.cancelRunning(client: services.client) },
-                onRemove: { idx in vm.removeFromQueue(client: services.client, index: idx) }
+                onCancel: { vm.cancelRunning() },
+                onRemove: { idx in vm.removeFromQueue(index: idx) }
             )
 
             MessageBanner(error: vm.lastError)
 
             ResultsSection(
                 results: vm.results,
-                onClear: { vm.resetResults(client: services.client) }
+                onClear: { vm.resetResults() }
             )
 
             if !vm.results.isEmpty {
@@ -88,7 +88,10 @@ struct AccuracyBenchScreen: View {
         // restarts the poll loop (which cancels its predecessor). The
         // poll task continues across screen unloads since AppServices
         // owns the VM, so we don't tear it down on disappear.
-        .task { await vm.start(client: services.client) }
+        .task { await vm.start(
+            modelManagementService: services.modelManagementService,
+            diagnosticsService: services.diagnosticsService
+        ) }
     }
 }
 

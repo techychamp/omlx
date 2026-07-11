@@ -1,0 +1,110 @@
+name: Packaging & Verification
+on:
+  workflow_call:
+
+jobs:
+  python-build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: ./.github/actions/setup-python
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          uv pip install --system build
+
+      - name: Build sdist and wheel
+        shell: bash
+        run: |
+          python -m build
+
+      - name: Verify build artifacts
+        shell: bash
+        run: |
+          ls -la dist/
+          ls dist/*.tar.gz
+          ls dist/*.whl
+
+      - name: Upload Python Package Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-dist
+          path: dist/
+          retention-days: 14
+
+  app-build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: ./.github/actions/setup-python
+        with:
+          python-version: '3.12'
+
+      - name: Setup Xcode
+        uses: ./.github/actions/setup-swift
+
+      - name: Cache dependencies
+        uses: ./.github/actions/cache
+        with:
+          python-version: '3.12'
+
+      - name: Install venvstacks
+        shell: bash
+        run: |
+          uv pip install --system venvstacks>=0.7.0
+
+      - name: Rebuild Donor and Export layers
+        shell: bash
+        run: |
+          python packaging/build.py --venvstacks-only
+
+      - name: Build One.app Bundle
+        shell: bash
+        run: |
+          apps/omlx-mac/Scripts/build.sh release
+
+      - name: Verify Staged Bundle Structure
+        shell: bash
+        run: |
+          APP_PATH="apps/omlx-mac/build/Stage/One.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "Error: One.app was not built at stage location!" >&2
+            exit 1
+          fi
+          
+          ls -la "$APP_PATH/Contents"
+          ls -la "$APP_PATH/Contents/MacOS"
+          
+          CLI_WRAPPER="$APP_PATH/Contents/MacOS/one-cli"
+          if [ ! -f "$CLI_WRAPPER" ]; then
+            echo "Error: one-cli wrapper is missing!" >&2
+            exit 1
+          fi
+          
+          if [ ! -x "$CLI_WRAPPER" ]; then
+            echo "Error: one-cli wrapper is not executable!" >&2
+            exit 1
+          fi
+          echo "One.app structure verified successfully."
+
+      - name: Compress App Bundle
+        shell: bash
+        run: |
+          cd apps/omlx-mac/build/Stage
+          zip -r One.app.zip One.app
+
+      - name: Upload One.app Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: packaged-app
+          path: apps/omlx-mac/build/Stage/One.app.zip
+          retention-days: 14

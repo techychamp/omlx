@@ -5,34 +5,31 @@ import XCTest
 
 final class ThemeTests: XCTestCase {
 
-    func testLightWindowBackgroundUsesStandardWindowColor() {
+    func testLightWindowBackgroundUsesStardustWhite() {
         let actual = resolvedRGBA(OMLXTheme.light.windowBg, appearance: .aqua)
-        let expected = resolvedRGBA(Color(nsColor: .windowBackgroundColor),
-                                    appearance: .aqua)
-        let underPage = resolvedRGBA(Color(nsColor: .underPageBackgroundColor),
-                                     appearance: .aqua)
-
-        assertClose(actual, expected)
-        XCTAssertGreaterThan(actual.red, 0.95)
-        XCTAssertGreaterThan(abs(actual.red - underPage.red), 0.25)
+        
+        // #F3F4F6 is roughly R: 0.953, G: 0.957, B: 0.965
+        XCTAssertEqual(actual.red, 0.953, accuracy: 0.01)
+        XCTAssertEqual(actual.green, 0.957, accuracy: 0.01)
+        XCTAssertEqual(actual.blue, 0.965, accuracy: 0.01)
     }
 
-    func testDarkWindowBackgroundKeepsUnderPageColor() {
+    func testDarkWindowBackgroundUsesSpaceBlack() {
         let actual = resolvedRGBA(OMLXTheme.dark.windowBg, appearance: .darkAqua)
-        let expected = resolvedRGBA(Color(nsColor: .underPageBackgroundColor),
-                                    appearance: .darkAqua)
-
-        assertClose(actual, expected)
+        
+        // #0B0C10 is roughly R: 0.043, G: 0.047, B: 0.063
+        XCTAssertEqual(actual.red, 0.043, accuracy: 0.01)
+        XCTAssertEqual(actual.green, 0.047, accuracy: 0.01)
+        XCTAssertEqual(actual.blue, 0.063, accuracy: 0.01)
     }
 
-    func testLightGroupBackgroundIsSubtleGrayWash() {
+    func testLightGroupBackgroundIsCardLight() {
         let actual = resolvedRGBA(OMLXTheme.light.groupBg, appearance: .aqua)
-
-        XCTAssertLessThan(actual.red, 0.01)
-        XCTAssertLessThan(actual.green, 0.01)
-        XCTAssertLessThan(actual.blue, 0.01)
-        XCTAssertGreaterThan(actual.alpha, 0.025)
-        XCTAssertLessThan(actual.alpha, 0.05)
+        
+        // #E5E7EB is roughly R: 0.898, G: 0.906, B: 0.922
+        XCTAssertEqual(actual.red, 0.898, accuracy: 0.01)
+        XCTAssertEqual(actual.green, 0.906, accuracy: 0.01)
+        XCTAssertEqual(actual.blue, 0.922, accuracy: 0.01)
     }
 
     private typealias RGBA = (
@@ -55,42 +52,5 @@ final class ThemeTests: XCTestCase {
             )
         }
         return components!
-    }
-
-    private func assertClose(
-        _ actual: RGBA,
-        _ expected: RGBA,
-        accuracy: CGFloat = 0.001,
-        file: StaticString = #filePath,
-        line: UInt = #line
-    ) {
-        XCTAssertEqual(
-            actual.red,
-            expected.red,
-            accuracy: accuracy,
-            file: file,
-            line: line
-        )
-        XCTAssertEqual(
-            actual.green,
-            expected.green,
-            accuracy: accuracy,
-            file: file,
-            line: line
-        )
-        XCTAssertEqual(
-            actual.blue,
-            expected.blue,
-            accuracy: accuracy,
-            file: file,
-            line: line
-        )
-        XCTAssertEqual(
-            actual.alpha,
-            expected.alpha,
-            accuracy: accuracy,
-            file: file,
-            line: line
-        )
     }
 }

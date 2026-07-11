@@ -38,6 +38,13 @@ final class AppServices: NSObject {
     /// Observation to react to refreshes.
     let presetBundle = PresetBundleStore()
 
+    // Service Layer
+    let generationService: GenerationServiceProtocol
+    let sessionService: SessionServiceProtocol
+    let modelManagementService: ModelManagementServiceProtocol
+    let diagnosticsService: DiagnosticsServiceProtocol
+    let platformService: PlatformServiceProtocol
+
     /// Long-lived view models for the Bench screens. Owned here (not by
     /// screen-local state) so a running benchmark survives
     /// leaving the screen — the server keeps producing results while
@@ -55,6 +62,13 @@ final class AppServices: NSObject {
         self.config = config
         self.client = OMLXClient(host: config.host, port: config.port, apiKey: config.apiKey)
         self.updates = UpdateController()
+        
+        self.generationService = GenerationService(client: self.client)
+        self.sessionService = SessionService(client: self.client)
+        self.modelManagementService = ModelManagementService(client: self.client)
+        self.diagnosticsService = DiagnosticsService(client: self.client)
+        self.platformService = PlatformService(client: self.client)
+        
         super.init()
         self.bind(server: server)
         // Wire Sparkle (or its stub) on the next runloop so any user prefs
@@ -87,10 +101,9 @@ final class AppServices: NSObject {
 
     @objc private func serverStateDidChange(_ note: Notification) {
         guard let proc = note.object as? ServerProcess, proc === server else { return }
-        // ServerProcess posts on the main queue (via DispatchQueue.main.async
-        // in terminationHandler / @MainActor health-check Task), so we're
-        // already on the main thread here.
-        serverState = proc.state
+        Task { @MainActor in
+            serverState = proc.state
+        }
     }
 
     func updateConfig(_ next: AppConfig) {

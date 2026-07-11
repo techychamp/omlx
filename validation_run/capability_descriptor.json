@@ -1,0 +1,20 @@
+{
+  "execution_family": "autoregressive",
+  "supported_modalities": [
+    "text"
+  ],
+  "attention_types": [
+    "causal"
+  ],
+  "cache_layout": "paged",
+  "supports_streaming": true,
+  "supports_speculative": false,
+  "supports_diffusion": false,
+  "supports_embedding": false,
+  "supports_verification": false,
+  "hardware_requirements": [],
+  "execution_hints": {},
+  "_diagnostics": {
+    "cache_key": "cap_desc_4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  }
+}

@@ -1,0 +1,32 @@
+name: Nightly Build & Validation
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  architecture:
+    uses: ./.github/workflows/architecture.yml
+  python-tests:
+    needs: [architecture]
+    uses: ./.github/workflows/python-tests.yml
+  swift-tests:
+    needs: [architecture]
+    uses: ./.github/workflows/swift-tests.yml
+  packaging:
+    needs: [architecture]
+    uses: ./.github/workflows/packaging.yml
+  runtime-smoke:
+    needs: [packaging]
+    uses: ./.github/workflows/runtime-smoke.yml
+  performance:
+    needs: [packaging]
+    uses: ./.github/workflows/performance.yml
+    with:
+      strict: true
+  security:
+    needs: [architecture]
+    uses: ./.github/workflows/security.yml
+  docs:
+    needs: [architecture]
+    uses: ./.github/workflows/docs.yml

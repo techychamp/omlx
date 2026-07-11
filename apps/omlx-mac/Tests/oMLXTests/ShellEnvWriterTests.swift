@@ -39,12 +39,12 @@ final class ShellEnvWriterTests: XCTestCase {
         let result = try ShellEnvWriter.ensureCLIShim(appBundleURL: appURL)
 
         let shim = tempHome
-            .appendingPathComponent(".omlx", isDirectory: true)
+            .appendingPathComponent(".one", isDirectory: true)
             .appendingPathComponent("bin", isDirectory: true)
-            .appendingPathComponent("omlx")
+            .appendingPathComponent("one")
         XCTAssertTrue(FileManager.default.isExecutableFile(atPath: shim.path))
         let shimText = try String(contentsOf: shim, encoding: .utf8)
-        XCTAssertTrue(shimText.contains("Contents/MacOS/omlx-cli"))
+        XCTAssertTrue(shimText.contains("Contents/MacOS/one-cli"))
         XCTAssertTrue(shimText.contains("exec "))
 
         let zshrc = tempHome.appendingPathComponent(".zshrc")
@@ -65,10 +65,10 @@ final class ShellEnvWriterTests: XCTestCase {
 
         let result = try ShellEnvWriter.ensureCLIShim(appBundleURL: appURL)
 
-        let publicCLI = publicBin.appendingPathComponent("omlx")
+        let publicCLI = publicBin.appendingPathComponent("one")
         XCTAssertTrue(FileManager.default.fileExists(atPath: publicCLI.path))
         let destination = try FileManager.default.destinationOfSymbolicLink(atPath: publicCLI.path)
-        XCTAssertTrue(destination.hasSuffix("/.omlx/bin/omlx"))
+        XCTAssertTrue(destination.hasSuffix("/.one/bin/one"))
         XCTAssertEqual(result, .publicCommandReady(path: publicCLI.path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: tempHome.appendingPathComponent(".zshrc").path))
     }
@@ -78,7 +78,7 @@ final class ShellEnvWriterTests: XCTestCase {
         try FileManager.default.createDirectory(at: publicBin, withIntermediateDirectories: true)
         ShellEnvWriter.publicBinDirsOverrideForTests = [publicBin]
         setenv("PATH", "\(publicBin.path):/usr/bin", 1)
-        let existing = publicBin.appendingPathComponent("omlx")
+        let existing = publicBin.appendingPathComponent("one")
         try "#!/bin/sh\n".write(to: existing, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: existing.path)
 
@@ -99,9 +99,9 @@ final class ShellEnvWriterTests: XCTestCase {
 
         let zshrc = tempHome.appendingPathComponent(".zshrc")
         let rcText = try String(contentsOf: zshrc, encoding: .utf8)
-        XCTAssertTrue(rcText.contains("# oMLX: CLI shim path begin"))
-        XCTAssertTrue(rcText.contains("$HOME/.omlx/bin"))
-        let count = rcText.components(separatedBy: "# oMLX: CLI shim path begin").count - 1
+        XCTAssertTrue(rcText.contains("# One: CLI shim path begin"))
+        XCTAssertTrue(rcText.contains("$HOME/.one/bin"))
+        let count = rcText.components(separatedBy: "# One: CLI shim path begin").count - 1
         XCTAssertEqual(count, 1)
     }
 
@@ -111,7 +111,7 @@ final class ShellEnvWriterTests: XCTestCase {
         let cli = appURL
             .appendingPathComponent("Contents", isDirectory: true)
             .appendingPathComponent("MacOS", isDirectory: true)
-            .appendingPathComponent("omlx-cli")
+            .appendingPathComponent("one-cli")
         try """
         #!/bin/sh
         printf "%s" "$OMLX_BASE_PATH" > \(shellQuote(output.path))
@@ -123,7 +123,7 @@ final class ShellEnvWriterTests: XCTestCase {
         let support = tempHome
             .appendingPathComponent("Library", isDirectory: true)
             .appendingPathComponent("Application Support", isDirectory: true)
-            .appendingPathComponent("oMLX", isDirectory: true)
+            .appendingPathComponent("One", isDirectory: true)
         try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
         try "/tmp/custom-omlx\n".write(
             to: support.appendingPathComponent("base-path"),
@@ -132,9 +132,9 @@ final class ShellEnvWriterTests: XCTestCase {
         )
 
         let shim = tempHome
-            .appendingPathComponent(".omlx", isDirectory: true)
+            .appendingPathComponent(".one", isDirectory: true)
             .appendingPathComponent("bin", isDirectory: true)
-            .appendingPathComponent("omlx")
+            .appendingPathComponent("one")
         let process = Process()
         process.executableURL = shim
         process.environment = [
@@ -163,7 +163,7 @@ final class ShellEnvWriterTests: XCTestCase {
         let cli = appURL
             .appendingPathComponent("Contents", isDirectory: true)
             .appendingPathComponent("MacOS", isDirectory: true)
-            .appendingPathComponent("omlx-cli")
+            .appendingPathComponent("one-cli")
         try FileManager.default.createDirectory(
             at: cli.deletingLastPathComponent(),
             withIntermediateDirectories: true

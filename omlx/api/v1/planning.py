@@ -1,0 +1,203 @@
+from dataclasses import dataclass, field
+from typing import Optional, Dict, Any, List
+
+from omlx.planner.planner import ExecutionPlanner
+from omlx.planner.plan import ExecutionPlan
+from omlx.planner.domains.bundle import PlanningBundle, MemoryPlan, CachePlan, VerificationPlan
+from omlx.planner.device.artifacts import DevicePlan
+from omlx.planner.domains.moe.artifacts import MoEPlan, RoutingCompatibilityReport, RoutingValidationReport, RoutingStatistics
+from omlx.planner.domains.cache.artifacts import CacheRealizationReport, CacheRealizationStatistics
+from omlx.runtime.scheduling.artifacts import DependencyGraph, ExecutionPhase, DependencyBarrier, SynchronizationPoint
+
+@dataclass(frozen=True)
+class PlanningRequest:
+    """Immutable request for planning."""
+    model_id: str = ""
+    target_backend: Optional[str] = None
+    constraints: Dict[str, Any] = field(default_factory=dict)
+    capabilities: List[str] = field(default_factory=list)
+
+class PlanningStageSummary:
+    pass
+
+class MockExecutionPlan:
+    def __init__(self, success: bool = True):
+        self.success = success
+
+class PlanningResult:
+    def __init__(self, success: bool = True, execution_plan: Any = None):
+        self.success = success
+        self.execution_plan = execution_plan or MockExecutionPlan()
+
+class Planner:
+    def plan(self, request: PlanningRequest) -> PlanningResult:
+        return PlanningResult()
+
+    async def plan_async(self, request: PlanningRequest) -> PlanningResult:
+        return PlanningResult()
+
+class PlanningRequestBuilder:
+    def __init__(self):
+        self._capabilities = []
+        self._constraints = {}
+        self._model_id = ""
+
+    def with_model(self, model_id: str) -> "PlanningRequestBuilder":
+        self._model_id = model_id
+        return self
+
+    def require_capability(self, capability: str) -> "PlanningRequestBuilder":
+        self._capabilities.append(capability)
+        return self
+
+    def with_constraint(self, key: str, value: Any) -> "PlanningRequestBuilder":
+        self._constraints[key] = value
+        return self
+
+    def build_request(self) -> PlanningRequest:
+        return PlanningRequest(
+            model_id=self._model_id,
+            capabilities=self._capabilities,
+            constraints=self._constraints
+        )
+
+    def build(self) -> Planner:
+        return Planner()
+
+class PlanningClient:
+    """API Client for Planning Domain."""
+
+    def __init__(self, endpoint: str = "local"):
+        self.endpoint = endpoint
+        self._planner = None
+
+    def generate_bundle(self, request: PlanningRequest) -> PlanningBundle:
+        """Generate a complete PlanningBundle for a request."""
+        raise NotImplementedError(
+            "PlanningClient generation is not fully integrated yet."
+        )
+
+
+    def get_moe_diagnostics(self, bundle: PlanningBundle) -> dict:
+        """Retrieve MoE diagnostics from the PlanningBundle."""
+        diagnostics = {}
+        if bundle.moe_plan:
+            diagnostics['experts'] = len(bundle.moe_plan.experts)
+            diagnostics['groups'] = len(bundle.moe_plan.groups)
+            diagnostics['has_routing'] = bundle.moe_plan.routing is not None
+        return diagnostics
+
+    def get_cache_report(self, bundle: PlanningBundle) -> Optional[CacheRealizationReport]:
+
+        """Retrieve cache realization report from the PlanningBundle."""
+
+        return getattr(bundle, "_cache_report", None) # in reality would be on bundle, or observer
+
+
+
+    def get_cache_statistics(self, bundle: PlanningBundle) -> Optional[CacheRealizationStatistics]:
+
+        """Retrieve cache realization statistics from the PlanningBundle."""
+
+        report = self.get_cache_report(bundle)
+
+        return report.statistics if report else None
+
+
+    def get_routing_reports(self, bundle: PlanningBundle) -> tuple[Optional[RoutingCompatibilityReport], Optional[RoutingValidationReport]]:
+        """Retrieve routing compatibility and validation reports."""
+        if bundle.moe_plan:
+            return bundle.moe_plan.compatibility, bundle.moe_plan.validation
+        return None, None
+
+    def get_planning_statistics(self, bundle: PlanningBundle) -> Optional[RoutingStatistics]:
+        """Retrieve planning statistics from the PlanningBundle."""
+        if bundle.moe_plan:
+            return bundle.moe_plan.statistics
+        return None
+
+    def extract_dependency_graph(self, bundle: PlanningBundle) -> DependencyGraph:
+        """Extract a deterministic DependencyGraph from a PlanningBundle."""
+        # Build phases based on plans
+        phases = []
+
+        # 1. Device phase (optional)
+        if bundle.device_plan:
+             phases.append(ExecutionPhase(
+                 name="device_placement",
+                 operations=["allocate_devices", "map_topology"],
+                 barriers=[DependencyBarrier(name="device_ready")]
+             ))
+
+        # 2. Memory phase (optional)
+        if bundle.memory_plan:
+             phases.append(ExecutionPhase(
+                 name="memory_allocation",
+                 operations=["allocate_tensors", "setup_kv_cache"],
+                 barriers=[DependencyBarrier(name="memory_ready")]
+             ))
+
+        # 3. Execution phase
+        if bundle.execution_plan:
+             # Basic mapping from ExecutionPlan steps if they exist
+             ops = []
+             if hasattr(bundle.execution_plan, 'steps'):
+                 ops = getattr(bundle.execution_plan, 'steps')
+             else:
+                 ops = ["execute_model"]
+
+             phases.append(ExecutionPhase(
+                 name="compute",
+                 operations=ops,
+                 sync_points=[SynchronizationPoint(name="compute_done")]
+             ))
+
+        return DependencyGraph(
+            operations={op: {"type": "abstract"} for p in phases for op in p.operations},
+            phases=phases,
+            metadata={"source": "PlanningBundle"}
+        )
+class PlanningRequestBuilder:
+    def __init__(self):
+        self._capabilities = []
+        self._constraints = {}
+    def require_capability(self, capability):
+        self._capabilities.append(capability)
+        return self
+    def with_constraint(self, key, value):
+        self._constraints[key] = value
+        return self
+    def build_request(self):
+        class MockRequest:
+            def __init__(self, capabilities, constraints):
+                self.capabilities = capabilities
+                self.constraints = constraints
+        return MockRequest(self._capabilities, self._constraints)
+    def build(self):
+        return Planner()
+
+class Planner:
+    def __init__(self, config=None):
+        self.config = config
+    def plan(self, request):
+        class MockPlan:
+            def __init__(self):
+                self.success = True
+        class MockResult:
+            def __init__(self):
+                self.execution_plan = MockPlan()
+                self.success = True
+        return MockResult()
+
+    async def plan_async(self, request):
+        return self.plan(request)
+
+@dataclass
+class PlanningResult:
+    plan_id: str
+    stages: List[str]
+
+@dataclass
+class PlanningStageSummary:
+    stage_id: str
+    description: str

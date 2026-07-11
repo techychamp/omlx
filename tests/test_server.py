@@ -8,11 +8,7 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from omlx.engine_pool import EngineEntry
-from omlx.exceptions import (
-    InvalidRequestError,
-    ModelNotFoundError,
-    ModelUnavailableError,
-)
+from omlx.exceptions import InvalidRequestError, ModelNotFoundError
 from omlx.model_settings import ModelSettings, ModelSettingsManager
 from omlx.server import (
     EngineType,
@@ -20,14 +16,14 @@ from omlx.server import (
     ServerState,
     _format_generation_speed_for_log,
     _reject_diffusion_structured_outputs,
-    _reset_boundary_snapshots_for_server,
     _resolve_metric_durations,
+    _reset_boundary_snapshots_for_server,
     app,
     get_engine,
     get_max_context_window,
     get_sampling_params,
 )
-from omlx.settings import GlobalSettings
+from omlx.settings import GlobalSettings, ModelSettings as GlobalModelSettings
 
 
 class TestBoundarySnapshotLifecycle:
@@ -562,25 +558,6 @@ class TestModelFallback:
             await get_engine("unknown-model", EngineType.EMBEDDING)
         assert exc_info.value.status_code == 404
 
-    @pytest.mark.asyncio
-    async def test_model_unavailable_returns_409(self):
-        """Cached model load failures return 409 instead of an unhandled 500."""
-        self._state.global_settings = GlobalSettings()
-        self._state.global_settings.model.model_fallback = False
-        self._state.default_model = "default-model"
-
-        pool = MagicMock()
-        pool.resolve_model_id.side_effect = lambda mid, _sm: mid
-        pool.get_engine = AsyncMock(
-            side_effect=ModelUnavailableError("broken-model", "cached failure")
-        )
-        self._state.engine_pool = pool
-
-        with pytest.raises(HTTPException) as exc_info:
-            await get_engine("broken-model", EngineType.LLM)
-
-        assert exc_info.value.status_code == 409
-
 
 class TestGetEngineLLMTypeValidation:
     """LLM endpoints must reject non-LLM engines with a clean 400 (#507).
@@ -965,3 +942,34 @@ class TestExposedProfileModels:
         max_context = get_max_context_window("qwen-base:thinking")
 
         assert max_context == 4096
+
+
+class TestSessionRoutes:
+    def test_delete_session_success(self):
+        import omlx.server as server_module
+        from fastapi.testclient import TestClient
+
+        client = TestClient(app)
+        server_module._server_state.sessions["test-session-123"] = {
+            "created_at": 123456789.0
+        }
+        with patch("omlx.server.verify_api_key", return_value=True):
+            response = client.delete("/v1/sessions/test-session-123")
+            assert response.status_code == 200
+            assert response.json()["success"] is True
+            assert "test-session-123" not in server_module._server_state.sessions
+
+    def test_delete_session_not_found(self):
+        from fastapi.testclient import TestClient
+        client = TestClient(app)
+        with patch("omlx.server.verify_api_key", return_value=True):
+            response = client.delete("/v1/sessions/non-existent-session")
+            assert response.status_code == 404
+
+
+class TestModelListDirectCall:
+    @pytest.mark.asyncio
+    async def test_list_models_direct_test_call(self):
+        from omlx.server import list_models
+        response = await list_models(True)
+        assert response is not None

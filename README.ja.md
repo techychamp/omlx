@@ -361,11 +361,11 @@ apps/omlx-mac/Scripts/build.sh release --rebuild-donor
 apps/omlx-mac/Scripts/build.sh release --with-custom-kernel
 ```
 
-初回 cold ビルドは 10–20 分かかります（venvstacks Python レイヤーの組み立て）。以降のビルドは `packaging/_export/` のキャッシュを再利用し、約 4 分で完了します。レイヤー構成は [packaging/README.md](packaging/README.md)、Swift ソースは [apps/omlx-mac/](apps/omlx-mac/) を参照してください。
+初回 cold ビルドは 10–20 分かかります（venvstacks Python レイヤーの組み立て）。以降のビルドは `packaging/_export/` のキャッシュを再利用し、約 4 分で完了します。レイヤー構成は [packaging guide](docs/guides/packaging-guide.md)、Swift ソースは [apps/omlx-mac/](apps/omlx-mac) を参照してください。
 
 ## コントリビューション
 
-コントリビューションを歓迎します！詳細は[コントリビューションガイド](docs/CONTRIBUTING.md)を参照してください。
+コントリビューションを歓迎します！詳細は[コントリビューションガイド](docs/guides/CONTRIBUTING.md)を参照してください。
 
 - バグ修正と改善
 - パフォーマンス最適化

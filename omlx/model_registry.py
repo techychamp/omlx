@@ -181,11 +181,21 @@ class ModelRegistry:
                 "active_owners": active,
             }
 
+    def clear(self) -> None:
+        """Clear all owners tracked in the registry."""
+        with self._registry_lock:
+            self._owners.clear()
+
 
 # Global singleton
 _registry = ModelRegistry()
 
 
 def get_registry() -> ModelRegistry:
-    """Get the global model registry."""
+    """Get the model registry from the active runtime if available, otherwise fallback."""
+    from omlx.server import get_runtime
+    runtime = get_runtime()
+    if runtime and hasattr(runtime, "engine_pool") and runtime.engine_pool and hasattr(runtime.engine_pool, "model_registry"):
+        return runtime.engine_pool.model_registry
     return _registry
+

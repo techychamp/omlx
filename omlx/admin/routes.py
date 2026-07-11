@@ -36,6 +36,7 @@ from ..settings import BURST_DECODE_MODES, SubKeyEntry, burst_decode_env
 from ..utils.release_check import normalize_update_channel, select_latest_release
 from .auth import (
     REMEMBER_ME_MAX_AGE,
+    SESSION_COOKIE_NAME,
     SESSION_MAX_AGE,
     compare_keys,
     create_session_token,
@@ -340,12 +341,6 @@ class OQStartRequest(BaseModel):
     dtype: str = "bfloat16"
     preserve_mtp: bool = False
     auto_proxy_sensitivity: bool = True
-    enhanced: bool = False
-    imatrix_cache_path: str = ""
-    imatrix_reuse_cache: bool = True
-    imatrix_strict: bool = False
-    imatrix_num_samples: int = 128
-    imatrix_seq_length: int = 512
 
 
 class HFUploadRequest(BaseModel):
@@ -1479,7 +1474,7 @@ async def login(request: LoginRequest, response: Response):
     token = create_session_token(remember=request.remember)
     cookie_max_age = REMEMBER_ME_MAX_AGE if request.remember else SESSION_MAX_AGE
     response.set_cookie(
-        key="omlx_admin_session",
+        key=SESSION_COOKIE_NAME,
         value=token,
         httponly=True,
         samesite="lax",
@@ -1544,7 +1539,7 @@ async def setup_api_key(request: SetupApiKeyRequest, response: Response):
     # Create session token and set cookie (auto-login after setup)
     token = create_session_token()
     response.set_cookie(
-        key="omlx_admin_session",
+        key=SESSION_COOKIE_NAME,
         value=token,
         httponly=True,
         samesite="lax",
@@ -1565,7 +1560,7 @@ async def logout(response: Response):
     Returns:
         JSON response with success status.
     """
-    response.delete_cookie(key="omlx_admin_session")
+    response.delete_cookie(key=SESSION_COOKIE_NAME)
     return {"success": True}
 
 
@@ -1597,7 +1592,7 @@ async def auto_login(key: str = "", redirect: str = "/admin/dashboard"):
     token = create_session_token()
     response = RedirectResponse(url=redirect, status_code=302)
     response.set_cookie(
-        key="omlx_admin_session",
+        key=SESSION_COOKIE_NAME,
         value=token,
         httponly=True,
         samesite="lax",
@@ -3966,8 +3961,11 @@ def _get_available_log_files(log_dir: Path) -> list[str]:
 
     files = []
     for f in log_dir.iterdir():
-        # Match server.log and server.log.YYYY-MM-DD patterns
-        if f.name.startswith("server") and (f.suffix == ".log" or ".log." in f.name):
+        # Match server/runtime logs and their daily rotations.
+        if (
+            f.name.startswith(("server", "runtime"))
+            and (f.suffix == ".log" or ".log." in f.name)
+        ):
             files.append(f.name)
 
     # Sort by modification time (newest first)
@@ -4024,8 +4022,17 @@ async def get_logs(
         if not log_file.exists():
             raise HTTPException(status_code=404, detail=f"Log file not found: {file}")
     else:
-        # Default to current log file
-        log_file = log_dir / "server.log"
+        # Default to the active log with content. The Python file handler
+        # writes server.log; the macOS process supervisor may also write
+        # stdout/stderr to runtime.log in the same directory.
+        server_log = log_dir / "server.log"
+        runtime_log = log_dir / "runtime.log"
+        log_file = server_log
+        if (
+            (not server_log.exists() or server_log.stat().st_size == 0)
+            and runtime_log.exists()
+        ):
+            log_file = runtime_log
 
     # Read log content
     if log_file.exists():
@@ -6207,17 +6214,6 @@ async def start_oq_quantization(
             status_code=400,
             detail="Invalid dtype. Must be 'bfloat16' or 'float16'",
         )
-    if request.enhanced:
-        if not 1 <= request.imatrix_num_samples <= 4096:
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid imatrix_num_samples. Must be between 1 and 4096.",
-            )
-        if not 64 <= request.imatrix_seq_length <= 8192:
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid imatrix_seq_length. Must be between 64 and 8192.",
-            )
     is_paro, _ = _paroquant_compat_for_model({"model_path": request.model_path})
     if is_paro:
         raise HTTPException(
@@ -6237,12 +6233,6 @@ async def start_oq_quantization(
             dtype=request.dtype,
             preserve_mtp=request.preserve_mtp,
             auto_proxy_sensitivity=request.auto_proxy_sensitivity,
-            enhanced=request.enhanced,
-            imatrix_cache_path=request.imatrix_cache_path,
-            imatrix_reuse_cache=request.imatrix_reuse_cache,
-            imatrix_strict=request.imatrix_strict,
-            imatrix_num_samples=request.imatrix_num_samples,
-            imatrix_seq_length=request.imatrix_seq_length,
         )
         return {"success": True, "task": task.to_dict()}
     except ValueError as e:

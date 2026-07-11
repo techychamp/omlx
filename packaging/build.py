@@ -19,13 +19,14 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Optional
 
 SCRIPT_DIR = Path(__file__).parent
 BUILD_DIR = SCRIPT_DIR / "_build"
 EXPORT_DIR = SCRIPT_DIR / "_export"
 DIST_DIR = SCRIPT_DIR / "dist"
 WHEELS_DIR = SCRIPT_DIR / "_wheels"
-APP_NAME = "oMLX"
+APP_NAME = "One"
 
 
 def _read_version() -> str:
@@ -273,7 +274,7 @@ def _build_sdist_wheel(pkg_name: str) -> bool:
     return result.returncode == 0
 
 
-def build_local_wheels(source_toml: Path | None = None):
+def build_local_wheels(source_toml: Optional[Path] = None):
     """Pre-build wheels for git-pinned packages.
 
     venvstacks/uv disables source builds (--only-binary :all:), so git-pinned
@@ -384,7 +385,7 @@ def _lock_with_sdist_retry(lock_cmd: list, max_retries: int = 10):
     sys.exit(1)
 
 
-def _find_wheel_for_package(pkg_name: str) -> Path | None:
+def _find_wheel_for_package(pkg_name: str) -> Optional[Path]:
     """Find the built wheel file for a package name."""
     normalized = pkg_name.lower().replace("-", "_")
     for whl in WHEELS_DIR.glob("*.whl"):

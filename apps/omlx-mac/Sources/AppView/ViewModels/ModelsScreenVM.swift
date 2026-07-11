@@ -14,7 +14,7 @@ final class ModelsScreenVM {
     private(set) var deletingID: String?
 
     @ObservationIgnored
-    private weak var client: OMLXClient?
+    private var modelManagementService: ModelManagementServiceProtocol?
     @ObservationIgnored
     private var pollTask: Task<Void, Never>?
 
@@ -23,8 +23,8 @@ final class ModelsScreenVM {
     }
     var libraryModels: [ModelDTO] { allModels }
 
-    func start(client: OMLXClient) async {
-        self.client = client
+    func start(modelManagementService: ModelManagementServiceProtocol) async {
+        self.modelManagementService = modelManagementService
         pollTask?.cancel()
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -40,50 +40,50 @@ final class ModelsScreenVM {
         pollTask = nil
     }
 
-    func load(id: String, client: OMLXClient) {
+    func load(id: String) {
         Task { [weak self] in
+            guard let self, let modelManagementService = self.modelManagementService else { return }
             do {
-                _ = try await client.loadModel(id: id)
-                await self?.refresh()
+                _ = try await modelManagementService.loadModel(id: id)
+                await self.refresh()
             } catch {
-                guard let self else { return }
                 self.lastError = error.omlxDescription
             }
         }
     }
 
-    func unload(id: String, client: OMLXClient) {
+    func unload(id: String) {
         Task { [weak self] in
+            guard let self, let modelManagementService = self.modelManagementService else { return }
             do {
-                _ = try await client.unloadModel(id: id)
-                await self?.refresh()
+                _ = try await modelManagementService.unloadModel(id: id)
+                await self.refresh()
             } catch {
-                guard let self else { return }
                 self.lastError = error.omlxDescription
             }
         }
     }
 
-    func remove(id: String, client: OMLXClient) {
+    func remove(id: String) {
         pendingRemoveID = nil
         deletingID = id
         Task { [weak self] in
+            guard let self, let modelManagementService = self.modelManagementService else { return }
             defer { Task { @MainActor [weak self] in self?.deletingID = nil } }
             do {
-                _ = try await client.deleteHFModel(modelName: id)
-                await self?.refresh()
-                self?.lastError = nil
+                _ = try await modelManagementService.deleteHFModel(modelName: id)
+                await self.refresh()
+                self.lastError = nil
             } catch {
-                guard let self else { return }
                 self.lastError = error.omlxDescription
             }
         }
     }
 
     private func refresh() async {
-        guard let client else { return }
+        guard let modelManagementService else { return }
         do {
-            self.allModels = sortModelsByName(try await client.listModels().models)
+            self.allModels = sortModelsByName(try await modelManagementService.listModels().models)
             self.lastError = nil
         } catch {
             self.lastError = error.omlxDescription

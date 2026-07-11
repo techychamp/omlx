@@ -104,7 +104,7 @@ final class MenubarController: NSObject {
         if statusItem.button?.image == nil {
             let fallback = NSImage(
                 systemSymbolName: "cube.transparent",
-                accessibilityDescription: "oMLX"
+                accessibilityDescription: "One"
             )
             fallback?.isTemplate = true
             statusItem.button?.image = fallback
@@ -613,7 +613,7 @@ final class MenubarController: NSObject {
             do {
                 _ = try await server.forceRestart()
             } catch {
-                NSLog("oMLX: force-restart failed — \(error)")
+                NSLog("One: force-restart failed — \(error)")
             }
         }
     }
@@ -634,8 +634,8 @@ final class MenubarController: NSObject {
                     comment: "Substring used when the conflicting process PID couldn't be determined")
         alert.informativeText = conflict.isOMLX
             ? String(localized: "menubar.alert.port_in_use.omlx",
-                     defaultValue: "Another oMLX server is already running on this port (\(pidStr)). Stop it before starting a new instance, or change the port in Settings.",
-                     comment: "Port-conflict alert body when the conflicting process is another oMLX instance")
+                     defaultValue: "Another One server is already running on this port (\(pidStr)). Stop it before starting a new instance, or change the port in Settings.",
+                     comment: "Port-conflict alert body when the conflicting process is another One instance")
             : String(localized: "menubar.alert.port_in_use.other",
                      defaultValue: "Another process (\(pidStr)) is listening on port \(String(port)). Choose a different port in Settings or terminate that process.",
                      comment: "Port-conflict alert body when an unrelated process owns the port")

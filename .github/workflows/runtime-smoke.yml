@@ -1,0 +1,96 @@
+name: Runtime Smoke Test & Release Validation
+on:
+  workflow_call:
+
+jobs:
+  smoke-test:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: ./.github/actions/setup-python
+        with:
+          python-version: '3.12'
+
+      - name: Cache dependencies
+        uses: ./.github/actions/cache
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          uv pip install --system -e ".[dev,mcp,modelscope]"
+
+      - name: Launch Server
+        shell: bash
+        run: |
+          export OMLX_API_KEY_DISABLED=1
+          python -m omlx.cli server start --port 8901 &
+          echo "SERVER_PID=$!" >> $GITHUB_ENV
+
+      - name: Wait for Readiness & Run Curl validation
+        shell: bash
+        run: |
+          success=0
+          for i in {1..30}; do
+            sleep 0.1
+            if curl -s http://127.0.0.1:8901/health >/dev/null; then
+              success=1
+              break
+            fi
+          done
+          
+          if [ $success -ne 1 ]; then
+            echo "Error: Server failed to start in 3 seconds." >&2
+            exit 1
+          fi
+          
+          echo "=== Testing /v1/runtime/info ==="
+          curl -f -s http://127.0.0.1:8901/v1/runtime/info || exit 1
+          
+          echo -e "\n=== Testing /v1/models ==="
+          curl -f -s http://127.0.0.1:8901/v1/models || exit 1
+          
+          echo -e "\n=== Testing /v1/models/status ==="
+          curl -f -s http://127.0.0.1:8901/v1/models/status || exit 1
+          
+          echo -e "\nSmoke tests passed."
+
+      - name: Graceful Shutdown
+        shell: bash
+        if: always()
+        run: |
+          if [ -n "$SERVER_PID" ]; then
+            kill -TERM "$SERVER_PID" || true
+            wait "$SERVER_PID" 2>/dev/null || true
+            echo "Server shut down."
+          fi
+
+  release-validation:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: ./.github/actions/setup-python
+        with:
+          python-version: '3.12'
+
+      - name: Cache dependencies
+        uses: ./.github/actions/cache
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          uv pip install --system -e ".[dev,mcp,modelscope]"
+
+      - name: Run Release Validation tests
+        shell: bash
+        run: |
+          pytest -v tests/test_install_detection.py tests/test_app_bundle_cli_wrapper.py

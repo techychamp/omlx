@@ -81,8 +81,12 @@ class MCPConfig:
         """Create config from dictionary."""
         servers = {}
         for name, server_data in data.get("servers", {}).items():
-            server_data["name"] = name
-            servers[name] = MCPServerConfig(**server_data)
+            if isinstance(server_data, dict):
+                server_data = server_data.copy()
+                server_data["name"] = name
+                valid_keys = {"name", "transport", "command", "args", "env", "url", "headers", "enabled", "timeout", "cwd"}
+                filtered_data = {k: v for k, v in server_data.items() if k in valid_keys}
+                servers[name] = MCPServerConfig(**filtered_data)
 
         return cls(
             servers=servers,

@@ -1,0 +1,24 @@
+{
+  "discovered_count": 0,
+  "loaded_count": 0,
+  "statistics": {
+    "plugin_count": 0,
+    "dependency_depth": 0,
+    "lifecycle_statistics": {
+      "DISCOVERED": 0,
+      "REGISTERED": 0,
+      "LOADED": 0,
+      "INITIALIZED": 0,
+      "VALIDATED": 0,
+      "ENABLED": 0,
+      "DISABLED": 0,
+      "EXPERIMENTAL": 0,
+      "DEPRECATED": 0,
+      "FAILED": 0
+    },
+    "trust_distribution": {},
+    "permission_usage": {},
+    "registry_query_statistics": {}
+  },
+  "registry_size": 0
+}

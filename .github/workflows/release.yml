@@ -1,0 +1,51 @@
+name: Release Automation
+on:
+  workflow_call:
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download Python Package Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: python-dist
+          path: dist/
+
+      - name: Download One.app Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: packaged-app
+          path: app/
+
+      - name: Run Codesign verification
+        shell: bash
+        run: |
+          unzip app/One.app.zip -d app_extracted/
+          codesign --verify --verbose app_extracted/One.app
+
+      - name: Generate Checksums
+        shell: bash
+        run: |
+          cd dist/
+          shasum -a 256 * > checksums.txt
+          cat checksums.txt
+          cd ../app/
+          shasum -a 256 One.app.zip >> ../dist/checksums.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+            dist/checksums.txt
+            app/One.app.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

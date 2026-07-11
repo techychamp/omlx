@@ -9,10 +9,11 @@
 import SwiftUI
 
 enum AppSection: String, Hashable, CaseIterable, Identifiable, Sendable {
-    case server, status, network, performance, logs
+    case server, status, network, performance, diagnostics, logs
     case models, downloads, integrations, quantization
     case throughputBench, accuracyBench
-    case security, about
+    case security, about, developer
+    case modelManagement, runtimeAdministration
 
     var id: String { rawValue }
 
@@ -30,6 +31,10 @@ enum AppSection: String, Hashable, CaseIterable, Identifiable, Sendable {
             return String(localized: "sidebar.performance",
                           defaultValue: "Performance",
                           comment: "Sidebar row label / navigation title for the Performance section")
+        case .diagnostics:
+            return String(localized: "sidebar.diagnostics",
+                          defaultValue: "Diagnostics",
+                          comment: "Sidebar row label / navigation title for the Diagnostics section")
         case .status:
             return String(localized: "sidebar.status",
                           defaultValue: "Status",
@@ -70,6 +75,18 @@ enum AppSection: String, Hashable, CaseIterable, Identifiable, Sendable {
             return String(localized: "sidebar.about",
                           defaultValue: "About oMLX",
                           comment: "Sidebar row label / navigation title for the About section")
+        case .developer:
+            return String(localized: "sidebar.developer",
+                          defaultValue: "Developer Studio",
+                          comment: "Sidebar row label / navigation title for the Developer Studio section")
+        case .modelManagement:
+            return String(localized: "sidebar.modelManagement",
+                          defaultValue: "Model Management",
+                          comment: "Sidebar row label / navigation title for the Model Management section")
+        case .runtimeAdministration:
+            return String(localized: "sidebar.runtimeAdministration",
+                          defaultValue: "Runtime Administration",
+                          comment: "Sidebar row label / navigation title for the Runtime Administration section")
         }
     }
 
@@ -78,6 +95,7 @@ enum AppSection: String, Hashable, CaseIterable, Identifiable, Sendable {
         case .server:          return "server.rack"
         case .network:         return "network"
         case .performance:     return "bolt.fill"
+        case .diagnostics:     return "chart.bar.doc.horizontal"
         case .status:          return "gauge.with.dots.needle.50percent"
         case .logs:            return "scroll"
         case .models:          return "cube.transparent"
@@ -88,6 +106,9 @@ enum AppSection: String, Hashable, CaseIterable, Identifiable, Sendable {
         case .accuracyBench:   return "target"
         case .security:        return "lock"
         case .about:           return "info.circle"
+        case .developer:       return "hammer.fill"
+        case .modelManagement: return "cube.box"
+        case .runtimeAdministration: return "gearshape.2"
         }
     }
 

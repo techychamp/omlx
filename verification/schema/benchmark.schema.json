@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PerformanceBenchmarkBaseline",
+  "type": "object",
+  "properties": {
+    "model_id": { "type": "string" },
+    "execution_family": { "type": "string", "enum": ["dense_ar", "moe", "diffusion", "vision", "audio", "embedding"] },
+    "environment": {
+      "type": "object",
+      "properties": {
+        "macos_version": { "type": "string" },
+        "python_version": { "type": "string" },
+        "mlx_version": { "type": "string" },
+        "metal_version": { "type": "string" },
+        "chip_name": { "type": "string" },
+        "total_memory_gb": { "type": "number" },
+        "backend": { "type": "string" },
+        "commit_sha": { "type": "string" },
+        "quantization": { "type": "string" }
+      },
+      "required": ["macos_version", "python_version", "mlx_version", "chip_name", "total_memory_gb", "backend", "commit_sha", "quantization"]
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "ttft_ms": { "type": "number" },
+        "tps": { "type": "number" },
+        "peak_ram_mb": { "type": "number" },
+        "peak_vram_mb": { "type": "number" },
+        "batch_efficiency": { "type": "number" },
+        "avg_latency_ms": { "type": "number" },
+        "p99_latency_ms": { "type": "number" },
+        "scheduler_idle_time_pct": { "type": "number" },
+        "pipeline_utilization_pct": { "type": "number" },
+        "gpu_occupancy_pct": { "type": "number" },
+        "cache_reuse_pct": { "type": "number" },
+        "prefill_time_ms": { "type": "number" },
+        "decode_time_ms": { "type": "number" },
+        "verification_overhead_ms": { "type": "number" }
+      },
+      "required": ["ttft_ms", "tps", "peak_ram_mb", "peak_vram_mb"]
+    }
+  },
+  "required": ["model_id", "execution_family", "environment", "metrics"]
+}

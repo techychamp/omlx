@@ -23,43 +23,24 @@
 <script defer src="/admin/static/js/katex-auto-render.min.js"></script>
 
 <style>
-    /* CSS Variables for theming */
+    /* CSS Variables mapped to One Design System Tokens */
     :root {
-        --bg-primary: #ffffff;
-        --bg-secondary: #f8fafc;
-        --bg-tertiary: #f1f5f9;
-        --text-primary: #0f172a;
-        --text-secondary: #475569;
-        --text-tertiary: #64748b;
-        --text-muted: #94a3b8;
-        --border-faint: #e2e8f0;
-        --border-normal: #cbd5e1;
-        --code-bg: #f3f4f6;
-        --btn-primary: #171717;
-        --btn-primary-hover: #27272a;
-        --btn-primary-text: #ffffff;
-        --text-danger: #ef4444;
-        --bg-danger-hover: rgba(239, 68, 68, 0.1);
-        --timeline-accent: #3b82f6;
-    }
-
-    [data-theme="dark"] {
-        --bg-primary: #1d1d20;
-        --bg-secondary: #252529;
-        --bg-tertiary: #2d2d32;
-        --text-primary: #efefef;
-        --text-secondary: #a1a1aa;
-        --text-tertiary: #71717a;
-        --text-muted: #52525b;
-        --border-faint: #3f3f46;
-        --border-normal: #52525b;
-        --code-bg: #27272a;
-        --btn-primary: #e5e5e5;
-        --btn-primary-hover: #d4d4d4;
-        --btn-primary-text: #18181b;
-        --text-danger: #f87171;
-        --bg-danger-hover: rgba(239, 68, 68, 0.2);
-        --timeline-accent: #60a5fa;
+        --bg-primary: var(--surface-0);
+        --bg-secondary: var(--surface-1);
+        --bg-tertiary: var(--surface-2);
+        --text-primary: var(--text-display);
+        --text-secondary: var(--text-secondary);
+        --text-tertiary: var(--text-tertiary);
+        --text-muted: var(--text-muted);
+        --border-faint: var(--border-faint);
+        --border-normal: var(--border-normal);
+        --code-bg: var(--surface-3);
+        --btn-primary: var(--accent-execution);
+        --btn-primary-hover: var(--accent-execution);
+        --btn-primary-text: var(--text-inverse);
+        --text-danger: var(--accent-error);
+        --bg-danger-hover: rgba(239, 68, 68, 0.15);
+        --timeline-accent: var(--accent-runtime);
     }
 
     body {
@@ -232,10 +213,16 @@
     }
 
     .assistant-message {
-        background: var(--bg-primary);
+        background: var(--surface-1);
         border: 1px solid var(--border-faint);
-        border-radius: 16px;
+        border-radius: 20px;
         max-width: 768px;
+        box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.03);
+    }
+    [data-theme="dark"] .assistant-message {
+        background: var(--surface-1) !important;
+        border: 1px solid var(--border-faint) !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25) !important;
     }
 
     .message-header {
@@ -272,16 +259,24 @@
     }
 
     .user-message-bubble {
-        background: var(--bg-secondary);
-        border-radius: 24px;
-        padding: 8px 16px;
+        background: var(--surface-2);
+        border: 1px solid var(--border-faint);
+        border-radius: 20px;
+        padding: 10px 16px;
         font-size: 14px;
         line-height: 1.6;
-        color: var(--text-primary);
+        color: var(--text-display);
         max-width: 100%;
         min-width: 0;
         overflow-wrap: anywhere;
         word-break: break-word;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+    }
+    [data-theme="dark"] .user-message-bubble {
+        background: #0B0C10 !important;
+        border: 1px solid var(--accent-execution) !important;
+        color: var(--text-display) !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 0 8px rgba(226, 181, 62, 0.15) !important;
     }
 
     .user-message-bubble p {
@@ -747,14 +742,16 @@
 
     /* Input area */
     .input-container {
-        border: 1px solid var(--border-normal);
-        border-radius: 1.5rem;
-        background: var(--bg-primary);
-        transition: border-color 0.2s;
+        border: 1px solid var(--border-faint);
+        border-radius: 1rem;
+        background: var(--surface-1);
+        transition: all 0.2s ease-in-out;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
     }
 
     .input-container:focus-within {
-        border-color: var(--text-tertiary);
+        border-color: var(--accent-runtime) !important;
+        box-shadow: 0 0 0 2px var(--accent-runtime) !important;
     }
 
     .input-container textarea {
@@ -980,7 +977,7 @@
 <script>
     // Apply theme immediately before render to prevent flash (match applyTheme / Alpine default)
     (function () {
-        const stored = localStorage.getItem('omlx-chat-theme');
+        const stored = localStorage.getItem('one-chat-theme');
         let theme = stored || 'auto';
         if (theme === 'auto') {
             theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -989,8 +986,18 @@
     })();
 </script>
 <div class="chat-shell flex overflow-hidden" x-data="chatApp()" x-init="init()">
-    <!-- API Key Modal -->
-    <div class="api-key-modal fixed inset-0 bg-black/50 flex items-center justify-center z-[1000]"
+    <!-- Left System Sidebar -->
+    {% include "dashboard/_sidebar.html" %}
+
+    <!-- Right Side Content Area -->
+    <div class="flex-grow flex flex-col min-w-0 h-full overflow-hidden relative">
+        <!-- Top Navigation Bar -->
+        {% include "dashboard/_navbar.html" %}
+
+        <!-- Original Chat Workspace layout -->
+        <div class="flex-grow flex overflow-hidden relative w-full">
+            <!-- API Key Modal -->
+            <div class="api-key-modal fixed inset-0 bg-black/50 flex items-center justify-center z-[1000]"
         :class="{ 'hidden': apiKeySet }" x-cloak>
         <div class="bg-surface rounded-2xl p-8 max-w-[400px] w-[90%] shadow-2xl">
             <h2 class="text-xl font-bold mb-2">{{ t('login.login.label_api_key') }}</h2>
@@ -1018,14 +1025,12 @@
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <a href="/admin/dashboard">
-                        <img x-show="activeTheme === 'light'" src="/admin/static/navbar-logo-light.svg" alt="oMLX"
-                            class="w-[30px] h-[30px]">
-                        <img x-show="activeTheme === 'dark'" src="/admin/static/navbar-logo-dark.svg" alt="oMLX"
-                            class="w-[30px] h-[30px]" x-cloak>
+                        <img src="/admin/static/img/logo.jpg" alt="One"
+                            class="w-8 h-8 rounded-lg object-cover shadow-sm border border-line">
                     </a>
                     <div class="flex flex-col gap-0">
                         <a href="/admin/dashboard" class="font-semibold leading-tight">{{ t('chat.brand') }}</a>
-                        <a :href="updateAvailable && releaseUrl ? releaseUrl : 'https://github.com/jundot/omlx'" target="_blank"
+                        <a :href="updateAvailable && releaseUrl ? releaseUrl : 'https://github.com/jundot/one'" target="_blank"
                            class="relative text-[10px] leading-none hover:opacity-80 transition-opacity"
                            style="color: var(--text-muted);"
                            @mouseenter="versionHover = true" @mouseleave="versionHover = false">
@@ -1187,9 +1192,9 @@
             <div x-show="messages.length === 0" class="h-full flex items-center justify-center" x-cloak>
                 <div class="text-center max-w-lg px-4">
                     <div class="flex items-center justify-center gap-3 mb-4">
-                        <img x-show="activeTheme === 'light'" src="/admin/static/logo-light.svg" alt="oMLX"
+                        <img x-show="activeTheme === 'light'" src="/admin/static/logo-light.svg" alt="One"
                             class="w-[60px] h-[60px]">
-                        <img x-show="activeTheme === 'dark'" src="/admin/static/logo-dark.svg" alt="oMLX"
+                        <img x-show="activeTheme === 'dark'" src="/admin/static/logo-dark.svg" alt="One"
                             class="w-[60px] h-[60px]" x-cloak>
                         <h1 class="text-2xl font-bold">{{ t('chat.welcome_heading') }}</h1>
                     </div>
@@ -1689,16 +1694,16 @@
                     <button @click="rightSidebarTab = 'settings'"
                         class="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors"
                         :class="rightSidebarTab === 'settings'
-                            ? 'bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100'
-                            : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800'">
+                            ? 'bg-surface-3 dark:bg-neutral-700 text-fg-title dark:text-neutral-100'
+                            : 'text-fg-tertiary hover:bg-surface-2 dark:hover:bg-accent-hover'">
                         <i data-lucide="settings" class="w-3 h-3"></i>
                         <span>MODEL</span>
                     </button>
                     <button @click="rightSidebarTab = 'profile'"
                         class="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors"
                         :class="rightSidebarTab === 'profile'
-                            ? 'bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100'
-                            : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800'">
+                            ? 'bg-surface-3 dark:bg-neutral-700 text-fg-title dark:text-neutral-100'
+                            : 'text-fg-tertiary hover:bg-surface-2 dark:hover:bg-accent-hover'">
                         <i data-lucide="user" class="w-3 h-3"></i>
                         <span>PROFILE</span>
                     </button>
@@ -1738,18 +1743,18 @@
                                         </button>
                                         <template x-if="profileDeleteConfirm !== p.name && p.name !== 'System Default'">
                                             <button @click.stop="profileDeleteConfirm = p.name"
-                                                class="p-1 rounded hover:bg-red-50 transition-colors" title="Delete">
+                                                class="p-1 rounded hover:bg-error-bg transition-colors" title="Delete">
                                                 <i data-lucide="trash-2" class="w-3 h-3 text-danger"></i>
                                             </button>
                                         </template>
                                         <template x-if="profileDeleteConfirm === p.name">
                                             <span class="flex items-center gap-0.5">
                                                 <button @click.stop="deletePromptProfile(p.name)"
-                                                    class="p-1 text-green-600 hover:bg-surface-muted rounded">
+                                                    class="p-1 text-accent-success hover:bg-surface-muted rounded">
                                                     <i data-lucide="check" class="w-3 h-3"></i>
                                                 </button>
                                                 <button @click.stop="profileDeleteConfirm = null"
-                                                    class="p-1 text-red-500 hover:bg-surface-muted rounded">
+                                                    class="p-1 text-accent-error hover:bg-surface-muted rounded">
                                                     <i data-lucide="x" class="w-3 h-3"></i>
                                                 </button>
                                             </span>
@@ -1769,11 +1774,11 @@
                                         placeholder="Profile name..."
                                         autofocus>
                                     <button @click.stop="commitRenamingPromptProfile()"
-                                        class="p-1 text-green-600 hover:bg-surface-muted rounded">
+                                        class="p-1 text-accent-success hover:bg-surface-muted rounded">
                                         <i data-lucide="check" class="w-3 h-3"></i>
                                     </button>
                                     <button @click.stop="cancelRenamingPromptProfile()"
-                                        class="p-1 text-red-500 hover:bg-surface-muted rounded">
+                                        class="p-1 text-accent-error hover:bg-surface-muted rounded">
                                         <i data-lucide="x" class="w-3 h-3"></i>
                                     </button>
                                 </div>
@@ -1806,8 +1811,8 @@
                         :disabled="!activePromptProfile || !promptDirty"
                         class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-semibold transition-all duration-200"
                         :class="promptDirty && activePromptProfile
-                            ? 'bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900'
-                            : 'bg-neutral-200 text-neutral-500 cursor-not-allowed'">
+                            ? 'bg-accent-runtime text-white hover:bg-accent-hover dark:bg-surface-2 dark:text-fg-title'
+                            : 'bg-surface-3 text-fg-tertiary cursor-not-allowed'">
                         <i data-lucide="save" class="w-3 h-3"></i>
                         <span>Save Setting</span>
                     </button>
@@ -2022,7 +2027,9 @@
         <img :src="imageModal.src" @click.stop alt="Preview" x-show="imageModal.src">
     </div>
 
-</div>
+        </div> <!-- End original chat workspace layout -->
+    </div> <!-- End right side content area -->
+</div> <!-- End chat-shell -->
 {% endblock %}
 
 {% block scripts %}
@@ -2059,6 +2066,10 @@
 
     function chatApp() {
         return {
+            mainTab: 'chat',
+            activeTab: '',
+            modelsTab: '',
+
             // API Key
             apiKeySet: false,
             apiKeyInput: '',
@@ -2067,8 +2078,8 @@
             isMobile: window.innerWidth < 768,
             sidebarOpen: window.innerWidth >= 768,
             showLeftToggle: window.innerWidth < 768,
-            theme: localStorage.getItem('omlx-chat-theme') || 'auto',
-            allowSvg: localStorage.getItem('omlx-chat-allow-svg') === 'true',
+            theme: localStorage.getItem('one-chat-theme') || 'auto',
+            allowSvg: localStorage.getItem('one-chat-allow-svg') === 'true',
             activeTheme: 'light', // Will be updated by applyTheme
             systemThemeListener: null,
 
@@ -3208,7 +3219,7 @@
                         model: historyChat?.model || (this.currentChatId === chatId ? this.currentModel : null),
                         systemPrompt: historyChat?.systemPrompt ?? (this.currentChatId === chatId
                             ? this.systemPrompt
-                            : (localStorage.getItem('omlx_chat_system_prompt') || '')),
+                            : (localStorage.getItem('one_chat_system_prompt') || '')),
                         activeProfile: historyChat?.activeProfile ?? null,
                         modelSettings: historyChat?.modelSettings
                             ? this.cloneData(historyChat.modelSettings) : null,
@@ -3346,10 +3357,10 @@
                 const serverApiKey = {{ api_key | tojson }};
 
         if (serverApiKey) {
-            localStorage.setItem('omlx_chat_api_key', serverApiKey);
+            localStorage.setItem('one_chat_api_key', serverApiKey);
         }
 
-        const storedKey = localStorage.getItem('omlx_chat_api_key');
+        const storedKey = localStorage.getItem('one_chat_api_key');
         if (storedKey) {
             this.apiKeySet = true;
             await this.loadModels();
@@ -3812,7 +3823,7 @@
 
     async saveApiKey() {
         if (!this.apiKeyInput.trim()) return;
-        localStorage.setItem('omlx_chat_api_key', this.apiKeyInput.trim());
+        localStorage.setItem('one_chat_api_key', this.apiKeyInput.trim());
         this.apiKeySet = true;
         this.apiKeyInput = '';
         try {
@@ -3829,7 +3840,7 @@
     clearApiKey() {
         if (confirm(window.t('chat.confirm_change_api_key'))) {
             this.stopAllStreams();
-            localStorage.removeItem('omlx_chat_api_key');
+            localStorage.removeItem('one_chat_api_key');
             this.apiKeySet = false;
             this.chatSessions = {};
             this.streamSessions = {};
@@ -3839,7 +3850,7 @@
     },
 
     getApiKey() {
-        return localStorage.getItem('omlx_chat_api_key') || '';
+        return localStorage.getItem('one_chat_api_key') || '';
     },
 
     combineAbortSignals(signals) {
@@ -3893,7 +3904,7 @@
             if (!modelsResponse.ok) {
                 if (modelsResponse.status === 401) {
                     alert(window.t('chat.error.incorrect_api_key'));
-                    localStorage.removeItem('omlx_chat_api_key');
+                    localStorage.removeItem('one_chat_api_key');
                     this.apiKeySet = false;
                     this.messages = [];
                     this.currentChatId = null;
@@ -4132,16 +4143,16 @@
 
     loadPromptProfiles() {
         try {
-            const raw = localStorage.getItem('omlx_chat_prompt_profiles');
+            const raw = localStorage.getItem('one_chat_prompt_profiles');
             if (raw) {
                 this.promptProfiles = JSON.parse(raw);
             } else {
                 // Migrate from old single-default format
-                const oldDefault = localStorage.getItem('omlx_chat_system_prompt');
+                const oldDefault = localStorage.getItem('one_chat_system_prompt');
                 if (oldDefault) {
                     this.promptProfiles = [{ name: 'System Default', content: oldDefault }];
                     this._persistPromptProfiles();
-                    localStorage.removeItem('omlx_chat_system_prompt');
+                    localStorage.removeItem('one_chat_system_prompt');
                 }
             }
             // Ensure System Default profile always exists
@@ -4163,7 +4174,7 @@
     },
 
     _persistPromptProfiles() {
-        localStorage.setItem('omlx_chat_prompt_profiles', JSON.stringify(this.promptProfiles));
+        localStorage.setItem('one_chat_prompt_profiles', JSON.stringify(this.promptProfiles));
     },
 
     selectPromptProfile(name) {
@@ -4301,7 +4312,7 @@
     },
 
     loadChatHistory() {
-        const history = localStorage.getItem('omlx_chat_history');
+        const history = localStorage.getItem('one_chat_history');
         if (history) {
             try {
                 this.chatHistory = JSON.parse(history);
@@ -4327,7 +4338,7 @@
     },
 
     saveChatHistory() {
-        const key = 'omlx_chat_history';
+        const key = 'one_chat_history';
         const persist = () => localStorage.setItem(key, JSON.stringify(this.chatHistory));
         try {
             persist();
@@ -5802,7 +5813,7 @@
 
     setAllowSvg(enabled) {
         this.allowSvg = !!enabled;
-        localStorage.setItem('omlx-chat-allow-svg', this.allowSvg ? 'true' : 'false');
+        localStorage.setItem('one-chat-allow-svg', this.allowSvg ? 'true' : 'false');
         this.refreshCodeBlockButtons();
     },
 
@@ -6089,7 +6100,7 @@
 
     setTheme(theme) {
         this.theme = theme;
-        localStorage.setItem('omlx-chat-theme', this.theme);
+        localStorage.setItem('one-chat-theme', this.theme);
         this.applyTheme();
     },
 

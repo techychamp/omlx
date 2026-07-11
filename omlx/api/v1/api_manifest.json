@@ -1,0 +1,28 @@
+{
+  "version": "1.0.0",
+  "routes": [
+    {"path": "/health", "methods": ["GET"]},
+    {"path": "/v1/runtime", "methods": ["GET"]},
+    {"path": "/v1/runtime/capabilities", "methods": ["GET"]},
+    {"path": "/v1/runtime/info", "methods": ["GET"]},
+    {"path": "/api/status", "methods": ["GET"]},
+    {"path": "/v1/models", "methods": ["GET"]},
+    {"path": "/v1/models/status", "methods": ["GET"]},
+    {"path": "/v1/models/{model_id}/unload", "methods": ["POST"]},
+    {"path": "/v1/models/{model_id}/load", "methods": ["POST"]},
+    {"path": "/v1/embeddings", "methods": ["POST"]},
+    {"path": "/v1/rerank", "methods": ["POST"]},
+    {"path": "/v1/completions", "methods": ["POST"]},
+    {"path": "/v1/chat/completions", "methods": ["POST"]},
+    {"path": "/v1/messages", "methods": ["POST"]},
+    {"path": "/v1/messages/count_tokens", "methods": ["POST"]},
+    {"path": "/v1/responses", "methods": ["POST"]},
+    {"path": "/v1/responses/{response_id}", "methods": ["GET", "DELETE"]},
+    {"path": "/v1/mcp/tools", "methods": ["GET"]},
+    {"path": "/v1/mcp/servers", "methods": ["GET"]},
+    {"path": "/v1/mcp/execute", "methods": ["POST"]},
+    {"path": "/v1/audio/transcriptions", "methods": ["POST"]},
+    {"path": "/v1/audio/speech", "methods": ["POST"]},
+    {"path": "/v1/audio/process", "methods": ["POST"]}
+  ]
+}

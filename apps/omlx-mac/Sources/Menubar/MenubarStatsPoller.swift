@@ -116,9 +116,7 @@ final class MenubarStatsPoller {
         let url = try makeURL(path: "/api/status")
         var req = URLRequest(url: url)
         req.setValue("application/json", forHTTPHeaderField: "Accept")
-        if let key = apiKey, !key.isEmpty {
-            req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
-        }
+        applyAuthHeaders(to: &req)
         let (data, response) = try await session.data(for: req)
         try validateOK(response)
         return try JSONDecoder().decode(Stats.self, from: data)
@@ -131,6 +129,7 @@ final class MenubarStatsPoller {
         )
         var req = URLRequest(url: url)
         req.setValue("application/json", forHTTPHeaderField: "Accept")
+        applyAuthHeaders(to: &req)
         let (data, response) = try await session.data(for: req)
 
         if let http = response as? HTTPURLResponse, http.statusCode == 401 {
@@ -153,6 +152,14 @@ final class MenubarStatsPoller {
         req.httpBody = try JSONEncoder().encode(["api_key": apiKey])
         let (_, response) = try await session.data(for: req)
         try validateOK(response)
+    }
+
+    private func applyAuthHeaders(to request: inout URLRequest) {
+        guard let key = apiKey?.trimmingCharacters(in: .whitespacesAndNewlines), !key.isEmpty else {
+            return
+        }
+        request.setValue(key, forHTTPHeaderField: "x-api-key")
+        request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
     }
 
     private var hasAPIKey: Bool {

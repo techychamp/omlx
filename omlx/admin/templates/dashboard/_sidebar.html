@@ -1,0 +1,150 @@
+<!-- System Left Sidebar -->
+<aside class="w-[240px] flex-shrink-0 min-h-screen bg-[#0b0f19] border-r border-[#1e293b]/50 flex flex-col justify-between p-4 z-40">
+    <!-- Top Brand / Logo -->
+    <div class="flex flex-col gap-6">
+        <div class="flex items-center gap-3 px-2 py-2">
+            <!-- Glowing Cosmic 1 Logo -->
+            <div class="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/20 to-violet-600/20 border border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.15)]">
+                <span class="text-2xl font-extrabold bg-gradient-to-br from-amber-400 to-orange-500 bg-clip-text text-transparent select-none font-tabular">1</span>
+            </div>
+            <div class="flex flex-col gap-0.5">
+                <span class="font-bold text-base tracking-tight text-white leading-none">One</span>
+                <span class="text-[10px] text-slate-500 font-mono leading-none">v{{ version }}</span>
+            </div>
+        </div>
+
+        <!-- Navigation Menu -->
+        <nav class="space-y-6">
+            <!-- SYSTEM Section -->
+            <div>
+                <h4 class="px-3 text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2.5">System</h4>
+                <div class="space-y-1">
+                    <!-- Overview / Dashboard -->
+                    <button @click="typeof setMainTab !== 'undefined' ? setMainTab('status') : window.location.href='/admin/dashboard?tab=status'"
+                       :class="(typeof mainTab !== 'undefined' && mainTab === 'status')
+                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/40 border border-transparent'"
+                       class="w-full flex items-center gap-3 px-3 py-2 text-xs rounded-xl transition-all duration-200 text-left">
+                        <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                        <span>Overview</span>
+                    </button>
+
+                    <!-- Runtime -->
+                    <button @click="typeof setSettingsTab !== 'undefined' ? setSettingsTab('global') : window.location.href='/admin/dashboard?tab=settings&sub=global'"
+                       :class="(typeof mainTab !== 'slate' && typeof mainTab !== 'undefined' && mainTab === 'settings' && activeTab === 'global')
+                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/40 border border-transparent'"
+                       class="w-full flex items-center gap-3 px-3 py-2 text-xs rounded-xl transition-all duration-200 text-left">
+                        <i data-lucide="play-circle" class="w-4 h-4"></i>
+                        <span>Runtime</span>
+                    </button>
+
+                    <!-- Models Manager -->
+                    <button @click="typeof setModelsTab !== 'undefined' ? setModelsTab('manager') : window.location.href='/admin/dashboard?tab=models&sub=manager'"
+                       :class="(typeof mainTab !== 'undefined' && mainTab === 'models' && modelsTab === 'manager')
+                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/40 border border-transparent'"
+                       class="w-full flex items-center gap-3 px-3 py-2 text-xs rounded-xl transition-all duration-200 text-left">
+                        <i data-lucide="database" class="w-4 h-4"></i>
+                        <span>Models</span>
+                    </button>
+
+                    <!-- Downloads -->
+                    <button @click="typeof setModelsTab !== 'undefined' ? setModelsTab('downloader') : window.location.href='/admin/dashboard?tab=models&sub=downloader'"
+                       :class="(typeof mainTab !== 'slate' && typeof mainTab !== 'slate' && typeof mainTab !== 'undefined' && mainTab === 'models' && modelsTab === 'downloader')
+                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/40 border border-transparent'"
+                       class="w-full flex items-center gap-3 px-3 py-2 text-xs rounded-xl transition-all duration-200 text-left">
+                        <i data-lucide="cloud-download" class="w-4 h-4"></i>
+                        <span>Downloads</span>
+                    </button>
+
+                    <!-- Quantization -->
+                    <button @click="typeof setModelsTab !== 'undefined' ? setModelsTab('quantizer') : window.location.href='/admin/dashboard?tab=models&sub=quantizer'"
+                       :class="(typeof mainTab !== 'slate' && typeof mainTab !== 'undefined' && mainTab === 'models' && modelsTab === 'quantizer')
+                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/40 border border-transparent'"
+                       class="w-full flex items-center gap-3 px-3 py-2 text-xs rounded-xl transition-all duration-200 text-left">
+                        <i data-lucide="sparkles" class="w-4 h-4"></i>
+                        <span>Quantization</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- TOOLS Section -->
+            <div>
+                <h4 class="px-3 text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2.5">Tools</h4>
+                <div class="space-y-1">
+                    <!-- Benchmarks -->
+                    <button @click="typeof setMainTab !== 'undefined' ? setMainTab('bench') : window.location.href='/admin/dashboard?tab=bench'"
+                       :class="(typeof mainTab !== 'undefined' && mainTab === 'bench')
+                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/40 border border-transparent'"
+                       class="w-full flex items-center gap-3 px-3 py-2 text-xs rounded-xl transition-all duration-200 text-left">
+                        <i data-lucide="gauge" class="w-4 h-4"></i>
+                        <span>Benchmarks</span>
+                    </button>
+
+                    <!-- Logs -->
+                    <button @click="typeof setMainTab !== 'undefined' ? setMainTab('logs') : window.location.href='/admin/dashboard?tab=logs'"
+                       :class="(typeof mainTab !== 'undefined' && mainTab === 'logs')
+                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/40 border border-transparent'"
+                       class="w-full flex items-center gap-3 px-3 py-2 text-xs rounded-xl transition-all duration-200 text-left">
+                        <i data-lucide="scroll-text" class="w-4 h-4"></i>
+                        <span>Logs</span>
+                    </button>
+
+                    <!-- Diagnostics -->
+                    <button @click="typeof setSettingsTab !== 'undefined' ? setSettingsTab('integrations') : window.location.href='/admin/dashboard?tab=settings&sub=integrations'"
+                       :class="(typeof mainTab !== 'undefined' && mainTab === 'settings' && activeTab === 'integrations')
+                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/40 border border-transparent'"
+                       class="w-full flex items-center gap-3 px-3 py-2 text-xs rounded-xl transition-all duration-200 text-left">
+                        <i data-lucide="activity" class="w-4 h-4"></i>
+                        <span>Diagnostics</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ACCOUNT Section -->
+            <div>
+                <h4 class="px-3 text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2.5">Account</h4>
+                <div class="space-y-1">
+                    <!-- Settings -->
+                    <button @click="typeof setSettingsTab !== 'undefined' ? setSettingsTab('global') : window.location.href='/admin/dashboard?tab=settings'"
+                       :class="(typeof mainTab !== 'undefined' && mainTab === 'settings' && activeTab === 'global')
+                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/40 border border-transparent'"
+                       class="w-full flex items-center gap-3 px-3 py-2 text-xs rounded-xl transition-all duration-200 text-left">
+                        <i data-lucide="settings" class="w-4 h-4"></i>
+                        <span>Settings</span>
+                    </button>
+
+                    <!-- API Keys -->
+                    <button @click="typeof setSettingsTab !== 'undefined' ? setSettingsTab('global') : window.location.href='/admin/dashboard?tab=settings'"
+                       class="w-full flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800/40 border border-transparent text-xs rounded-xl transition-all duration-200 text-left">
+                        <i data-lucide="key" class="w-4 h-4"></i>
+                        <span>API Keys</span>
+                    </button>
+
+                    <!-- Users -->
+                    <button @click="typeof setSettingsTab !== 'undefined' ? setSettingsTab('global') : window.location.href='/admin/dashboard?tab=settings'"
+                       class="w-full flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800/40 border border-transparent text-xs rounded-xl transition-all duration-200 text-left">
+                        <i data-lucide="users" class="w-4 h-4"></i>
+                        <span>Users</span>
+                    </button>
+                </div>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Bottom Project Version / Brand -->
+    <div class="border-t border-slate-800/60 pt-4 flex items-center gap-3 px-2">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500/20 to-violet-600/20 border border-amber-500/20 flex items-center justify-center font-bold text-amber-400 text-sm font-tabular">1</div>
+        <div class="flex flex-col">
+            <span class="text-[11px] font-semibold text-slate-300 leading-none">One Admin</span>
+            <span class="text-[9px] text-slate-600 mt-0.5">© 2026 One Project</span>
+        </div>
+    </div>
+</aside>

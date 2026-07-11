@@ -237,8 +237,8 @@ final class MenubarVisibilityWatcher {
             )
         }
 
-        let primaryBundleID = Bundle.main.bundleIdentifier ?? "app.omlx"
-        let targetBundleIDs = Set([primaryBundleID, "app.omlx", "com.omlx.app"])
+        let primaryBundleID = Bundle.main.bundleIdentifier ?? "app.one"
+        let targetBundleIDs = Set([primaryBundleID, "app.one", "app.omlx", "com.omlx.app"])
         var normalizedEntries: [[String: Any]] = []
         var changed = false
         var foundAllowedApproval = false
