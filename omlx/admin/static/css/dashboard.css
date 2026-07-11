@@ -1,13 +1,22 @@
     /* CSS Variables for theming (shared with chat.html) */
+<<<<<<< HEAD
     
     
+=======
+
+
+>>>>>>> 7bea4ba3213ebf96303ce6b51b347bbaaf088462
     :root {
         --surface-0: #ffffff;
         --surface-1: #f8fafc;
         --surface-2: #f1f5f9;
         --surface-3: #e2e8f0;
         --surface-4: #cbd5e1;
+<<<<<<< HEAD
         
+=======
+
+>>>>>>> 7bea4ba3213ebf96303ce6b51b347bbaaf088462
         --text-display: #0f172a;
         --text-title: #0f172a;
         --text-heading: #1e293b;
@@ -17,7 +26,11 @@
         --text-tertiary: #64748b;
         --text-muted: #94a3b8;
         --text-inverse: #ffffff;
+<<<<<<< HEAD
         
+=======
+
+>>>>>>> 7bea4ba3213ebf96303ce6b51b347bbaaf088462
         --accent-execution: #F59E0B;
         --accent-runtime: #3B82F6;
         --accent-planning: #8B5CF6;
@@ -25,12 +38,20 @@
         --accent-warning: #F59E0B;
         --accent-error: #EF4444;
         --accent-runtime-hover: #2563EB;
+<<<<<<< HEAD
         
+=======
+
+>>>>>>> 7bea4ba3213ebf96303ce6b51b347bbaaf088462
         --border-faint: #e2e8f0;
         --border-normal: #cbd5e1;
         --code-bg: #f3f4f6;
         --link-color: #2563eb;
+<<<<<<< HEAD
         
+=======
+
+>>>>>>> 7bea4ba3213ebf96303ce6b51b347bbaaf088462
         --bg-success-bg: #d1fae5;
         --border-success-border: #a7f3d0;
         --bg-warning-bg: #fef3c7;
@@ -40,7 +61,11 @@
         --bg-runtime-bg: #dbeafe;
         --border-runtime-border: #bfdbfe;
         --bg-danger-hover: #fee2e2;
+<<<<<<< HEAD
         
+=======
+
+>>>>>>> 7bea4ba3213ebf96303ce6b51b347bbaaf088462
         --bg-primary: var(--surface-0);
         --bg-secondary: var(--surface-1);
         --bg-tertiary: var(--surface-2);
@@ -53,7 +78,11 @@
         --surface-2: #2d2d32;
         --surface-3: #3f3f46;
         --surface-4: #52525b;
+<<<<<<< HEAD
         
+=======
+
+>>>>>>> 7bea4ba3213ebf96303ce6b51b347bbaaf088462
         --text-display: #ffffff;
         --text-title: #ffffff;
         --text-heading: #f4f4f5;
@@ -63,7 +92,11 @@
         --text-tertiary: #71717a;
         --text-muted: #52525b;
         --text-inverse: #1d1d20;
+<<<<<<< HEAD
         
+=======
+
+>>>>>>> 7bea4ba3213ebf96303ce6b51b347bbaaf088462
         --accent-execution: #FCD34D;
         --accent-runtime: #60A5FA;
         --accent-planning: #A78BFA;
@@ -71,12 +104,20 @@
         --accent-warning: #FCD34D;
         --accent-error: #F87171;
         --accent-runtime-hover: #3B82F6;
+<<<<<<< HEAD
         
+=======
+
+>>>>>>> 7bea4ba3213ebf96303ce6b51b347bbaaf088462
         --border-faint: #3f3f46;
         --border-normal: #52525b;
         --code-bg: #27272a;
         --link-color: #60a5fa;
+<<<<<<< HEAD
         
+=======
+
+>>>>>>> 7bea4ba3213ebf96303ce6b51b347bbaaf088462
         --bg-success-bg: rgba(16, 185, 129, 0.15);
         --border-success-border: rgba(16, 185, 129, 0.3);
         --bg-warning-bg: rgba(245, 158, 11, 0.15);
@@ -86,7 +127,11 @@
         --bg-runtime-bg: rgba(59, 130, 246, 0.15);
         --border-runtime-border: rgba(59, 130, 246, 0.3);
         --bg-danger-hover: rgba(239, 68, 68, 0.3);
+<<<<<<< HEAD
         
+=======
+
+>>>>>>> 7bea4ba3213ebf96303ce6b51b347bbaaf088462
         --bg-primary: var(--surface-0);
         --bg-secondary: var(--surface-1);
         --bg-tertiary: var(--surface-2);

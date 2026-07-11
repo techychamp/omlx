@@ -14,7 +14,11 @@ module.exports = {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
       },
+<<<<<<< HEAD
       
+=======
+
+>>>>>>> 7bea4ba3213ebf96303ce6b51b347bbaaf088462
       colors: {
         surface: {
           0: 'var(--surface-0)',
