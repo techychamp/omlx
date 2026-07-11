@@ -15,9 +15,22 @@ class CapabilityExtractor:
         self._cache: Dict[str, Dict[str, Any]] = {}
 
     def extract(self, normalized_config: Dict[str, Any], arch: str, family: str) -> Dict[str, Any]:
-        # Simple caching mechanism based on a hash of the normalized config
-        # In a real implementation, we'd use a deterministic hash of the metadata
-        cache_key = f"{arch}_{family}_{hash(frozenset(normalized_config.keys()))}"
+        # Caching mechanism based on a deterministic hash of the normalized config keys and values
+        def make_hashable(val: Any) -> Any:
+            if isinstance(val, dict):
+                return tuple(sorted((k, make_hashable(v)) for k, v in val.items()))
+            elif isinstance(val, (list, tuple)):
+                return tuple(make_hashable(v) for v in val)
+            elif isinstance(val, set):
+                return tuple(sorted(make_hashable(v) for v in val))
+            try:
+                hash(val)
+                return val
+            except TypeError:
+                return repr(val)
+
+        hashable_config = tuple(sorted((k, make_hashable(v)) for k, v in normalized_config.items()))
+        cache_key = f"{arch}_{family}_{hash(hashable_config)}"
         if cache_key in self._cache:
             return self._cache[cache_key]
 

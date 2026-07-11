@@ -177,3 +177,32 @@ def real_model_dir() -> Path:
     and should be marked with @pytest.mark.slow.
     """
     return Path.home() / "Workspace" / "models"
+
+
+@pytest.fixture(scope="function", autouse=True)
+def clean_sys_modules_fixture():
+    import sys
+    sys_modules_snapshot = dict(sys.modules)
+    yield
+    for key in list(sys.modules.keys()):
+        if key not in sys_modules_snapshot:
+            del sys.modules[key]
+    for key, value in sys_modules_snapshot.items():
+        sys.modules[key] = value
+
+
+@pytest.fixture(scope="function", autouse=True)
+def clear_mlx_allocator_and_registry_fixture():
+    yield
+    try:
+        import mlx.core as mx
+        mx.synchronize()
+        mx.clear_cache()
+    except (ImportError, AttributeError):
+        pass
+
+    try:
+        from omlx.model_registry import get_registry
+        get_registry().clear()
+    except (ImportError, AttributeError):
+        pass

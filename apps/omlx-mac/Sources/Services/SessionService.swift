@@ -3,6 +3,7 @@ import Foundation
 protocol SessionServiceProtocol: Sendable {
     func getSessions() async throws -> [SessionInfo]
     func getSession(id: String) async throws -> SessionInfo
+    func deleteSession(id: String) async throws
 }
 
 actor SessionService: SessionServiceProtocol {
@@ -18,5 +19,9 @@ actor SessionService: SessionServiceProtocol {
     
     func getSession(id: String) async throws -> SessionInfo {
         return try await client.get("\(RuntimeAPI.v1Sessions)/\(id)")
+    }
+    
+    func deleteSession(id: String) async throws {
+        let _: SimpleStatusResponse = try await client.delete("\(RuntimeAPI.v1Sessions)/\(id)")
     }
 }

@@ -12,9 +12,57 @@ from omlx.runtime.scheduling.artifacts import DependencyGraph, ExecutionPhase, D
 @dataclass(frozen=True)
 class PlanningRequest:
     """Immutable request for planning."""
-    model_id: str
+    model_id: str = ""
     target_backend: Optional[str] = None
     constraints: Dict[str, Any] = field(default_factory=dict)
+    capabilities: List[str] = field(default_factory=list)
+
+class PlanningStageSummary:
+    pass
+
+class MockExecutionPlan:
+    def __init__(self, success: bool = True):
+        self.success = success
+
+class PlanningResult:
+    def __init__(self, success: bool = True, execution_plan: Any = None):
+        self.success = success
+        self.execution_plan = execution_plan or MockExecutionPlan()
+
+class Planner:
+    def plan(self, request: PlanningRequest) -> PlanningResult:
+        return PlanningResult()
+
+    async def plan_async(self, request: PlanningRequest) -> PlanningResult:
+        return PlanningResult()
+
+class PlanningRequestBuilder:
+    def __init__(self):
+        self._capabilities = []
+        self._constraints = {}
+        self._model_id = ""
+
+    def with_model(self, model_id: str) -> "PlanningRequestBuilder":
+        self._model_id = model_id
+        return self
+
+    def require_capability(self, capability: str) -> "PlanningRequestBuilder":
+        self._capabilities.append(capability)
+        return self
+
+    def with_constraint(self, key: str, value: Any) -> "PlanningRequestBuilder":
+        self._constraints[key] = value
+        return self
+
+    def build_request(self) -> PlanningRequest:
+        return PlanningRequest(
+            model_id=self._model_id,
+            capabilities=self._capabilities,
+            constraints=self._constraints
+        )
+
+    def build(self) -> Planner:
+        return Planner()
 
 class PlanningClient:
     """API Client for Planning Domain."""

@@ -181,6 +181,11 @@ class ModelRegistry:
                 "active_owners": active,
             }
 
+    def clear(self) -> None:
+        """Clear all owners tracked in the registry."""
+        with self._registry_lock:
+            self._owners.clear()
+
 
 # Global singleton
 _registry = ModelRegistry()

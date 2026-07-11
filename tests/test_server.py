@@ -942,3 +942,34 @@ class TestExposedProfileModels:
         max_context = get_max_context_window("qwen-base:thinking")
 
         assert max_context == 4096
+
+
+class TestSessionRoutes:
+    def test_delete_session_success(self):
+        import omlx.server as server_module
+        from fastapi.testclient import TestClient
+
+        client = TestClient(app)
+        server_module._server_state.sessions["test-session-123"] = {
+            "created_at": 123456789.0
+        }
+        with patch("omlx.server.verify_api_key", return_value=True):
+            response = client.delete("/v1/sessions/test-session-123")
+            assert response.status_code == 200
+            assert response.json()["success"] is True
+            assert "test-session-123" not in server_module._server_state.sessions
+
+    def test_delete_session_not_found(self):
+        from fastapi.testclient import TestClient
+        client = TestClient(app)
+        with patch("omlx.server.verify_api_key", return_value=True):
+            response = client.delete("/v1/sessions/non-existent-session")
+            assert response.status_code == 404
+
+
+class TestModelListDirectCall:
+    @pytest.mark.asyncio
+    async def test_list_models_direct_test_call(self):
+        from omlx.server import list_models
+        response = await list_models(True)
+        assert response is not None

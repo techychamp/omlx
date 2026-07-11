@@ -22,4 +22,10 @@ actor MockSessionService: SessionServiceProtocol {
         }
         return session
     }
+
+    func deleteSession(id: String) async throws {
+        if let error = errorToThrow {
+            throw error
+        }
+    }
 }

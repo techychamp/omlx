@@ -34,7 +34,7 @@ class CacheLayoutType(str, Enum):
 class CapabilityDescriptor:
     """Immutable snapshot of merged capabilities."""
 
-    execution_family: ExecutionFamily
+    execution_family: ExecutionFamily = ExecutionFamily.AUTOREGRESSIVE
     supported_modalities: tuple[str, ...] = ("text",)
 
     attention_types: tuple[AttentionType, ...] = (AttentionType.CAUSAL,)
