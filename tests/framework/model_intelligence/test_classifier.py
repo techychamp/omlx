@@ -36,3 +36,14 @@ def test_classifier():
     assert arch == "UNet"
     family = classifier.classify_family(config, arch)
     assert family == "Diffusion"
+
+def test_whisper_classifier_fallback():
+    classifier = ModelClassifier()
+    # Mocking a Whisper model that incorrectly identifies as "Transformer" architecturally but has Whisper components
+    config = {
+        "architecture": "Transformer",
+        "model_type": "transformer",
+        "architectures": ["WhisperForConditionalGeneration"]
+    }
+    arch = classifier.classify_architecture(config)
+    assert arch == "Whisper"

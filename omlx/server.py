@@ -2592,7 +2592,7 @@ async def _create_markitdown_chat_completion(
 
 
 @app.get("/v1/models")
-async def list_models(_: bool = Depends(verify_api_key)) -> ModelsResponse:
+async def list_models(request: Request = None, _: bool = Depends(verify_api_key)) -> ModelsResponse:
     """List all available models with load status."""
     models = []
 
@@ -6902,3 +6902,19 @@ if not is_testing:
 
 if __name__ == "__main__":
     main()
+
+@app.delete("/v1/sessions/{session_id}", dependencies=[Depends(verify_api_key)])
+async def delete_session(session_id: str):
+    """Delete a chat session."""
+    db_path = _get_db_path()
+    try:
+        import sqlite3
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+        cursor.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+        conn.commit()
+        conn.close()
+        return {"status": "success", "message": f"Session {session_id} deleted."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

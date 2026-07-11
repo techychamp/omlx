@@ -19,6 +19,12 @@ class ModelClassifier:
         Detects the underlying architecture.
         """
         arch = config.get("architecture", config.get("model_type", "Unknown"))
+        if "Whisper" in str(config.get("architectures", [])):
+            return "Whisper"
+
+        if "Whisper" in str(config.get("architectures", [])):
+            return "Whisper"
+
         if isinstance(arch, list) and arch:
             arch = arch[0]
 

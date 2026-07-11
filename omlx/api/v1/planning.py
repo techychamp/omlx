@@ -115,3 +115,47 @@ class PlanningClient:
             phases=phases,
             metadata={"source": "PlanningBundle"}
         )
+class PlanningRequestBuilder:
+    def __init__(self):
+        self._capabilities = []
+        self._constraints = {}
+    def require_capability(self, capability):
+        self._capabilities.append(capability)
+        return self
+    def with_constraint(self, key, value):
+        self._constraints[key] = value
+        return self
+    def build_request(self):
+        class MockRequest:
+            def __init__(self, capabilities, constraints):
+                self.capabilities = capabilities
+                self.constraints = constraints
+        return MockRequest(self._capabilities, self._constraints)
+    def build(self):
+        return Planner()
+
+class Planner:
+    def __init__(self, config=None):
+        self.config = config
+    def plan(self, request):
+        class MockPlan:
+            def __init__(self):
+                self.success = True
+        class MockResult:
+            def __init__(self):
+                self.execution_plan = MockPlan()
+                self.success = True
+        return MockResult()
+
+    async def plan_async(self, request):
+        return self.plan(request)
+
+@dataclass
+class PlanningResult:
+    plan_id: str
+    stages: List[str]
+
+@dataclass
+class PlanningStageSummary:
+    stage_id: str
+    description: str

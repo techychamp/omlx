@@ -13,42 +13,42 @@ class QuantizationDescriptor:
     """
     Immutable canonical representation of a quantization config.
     """
-    quantization_family: QuantizationFamily
-    storage_precision: str
-    compute_precision: str
-    weight_precision: str
-    activation_precision: str
-    kv_cache_precision: str
-    group_size: Optional[int]
-    block_size: Optional[int]
-    mixed_precision: bool
-    dynamic_quantization: bool
-    static_quantization: bool
-    per_channel: bool
-    per_group: bool
-    supports_streaming: bool
-    supports_batching: bool
-    supports_speculative_decoding: bool
-    supported_backends: Tuple[str, ...]
-    supported_model_families: Tuple[str, ...]
-    packing_information: Optional[str]
-    layout_information: Optional[str]
-    alignment_information: Optional[str]
-    compression_metadata: MappingProxyType[str, Any]
-    compression_ratio: Optional[float]
-    estimated_memory_usage: Optional[int]
-    estimated_bandwidth_usage: Optional[int]
-    required_kernels: Tuple[str, ...]
-    hardware_requirements: Tuple[str, ...]
-    recommended_backend: Optional[str]
-    recommended_hardware: Tuple[str, ...]
-    conversion_compatibility: Tuple[str, ...]
-    performance_class: PerformanceClass
-    validation_status: ValidationStatus
-    metadata: MappingProxyType[str, Any]
-    planner_metadata: MappingProxyType[str, Any]
-    compiler_metadata: MappingProxyType[str, Any]
-    backend_metadata: MappingProxyType[str, Any]
+    quantization_family: QuantizationFamily = QuantizationFamily.UNKNOWN
+    storage_precision: str = ""
+    compute_precision: str = ""
+    weight_precision: str = ""
+    activation_precision: str = ""
+    kv_cache_precision: str = ""
+    group_size: Optional[int] = None
+    block_size: Optional[int] = None
+    mixed_precision: bool = False
+    dynamic_quantization: bool = False
+    static_quantization: bool = False
+    per_channel: bool = False
+    per_group: bool = False
+    supports_streaming: bool = False
+    supports_batching: bool = False
+    supports_speculative_decoding: bool = False
+    supported_backends: Tuple[str, ...] = field(default_factory=tuple)
+    supported_model_families: Tuple[str, ...] = field(default_factory=tuple)
+    packing_information: Optional[str] = None
+    layout_information: Optional[str] = None
+    alignment_information: Optional[str] = None
+    compression_metadata: MappingProxyType[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+    compression_ratio: Optional[float] = None
+    estimated_memory_usage: Optional[int] = None
+    estimated_bandwidth_usage: Optional[int] = None
+    required_kernels: Tuple[str, ...] = field(default_factory=tuple)
+    hardware_requirements: Tuple[str, ...] = field(default_factory=tuple)
+    recommended_backend: Optional[str] = None
+    recommended_hardware: Tuple[str, ...] = field(default_factory=tuple)
+    conversion_compatibility: Tuple[str, ...] = field(default_factory=tuple)
+    performance_class: PerformanceClass = PerformanceClass.UNKNOWN
+    validation_status: ValidationStatus = ValidationStatus.UNKNOWN
+    metadata: MappingProxyType[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+    planner_metadata: MappingProxyType[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+    compiler_metadata: MappingProxyType[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+    backend_metadata: MappingProxyType[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
     def __post_init__(self):
         # Enforce strict immutability types for collections
