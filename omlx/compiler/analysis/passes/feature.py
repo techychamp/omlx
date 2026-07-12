@@ -1,35 +1,35 @@
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Dict, Any
-from omlx.framework.model_intelligence.descriptor import ModelDescriptor
-from omlx.planner.ir.graph import ExecutionIR
-from types import MappingProxyType
+from typing import Any, Dict
+from .base import AnalysisPass
+from ..graph import AnalysisGraph
 
-class FeatureDetector:
-    """Detects architectural features."""
+class FeatureDetectionPass(AnalysisPass):
+    """Detects architectural features by walking the AnalysisGraph."""
 
-    def detect_features(self, descriptor: ModelDescriptor, ir: ExecutionIR) -> MappingProxyType[str, Any]:
+    def run(self, graph: AnalysisGraph) -> Dict[str, Any]:
         features = {}
 
-        # Based on descriptor
-        if descriptor.attention_type:
-            features["attention_type"] = descriptor.attention_type
-            if descriptor.attention_type == "gqa":
+        desc = graph.descriptor
+        if desc.attention_type:
+            features["attention_type"] = desc.attention_type
+            if desc.attention_type == "gqa":
                 features["gqa"] = True
 
-        if descriptor.moe_information:
+        if desc.moe_information:
             features["moe_routing"] = True
 
-        if descriptor.vision_support:
+        if desc.vision_support:
             features["vlm"] = True
             features["vision_encoder"] = True
 
-        if descriptor.audio_support:
+        if desc.audio_support:
             features["audio_encoder"] = True
 
-        # Analyze IR nodes for features
         has_attention = False
-        for node in ir.nodes.values():
+
+        # Traverse IR like an LLVM Pass
+        for node in graph.nodes():
             if node.node_type.value == "attention":
                 has_attention = True
                 if node.metadata.get("flash_attention", False):
@@ -45,7 +45,7 @@ class FeatureDetector:
             elif node.node_type.value == "diffusion":
                 features["diffusion_blocks"] = True
 
-        if has_attention and "rope" not in features and descriptor.architecture in ("llama", "mistral", "qwen", "gemma"):
-            features["rope"] = "static" # default fallback
+        if has_attention and "rope" not in features and desc.architecture in ("llama", "mistral", "qwen", "gemma"):
+            features["rope"] = "static"
 
-        return MappingProxyType(features)
+        return features

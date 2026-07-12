@@ -1,18 +1,17 @@
 # SPDX-License-Identifier: Apache-2.0
 
-from .analyzer import GraphAnalyzer, AnalysisCache
-from .report import CapabilityReport
-from .capability_compiler import CapabilityCompiler
-from .feature_detector import FeatureDetector
-from .constraint_compiler import ConstraintCompiler
-from .diagnostics import DiagnosticsEngine
+from .artifact import AnalysisFingerprint, ExecutionRequirements, CapabilityReport
+from .graph import AnalysisGraph
+from .cache import AnalysisCache
+from .pipeline import AnalysisPipeline
+from .passes.base import AnalysisPass
 
 __all__ = [
-    "GraphAnalyzer",
-    "AnalysisCache",
+    "AnalysisFingerprint",
+    "ExecutionRequirements",
     "CapabilityReport",
-    "CapabilityCompiler",
-    "FeatureDetector",
-    "ConstraintCompiler",
-    "DiagnosticsEngine"
+    "AnalysisGraph",
+    "AnalysisCache",
+    "AnalysisPipeline",
+    "AnalysisPass"
 ]
